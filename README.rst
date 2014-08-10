@@ -1,6 +1,14 @@
+===========
 regrivermod
 ===========
 
-Python / Cython code for my thesis: Water property rights in regulated rivers
+All the code for my thesis: Water property rights in regulated rivers.
 
-See my ANU `site  <https://crawford.anu.edu.au/people/phd/neal-hughes/>`_.
+Installation
+============
+
+Requires python and the packages: cython, numpy, scipy, scikit-learn.
+
+
+
+See my `ANU site  <https://crawford.anu.edu.au/people/phd/neal-hughes/>`_.

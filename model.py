@@ -38,8 +38,7 @@ class Model:
         st = toc - tic
         print 'Solve time: ' + str(st)
 
-        self.sim.simulate(self.users, self.storage, self.utility, self.para.T0, self.para.CPU_CORES, planner=True, policy=True, polf=self.sdp.W_f, delta=0, stats=True, planner_explore=False, t_cost_off=True, seed=seed)
-
+        self.sim.simulate(self.users, self.storage, self.utility, self.para.T0, self.para.CPU_CORES, planner=True, policy=True, polf=self.sdp.W_f, delta=0, stats=True, planner_explore=False, t_cost_off=True, seed=seed) 
         self.utility.sr = SR
 
         return [self.sim.stats, self.sdp, st]
@@ -107,7 +106,7 @@ class Model:
         st = toc - tic    
         print 'Solve time: ' + str(st)
         
-        self.sim.ITER = 0
+        self.sim.ITER = 1
         self.sim.simulate(self.users, self.storage, self.utility, self.para.T0, self.para.CPU_CORES, planner=True, policy=True, polf=self.qv.W_f, delta=0, stats=True, planner_explore=False, t_cost_off=t_cost_off, seed=seed)
 
         self.utility.sr = SR
@@ -207,7 +206,7 @@ class Model:
 
 
 
-    def chapter6(self, stage2=True, T1=200000, T2=400000, d=0.15):
+    def chapter6(self, ):
        
         print '\n --- Scenario --- \n'
         print str(self.para.sr) + ' storage rights, loss deductions = ' + str(self.para.ls) + ', priority = ' + str(self.para.HL) + '\n'
@@ -223,52 +222,40 @@ class Model:
         
         print '\n Solve release sharing problem... '
         
-        ITER = 1
-        sg1 = True
-        sg2 = False
+        stats, qv, st = self.plannerQV(t_cost_off=False, stage1=sg1, stage2=sg2, T1=self.para.T1, T2=self.para.T1)
+        
+        ITER = 0 
         if self.para.opt_lam == 1:
             print 'Search for optimal shares... \n'
-            ITER = 12
-            Lambda_old = self.para.Lambda_high
-            Lambda_new = self.para.Lambda_high
-            delta = Lambda_old / 1
-            SW_old = -1
-            SW_check = np.zeros(ITER)
-            Lambda_check = np.zeros(ITER)
+            delta = para.Lambda_high
+            SW = np.zeros(ITER)
+            SW[0] = self.sim.stats['SW']['Mean'][0]
+            Lambda = np.zeros(ITER + 1)
+            Lambda[0] = para.Lambda_high
+            SW_max = -1
+            Lambda_max = self.para.Lambda_high
 
+        for i in range(para.opt_lam_ITER):
+                
+            Lambda[i + 1] = max(min(Lambda[i] + np.random.rand() * delta, 0.99), 0.01)
 
-        for i in range(ITER):
-        
-            stats, qv, st = self.plannerQV(t_cost_off=False, stage1=sg1, stage2=sg2, T1=self.para.T1, T2=self.para.T1)
+            self.users.set_shares(Lambda[i + 1]) self.utility.set_shares(Lambda[i + 1], self.users)
+            stats, qv, st = self.plannerQV(t_cost_off=False, stage1=False, stage2=True, T1=self.para.T1, T2=self.para.T1)
 
-            if self.para.opt_lam:
-                SW = self.sim.stats['SW']['Mean'][0]
-                SW_check[i] = SW
-                Lambda_check[i] = Lambda_new
-                if SW > SW_old:
-                    delta *= 0.75
-                    Lambda_old = Lambda_new
-                    SW_old = SW
-                else:
-                    delta *= -0.75
+            SW[i + 1] = self.sim.stats['SW']['Mean'][0]
+            if SW[i + 1] > SW_max:
+                delta *= 0.75
+            else:
+                delta *= -0.75
 
-                Lambda_new = max(min(Lambda_old + np.random.rand() * delta, 0.99), 0.01)
-
-                self.users.set_shares(Lambda_new)
-                self.utility.set_shares(Lambda_new, self.users)
-                self.sim.ITER = 0
-                sg1 = False
-                sg2 = True
-
-                print '--- Optimal share search ---'
-                print 'Current best: ' + str(Lambda_old)
-                print 'Next guess: ' + str(Lambda_new)
-                print 'delta: ' + str(delta)
+            print '--- Optimal share search ---'
+            print 'Current best: ' + str(Lambda_max)
 
         if self.para.opt_lam:
-            pylab.scatter(Lambda_check, SW_check)
+            pylab.scatter(Lambda, SW)
             pylab.show()
-        
+
+       """ 
         #################           Solve storage right problem          #################
         if self.utility.sr >= 0:
             
@@ -301,9 +288,10 @@ class Model:
                 update_rate = self.para.update_rate[i]
 
                 self.users.update_policy(qv[0].W_f, qv[1].W_f, prob = update_rate)
-            
+             
             self.sim.simulate(self.users, self.storage, self.utility, self.para.T2, self.para.CPU_CORES, stats = True)
-            
+       """
+
             big_toc = time.time()
             print "Total time (minutes): " + str(round((big_toc - big_tic) / 60,2))
 
@@ -312,7 +300,7 @@ class Model:
             del self
 
             return stats
-
+        
     def chapter5(self):
        
         big_tic = time()

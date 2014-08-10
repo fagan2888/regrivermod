@@ -18,8 +18,8 @@ mod = model.Model(para)
 home = '/home/nealbob'
 folder = '/Dropbox/Model/results/chapter6/'
 
-scenarios = ['CS'] #, 'RS-HL']
-results = {'CS': []} #, 'RS-HL': 0}
+scenarios = ['RS-HL-O'] #, 'RS-HL']
+results = {'RS-HL-O': []} #, 'RS-HL': 0}
 
 for i in range(1):
     try:

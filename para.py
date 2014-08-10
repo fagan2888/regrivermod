@@ -15,7 +15,6 @@ class Para:
     def __init__(self, charts = False, rebuild=False):
 
         self.opt_lam = 0
-        self.ch6 = True
 
         if rebuild:
             home = '/home/nealbob'
@@ -419,13 +418,10 @@ class Para:
             self.HL = 0
             self.opt_lam = 1
 
-        if self.opt_lam == 1:
-            if self.HL == 1:
-                self.Lambda_high = self.prop * 1
-            else:
-                self.Lambda_high = self.prop * 1.5
-        elif self.ch6:
+        if self.HL == 1:
             self.Lambda_high = self.prop * 1
+        else:
+            self.Lambda_high = self.prop * 1.5
 
     def central_case(self, N = 100, printp=True):
         
@@ -725,6 +721,12 @@ class Para:
 
         # Sample grid radius
         self.s_radius1 = 0.02
+
+        #======================================================
+        #       Optimal share search parameters
+        #======================================================
+        
+        self.opt_lam_ITER = 12
 
         #======================================================
         #       Decentralised model QV learning parameters
