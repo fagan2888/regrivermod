@@ -77,7 +77,8 @@ def build_chart(chart, data_set, chart_type='plot', ticks = False, show=True, yl
             pylab.xlim(min(data_set.index), max(data_set.index))
 
     if not(chart_type == 'date' or chart_type == 'bar'):    
-        pylab.xlim(chart['XMIN'], chart['XMAX'])
+        if xlim:
+            pylab.xlim(chart['XMIN'], chart['XMAX'])
     
     #if chart_type == 'bar':
         #pylab.xticks(chart['XMIN'] + np.arange(chart['XTICKS']) * chart['XSTEP'], chart['LABELS'])
@@ -86,8 +87,7 @@ def build_chart(chart, data_set, chart_type='plot', ticks = False, show=True, yl
         pylab.yticks(chart['YMIN'] + np.arange(chart['YTICKS']) * chart['YSTEP'])
     
     pylab.xlabel(chart['XLABEL'])
-    if not (chart_type == 'hist' or chart_type == 'date' or chart_type == 'bar'):
-        pylab.ylim(chart['YMIN'], chart['YMAX'])
+
     if ylim:
         pylab.ylim(chart['YMIN'], chart['YMAX'])
 

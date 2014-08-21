@@ -22,6 +22,8 @@ cdef class Users:
     cdef public double[:,:] theta 
     cdef public double rho_eps
     cdef public double sig_eta
+    cdef public double[:] risk
+    cdef public int utility
 
     cdef public double[:] L 
     

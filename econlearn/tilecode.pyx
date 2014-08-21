@@ -921,7 +921,7 @@ cdef class Tilecode:
 
         return [actions, values, state, index]
 
-    def plot(self, xargs=0, showdata=False, label='', showplot=True, quad=False):
+    def plot(self, xargs=0, showdata=False, label='', showplot=True, quad=False, returndata=False):
 
         """
         Plot the function on one dimension
@@ -971,6 +971,8 @@ cdef class Tilecode:
                 pylab.plot(self.X[:, k], self.Y, 'o', Xsmooth[idx], Ysmooth[idx], label = label)
             else:
                 pylab.plot(Xsmooth[idx], Ysmooth[idx], label = label)
+            if returndata:
+                return [Xsmooth[idx], Ysmooth[idx]]
 
     #==========================================================================
     # Convenience functions 

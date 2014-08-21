@@ -83,6 +83,7 @@ def run_sim(int job, int T, int stats, Users users, Storage storage, Utility uti
     cdef double[:,:] u_t_h = np.zeros([N_e_h, T])
 
     cdef double[:] W_sim = np.zeros(T)
+    cdef double[:] Q_sim = np.zeros(T)
     cdef double[:] SW_sim = np.zeros(T)
     cdef double[:] S_sim = np.zeros(T)
     cdef double[:] I_sim = np.zeros(T)
@@ -191,9 +192,9 @@ def run_sim(int job, int T, int stats, Users users, Storage storage, Utility uti
     
 
     if stats == 1:
-        data = {'XA_l': np.asarray(XA_l), 'X1_l' : np.asarray(X1_l), 'u_t_l' : np.asarray(u_t_l), 'XA_h': np.asarray(XA_h), 'X1_h' : np.asarray(X1_h), 'u_t_h' : np.asarray(u_t_h), 'W': np.asarray(W_sim), 'SW': np.asarray(SW_sim), 'S': np.asarray(S_sim), 'I': np.asarray(I_sim),  'Z': np.asarray(Z_sim), 'U_low' : np.asarray(U_low_sim) , 'U_high' : np.asarray(U_high_sim), 'W_low' : np.asarray(W_low_sim) , 'W_high' : np.asarray(W_high_sim), 'S_low' : np.asarray(S_low_sim) , 'S_high' : np.asarray(S_high_sim), 'X_low' : np.asarray(X_low_sim) , 'X_high' : np.asarray(X_high_sim), 'P' : np.asarray(P_sim), 'test' : test_payoff/T}
+        data = {'XA_l': np.asarray(XA_l), 'X1_l' : np.asarray(X1_l), 'u_t_l' : np.asarray(u_t_l), 'XA_h': np.asarray(XA_h), 'X1_h' : np.asarray(X1_h), 'u_t_h' : np.asarray(u_t_h), 'W': np.asarray(W_sim), 'SW': np.asarray(SW_sim), 'S': np.asarray(S_sim), 'I': np.asarray(I_sim),  'Z': np.asarray(Z_sim), 'U_low' : np.asarray(U_low_sim) , 'U_high' : np.asarray(U_high_sim), 'W_low' : np.asarray(W_low_sim) , 'W_high' : np.asarray(W_high_sim), 'S_low' : np.asarray(S_low_sim) , 'S_high' : np.asarray(S_high_sim), 'X_low' : np.asarray(X_low_sim) , 'X_high' : np.asarray(X_high_sim), 'P' : np.asarray(P_sim), 'test' : test_payoff/T, 'Q' : np.asarray(Q_sim)}
     else:
-        data = {'XA_l': np.asarray(XA_l), 'X1_l' : np.asarray(X1_l), 'u_t_l' : np.asarray(u_t_l), 'XA_h': np.asarray(XA_h), 'X1_h' : np.asarray(X1_h), 'u_t_h' : np.asarray(u_t_h), 'W': np.asarray(W_sim), 'SW': np.asarray(SW_sim), 'S': np.asarray(S_sim), 'I': np.asarray(I_sim),  'Z': np.asarray(Z_sim), 'test' : test_payoff/T}
+        data = {'XA_l': np.asarray(XA_l), 'X1_l' : np.asarray(X1_l), 'u_t_l' : np.asarray(u_t_l), 'XA_h': np.asarray(XA_h), 'X1_h' : np.asarray(X1_h), 'u_t_h' : np.asarray(u_t_h), 'W': np.asarray(W_sim), 'SW': np.asarray(SW_sim), 'S': np.asarray(S_sim), 'I': np.asarray(I_sim),  'Z': np.asarray(Z_sim), 'P' : np.asarray(P_sim), 'test' : test_payoff/T, 'Q' : np.asarray(Q_sim)}
     
     if multi:
         que.put(data)
@@ -281,7 +282,7 @@ def run_planner_sim(int job, int T, Users users, Storage storage, Utility utilit
                 ###############################################################
         else:
             if useall == 1:
-                W_sim[t] = S_sim[t]
+                W_sim[t] = S_sim[t]*1.0
             else:
                 state[0] = storage.S
                 state[1] = I_tilde
@@ -297,8 +298,10 @@ def run_planner_sim(int job, int T, Users users, Storage storage, Utility utilit
         # Spot market opens
         P_sim[t] = users.clear_market(I_tilde, perf_market, planner)
         SW_sim[t] = users.consume(P_sim[t], I_tilde, planner)
+        
         U_low_sim[t] = users.U_low
-        U_low_sim[t] = users.U_high
+        U_high_sim[t] = users.U_high
+        
 
         # Inflows are received
         storage.update(W_sim[t], t)
@@ -313,7 +316,7 @@ def run_planner_sim(int job, int T, Users users, Storage storage, Utility utilit
         
     # Place simulation data into dictionary
     data = {'XA': np.asarray(XA), 'X1' : np.asarray(X1), 'SW': np.asarray(SW_sim), 'W': np.asarray(W_sim), 'S': np.asarray(S_sim),
-            'I': np.asarray(I_sim), 'P': np.asarray(P_sim), 'Z': np.asarray(Z_sim), 'U_low' : np.asarray(U_low_sim), 'U_high' : np.asarray(U_high_sim)} 
+            'I': np.asarray(I_sim), 'P': np.asarray(P_sim), 'Z': np.asarray(Z_sim), 'U_low' : np.asarray(U_low_sim), 'U_high' : np.asarray(U_high_sim), 'Q' : np.asarray(Q_sim)} 
 
     if multi:
         q.put(data)
@@ -353,12 +356,13 @@ class Simulation:
         self.stats['X_low'] = np.zeros(para.ITER2 + 3, dtype={'names':names, 'formats':formats})
         self.stats['X_high'] = np.zeros(para.ITER2 + 3, dtype={'names':names, 'formats':formats})
         self.stats['P'] = np.zeros(para.ITER2 + 3, dtype={'names':names, 'formats':formats})
+        self.stats['Q'] = np.zeros(para.ITER2 + 3, dtype={'names':names, 'formats':formats})
         
         # Data series
-        self.series = {'S' : 0, 'W' : 0, 'I' : 0, 'SW' : 0, 'Z' : 0} 
-        self.series_old = {'S' : 0, 'W' : 0, 'I' : 0, 'SW' : 0, 'Z' : 0} 
-        self.full_series = {'S' : 0, 'W' : 0, 'I' : 0, 'SW' : 0, 'Z' : 0, 'U_low' : 0, 'U_high' : 0, 'W_low' : 0, 'W_high' : 0, 'S_low': 0, 'S_high' : 0, 'X_low': 0, 'X_high' : 0, 'P' : 0} 
-        self.p_series = {'S' : 0, 'W' : 0, 'I' : 0, 'SW' : 0, 'Z' : 0, 'U_low' : 0, 'U_high' : 0} 
+        self.series = {'S' : 0, 'W' : 0, 'I' : 0, 'SW' : 0, 'Z' : 0, 'P' : 0, 'Q' : 0} 
+        self.series_old = {'S' : 0, 'W' : 0, 'I' : 0, 'SW' : 0, 'Z' : 0, 'P' : 0, 'Q' : 0} 
+        self.full_series = {'S' : 0, 'W' : 0, 'I' : 0, 'SW' : 0, 'Z' : 0, 'U_low' : 0, 'U_high' : 0, 'W_low' : 0, 'W_high' : 0, 'S_low': 0, 'S_high' : 0, 'X_low': 0, 'X_high' : 0, 'P' : 0, 'Q' : 0} 
+        self.p_series = {'S' : 0, 'W' : 0, 'I' : 0, 'SW' : 0, 'Z' : 0, 'U_low' : 0, 'U_high' : 0, 'Q' : 0} 
         
         self.ITER = 0
 
@@ -392,6 +396,7 @@ class Simulation:
             test_payoff = np.mean(test_array)
             if test_payoff > 0:
                 print 'Test user welfare: ' + str(test_payoff)
+                self.test_payoff = test_payoff
 
             self.T = len(self.series['S'])
             if stats:
@@ -423,7 +428,7 @@ class Simulation:
     
         self.ITER +=1 
     
-    def summary_stats(self, sample = 1):
+    def summary_stats(self, sample = 0.5):
         
         tic = time.time()
         N = int(sample * self.T)

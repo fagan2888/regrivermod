@@ -21,7 +21,7 @@ def planner(SW, S, solvetime, myopic):
     series = ['SDP', 'TC-A', 'TC-ASGD'] 
     n = S.shape[0]
     m = S.shape[1]
-    index = [4000, 10000, 20000, 40000, 75000]
+    index = [5000, 10000, 20000, 50000, 80000]
     Y = np.zeros([n, m])
     
     # ======================
@@ -48,7 +48,7 @@ def planner(SW, S, solvetime, myopic):
     build_chart(chart, data, chart_type='plot', legend=True)
     
     tabindex = ['SDP', 'Myopic', 'Q-V TC-A', 'Q-V TC-A', 'Q-V TC-A', 'Q-V TC-A', 'Q-V TC-A', 
-            'Q-V TC-ASGD', 'Q-V TC-ASGD', 'Q-V TC-ASGD', 'Q-V TC-ASGD', 'Q-V TC-ASGD', 'RF', 'RF', 'RF', 'RF', 'RF']
+            'Q-V TC-ASGD', 'Q-V TC-ASGD', 'Q-V TC-ASGD', 'Q-V TC-ASGD', 'Q-V TC-ASGD'] # 'RF', 'RF','RF','RF','RF',] 
     
     data0 = []
     
@@ -83,12 +83,12 @@ def planner(SW, S, solvetime, myopic):
         data0.append(record)
     
     #RF
-    for i in range(n):
-        record = {}
-        record['Sample (T)'] = index[i]
-        record['Time (secs)'] = solvetime[i,3]
-        record['Welfare ($m)'] = SW[i, 3] / 1000000
-        data0.append(record)
+    #for i in range(n):
+    #    record = {}
+    #    record['Sample (T)'] = index[i]
+    #    record['Time (secs)'] = solvetime[i,3]
+    #    record['Welfare ($m)'] = SW[i, 3] / 1000000
+    #    data0.append(record)
 
     tab = pandas.DataFrame(data0)
     tab.index = tabindex 

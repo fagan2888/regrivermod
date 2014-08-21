@@ -4,6 +4,7 @@ import numpy as np
 import sys
 from regrivermod import *
 from econlearn import Qlearn
+from results.chartbuilder import *
 
 class Model:
 
@@ -22,7 +23,7 @@ class Model:
         self.utility = Utility(self.users, self.storage, para)
 
     def plannerSDP(self, seed=0):
-
+        
         SR = self.utility.sr
         self.utility.sr = -1
         
@@ -37,17 +38,27 @@ class Model:
         toc = time()
         st = toc - tic
         print 'Solve time: ' + str(st)
-
+        
         self.sim.simulate(self.users, self.storage, self.utility, self.para.T0, self.para.CPU_CORES, planner=True, policy=True, polf=self.sdp.W_f, delta=0, stats=True, planner_explore=False, t_cost_off=True, seed=seed) 
+
         self.utility.sr = SR
+       
+        self.p_series = self.sim.series
 
         return [self.sim.stats, self.sdp, st]
 
     def simulate_myopic(self, simT, seed=0):
         
+        SR = self.utility.sr
+        self.utility.sr = -1
+        
         self.sim.ITER = 0
         self.sim.simulate(self.users, self.storage, self.utility, simT, self.para.CPU_CORES, planner=True, policy=False, polf=0, delta=0, stats=True, planner_explore=False, t_cost_off=True, seed=seed, myopic=True)
 
+        self.utility.sr = SR
+        
+        self.series = self.sim.series
+        
         return self.sim.stats['SW']['Mean'][0]
 
     def plannerQV(self, t_cost_off=True, T1=200000, T2=400000, stage1=True, stage2=True, d=0, seed=0, type='ASGD'):
@@ -60,10 +71,10 @@ class Model:
             minsamp = int(60 * (T1 / 100000)**0.5) 
             asgd = False
         elif type == 'ASGD':
-            Ta = [5, 5, 5]
+            Ta = [6, 6, 3]
             La = 25
-            Tb = [4, 5, 4]
-            Lb = 25
+            Tb = [3, 6, 3]
+            Lb = 40
             minsamp = 1
             asgd = True
         
@@ -81,11 +92,11 @@ class Model:
                     delta=0, stats=False, planner_explore=True, t_cost_off=t_cost_off)
             
             if type=='RF':
-                self.qv = Qlearn.QVtree(2, self.para.s_points1, self.para.s_radius1, self.para, num_split=40, num_leaf=20, num_est=200)
+                self.qv = Qlearn.QVtree(2, self.para.s_points1, self.para.s_radius1, self.para, num_split=40, num_leaf=20, num_est=215)
             else:
                 self.qv = Qlearn.QVtile(2, Ta, La, 1, minsamp, self.para.s_points1, self.para.s_radius1, self.para, asgd=asgd)
             
-            self.qv.iterate(self.sim.XA_t, self.sim.X_t1, self.sim.series['SW'], Alow, Ahigh, ITER=45, Ascaled=False,
+            self.qv.iterate(self.sim.XA_t, self.sim.X_t1, self.sim.series['SW'], Alow, Ahigh, ITER=self.para.QV_ITER1, Ascaled=False,
                     plot=False, xargs=['x', 1])
         
         if stage2:
@@ -99,7 +110,8 @@ class Model:
             Alow = lambda X, Ws: max(Ws - X[0]*d , 0)             # W > W* - d*S
             Ahigh = lambda X, Ws: min(Ws + X[0]*d, X[0])          # W < W* + d*S
             
-            self.qv.iterate(self.sim.XA_t, self.sim.X_t1, self.sim.series['SW'], Alow, Ahigh, ITER=5, Ascaled=True,
+            #self.qv.maxgrid =  300
+            self.qv.iterate(self.sim.XA_t, self.sim.X_t1, self.sim.series['SW'], Alow, Ahigh, ITER=self.para.QV_ITER2, Ascaled=True,
                     plot=False, xargs=['x', 1])
             
         toc = time()
@@ -110,7 +122,7 @@ class Model:
         self.sim.simulate(self.users, self.storage, self.utility, self.para.T0, self.para.CPU_CORES, planner=True, policy=True, polf=self.qv.W_f, delta=0, stats=True, planner_explore=False, t_cost_off=t_cost_off, seed=seed)
 
         self.utility.sr = SR
-
+        
         return [self.sim.stats, self.qv, st]
 
     def multiQV(self,  N_e, d, ITER, init=False, policy = 0, type='A'):
@@ -125,7 +137,7 @@ class Model:
             minsamp = 75
             asgd = False
         elif type == 'ASGD':
-            Ta = [5, 5, 5, 5, 5]
+            Ta = [5, 5, 5, 5, 4]
             La = 25
             Tb = [5, 5, 5, 5, 5]
             Lb = 25
@@ -136,6 +148,7 @@ class Model:
             self.qvHL = [0, 0]
             self.HL = [0, 1]
             self.users.init = 1
+            self.users.testing = 0
             for h in self.HL:
                 self.qvHL[h] = Qlearn.QVtile(4, Ta, La, 1, minsamp, self.para.s_points2, self.para.s_radius2, self.para, asgd=True)
             self.users.W_f = policy
@@ -211,51 +224,72 @@ class Model:
         print '\n --- Scenario --- \n'
         print str(self.para.sr) + ' storage rights, loss deductions = ' + str(self.para.ls) + ', priority = ' + str(self.para.HL) + '\n'
         
+        home = '/home/nealbob'
+        folder = '/Dropbox/model/results/chapter6/'
+        out = '/Dropbox/Thesis/IMG/chapter6/'
+        img_ext = '.pdf'
+        
         big_tic = time()
+        self.sim.percentiles = True
         
         # Planners problem
         p_stats, p_sdp, p_st = self.plannerSDP()
-        
+       
+
         #################           Solve Release sharing problem          #################
         
+        self.sim.percentiles = False
         #     Search for optimal shares by stochastic hill climbing
         
         print '\n Solve release sharing problem... '
         
-        stats, qv, st = self.plannerQV(t_cost_off=False, stage1=sg1, stage2=sg2, T1=self.para.T1, T2=self.para.T1)
+        stats, qv, st = self.plannerQV(t_cost_off=False, stage1=True, stage2=True, T1=self.para.T1, T2=self.para.T1, d=self.para.policy_delta)
         
         ITER = 0 
         if self.para.opt_lam == 1:
             print 'Search for optimal shares... \n'
-            delta = para.Lambda_high
-            SW = np.zeros(ITER)
-            SW[0] = self.sim.stats['SW']['Mean'][0]
+            ITER = self.para.opt_lam_ITER
+            delta = self.para.Lambda_high / 1.5
+            SW = np.zeros(ITER + 1)
+            SW[0] = self.sim.stats['SW']['Mean'][1]
             Lambda = np.zeros(ITER + 1)
-            Lambda[0] = para.Lambda_high
-            SW_max = -1
+            Lambda[0] = self.para.Lambda_high
+            SW_max = SW[0]
             Lambda_max = self.para.Lambda_high
 
-        for i in range(para.opt_lam_ITER):
+        for i in range(1, ITER + 1):
                 
-            Lambda[i + 1] = max(min(Lambda[i] + np.random.rand() * delta, 0.99), 0.01)
+            Lambda[i] = max(min(Lambda_max + np.random.rand() * delta, 0.99), 0.01)
 
-            self.users.set_shares(Lambda[i + 1]) self.utility.set_shares(Lambda[i + 1], self.users)
-            stats, qv, st = self.plannerQV(t_cost_off=False, stage1=False, stage2=True, T1=self.para.T1, T2=self.para.T1)
-
-            SW[i + 1] = self.sim.stats['SW']['Mean'][0]
-            if SW[i + 1] > SW_max:
-                delta *= 0.75
+            self.users.set_shares(Lambda[i]) 
+            self.utility.set_shares(Lambda[i], self.users)
+            stats, qv, st = self.plannerQV(t_cost_off=False, stage1=True, stage2=True, T1=self.para.T1, T2=self.para.T1, d=self.para.policy_delta)
+            
+            SW[i] = self.sim.stats['SW']['Mean'][1]
+            if SW[i] > SW_max:
+                delta *= 0.8
+                Lambda_max = Lambda[i]
+                SW_max = SW[i]
             else:
-                delta *= -0.75
+                delta *= -0.8
 
             print '--- Optimal share search ---'
-            print 'Current best: ' + str(Lambda_max)
+            print 'Lambda: ' + str(Lambda[i])
+            print 'Welfare: ' + str(SW[i])
+            print 'Best Lambda: ' + str(Lambda_max)
+            print 'Best welfare: ' + str(SW_max)
 
         if self.para.opt_lam:
-            pylab.scatter(Lambda, SW)
-            pylab.show()
+            data = [[Lambda, SW]]
+            chart = {'OUTFILE': home + out + 'Lambda' + str(self.para.HL) + img_ext,
+             'YLABEL': 'Mean welfare',
+             'XLABEL': 'High reliability user inflow share' }
+            build_chart(chart, data, chart_type='scatter')
 
-       """ 
+        self.sim.ITER = 1
+        self.sim.percentiles = True
+        self.sim.simulate(self.users, self.storage, self.utility, self.para.T0, self.para.CPU_CORES, planner=True, policy=True, polf=self.qv.W_f, delta=0, stats=True, planner_explore=False, t_cost_off=False)
+        
         #################           Solve storage right problem          #################
         if self.utility.sr >= 0:
             
@@ -290,16 +324,18 @@ class Model:
                 self.users.update_policy(qv[0].W_f, qv[1].W_f, prob = update_rate)
              
             self.sim.simulate(self.users, self.storage, self.utility, self.para.T2, self.para.CPU_CORES, stats = True)
-       """
+        
 
-            big_toc = time.time()
-            print "Total time (minutes): " + str(round((big_toc - big_tic) / 60,2))
+        big_toc = time()
+        print "Total time (minutes): " + str(round((big_toc - big_tic) / 60,2))
+        
+        Lambda_high = self.utility.Lambda_high
 
-            stats = self.sim.stats
+        stats = self.sim.stats
 
-            del self
+        del self
 
-            return stats
+        return stats, Lambda_high
         
     def chapter5(self):
        
@@ -383,21 +419,23 @@ class Model:
         return [V_e, P_e, stats, policy]
         """
 
-    def chapter8(self, stage2=False, T1=100000, T2=100000, d=0):
+    def chapter8(self, stage2=False, T1=100000, T2=100000, d=0, decentral_test=False):
 
         # Planner's problem testing for chapter 8
 
-        SW = [0, 0, 0]
-        S = [0, 0, 0]
-        solvetime = [0, 0, 0]
-        n = 10
+        SW = [0, 0, 0]#, 0]
+        S = [0, 0, 0]#, 0]
+        solvetime = [0, 0, 0]#, 0]
+        n = 5
 
         seed = int(time())
+        self.sim.series = self.sim.series_old
+        p_stats, p_sdp, p_st = self.plannerSDP(seed=seed)
         
+        """ 
         for i in range(n):
             
             # SDP
-            self.sim.ITER = 0
             p_stats, p_sdp, p_st = self.plannerSDP(seed=seed)
             
             SW[0] += p_stats['SW']['Mean'][0] / n
@@ -405,27 +443,85 @@ class Model:
             solvetime[0] += p_st /n
             
             # QV learning - TC-A
-            self.sim.ITER = 0
             stats, qv1, st = self.plannerQV(t_cost_off=True, T1=T1, T2=T2, stage1=True, stage2=stage2, d=d, seed=seed, type='A')
 
-            SW[1] += stats['SW']['Mean'][0] / n
-            S[1] += stats['S']['Mean'][0] / n
+            SW[1] += stats['SW']['Mean'][1] / n
+            S[1] += stats['S']['Mean'][1] / n
             solvetime[1] += st / n
         
             # QV learning - TC-ASGD
-            self.sim.ITER = 0
             stats, qv2, st = self.plannerQV(t_cost_off=True, T1=T1, T2=T2, stage1=True, stage2=stage2, d=d, seed=seed, type='ASGD')
             
-            SW[2] += stats['SW']['Mean'][0] / n
-            S[2] += stats['S']['Mean'][0] / n
+            SW[2] += stats['SW']['Mean'][1] / n
+            S[2] += stats['S']['Mean'][1] / n
             solvetime[2] += st / n
             
+            # QV learning - RF
+            #stats, qv3, st = self.plannerQV(t_cost_off=True, T1=T1, T2=T2, stage1=True, stage2=stage2, d=d, seed=seed, type='RF')
+            
+            #SW[3] += stats['SW']['Mean'][1] / n
+            #S[3] += stats['S']['Mean'][1] / n
+            #solvetime[3] += st / n
         
         self.sdp.W_f.plot(['x', 1])
         qv1.W_f.plot(['x', 1])
-        qv2.W_f.plot(['x', 1])
+        qv2.W_f.plot(['x', 1], showdata=True)
+        #qv3.W_f.plot(['x', 1])
         pylab.show()
         
-        return [SW, S, solvetime]
+        
+        self.sdp.W_f.plot(['x', 0.5])
+        qv1.W_f.plot(['x', 0.5])
+        qv2.W_f.plot(['x', 0.5], showdata=True)
+        #qv3.W_f.plot(['x', 1])
+        pylab.show()
+        
+        self.sdp.W_f.plot(['x', 2])
+        qv1.W_f.plot(['x', 2])
+        qv2.W_f.plot(['x', 2], showdata=True)
+        #qv3.W_f.plot(['x', 1])
+        pylab.show()
+        """
+        SWb = [0, 0]
+        if decentral_test:
+            self.para.T2 = T1
+
+            for i in range(n):
+            
+                # QV learning - TC-A
+                self.sim.ITER = 0
+                stats, qv1 = self.multiQV(5, 0, ITER=self.para.ITER1, init=True, policy=p_sdp.W_f, type='A') 
+
+                self.sim.ITER = 1
+                self.users.update_policy(qv1[0].W_f, qv1[0].W_f, test = True, test_idx = 0)
+                self.sim.simulate(self.users, self.storage, self.utility, 300000, self.para.CPU_CORES, delta=0, stats=True,  seed=seed) 
+
+                SWb[0] += self.sim.test_payoff / n
+                
+                self.sim.series = self.sim.series_old
+                self.sim.XA_t = [0,0]
+                self.sim.X_t1 = [0,0] 
+                self.sim.u_t = [0, 0] 
+
+                # QV learning - TC-ASGD
+                self.sim.ITER = 0
+                stats, qv2 = self.multiQV(5, 0, ITER=self.para.ITER1, init=True, policy=p_sdp.W_f, type='ASGD')
+                
+                self.sim.ITER = 1
+                self.users.update_policy(qv2[0].W_f, qv2[0].W_f, test = True, test_idx = 0)
+                self.sim.simulate(self.users, self.storage, self.utility, 300000, self.para.CPU_CORES, delta=0, stats=True,  seed=seed) 
+                
+                SWb[1] += self.sim.test_payoff / n
+                
+                self.sim.series = self.sim.series_old
+                self.sim.XA_t = [0,0]
+                self.sim.X_t1 = [0,0] 
+                self.sim.u_t = [0, 0] 
+                
+
+        self.qv1 = qv1
+        self.qv2 = qv2
+
+        return [SW, S, solvetime, SWb]
 
 

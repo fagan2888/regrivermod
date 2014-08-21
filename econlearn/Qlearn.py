@@ -33,8 +33,8 @@ class QVtile:
         L = int(130 / Twv)
         
         points = maxgrid
-        self.W_f = Tilecode(D, T, L, mem_max = 1, lin_spline=True, linT=6, cores=para.CPU_CORES)
-        self.V_f = Tilecode(D, T, L, mem_max = 1, lin_spline=True, linT=6, cores=para.CPU_CORES)
+        self.W_f = Tilecode(D, T, L, mem_max = 1, lin_spline=True, linT=7, cores=para.CPU_CORES)
+        self.V_f = Tilecode(D, T, L, mem_max = 1, lin_spline=True, linT=7, cores=para.CPU_CORES)
         self.maxgrid = maxgrid
         self.radius = radius
         self.D = D
@@ -105,7 +105,7 @@ class QVtile:
         Q = u + self.beta * self.V_f.predict(X1, store_XS=precompute)
         
         # Fit Q function
-        self.Q_f.fit(XA, Q, pa=minpol, pb=maxpol , copy=False, unsupervised=precompute, sgd=self.asgd, asgd=self.asgd, eta=0.5, n_iters=1, scale=0.7* (1/T), storeindex=(self.asgd and precompute), a=a, b=b, pc_samp=pc_samp)
+        self.Q_f.fit(XA, Q, pa=minpol, pb=maxpol , copy=False, unsupervised=precompute, sgd=self.asgd, asgd=self.asgd, eta=0.8, n_iters=1, scale=1* (1 / T), storeindex=(self.asgd and precompute), a=a, b=b, pc_samp=pc_samp)
         
         # Optimise Q function
         self.ve, W_opt, state = self.maximise(grid, Al, Ah, Ascaled, output=output)
@@ -121,7 +121,7 @@ class QVtile:
             self.ve, W_opt, state = self.maximise(grid, Al, Ah, Ascaled, output=output)
             
         W_opt_old = self.W_f.predict(state)
-        self.W_f.fit(state, W_opt, sgd=0, eta=0.4, n_iters=1, scale=0)
+        self.W_f.fit(state, W_opt, sgd=0, eta=0.1, n_iters=5, scale=0)
         self.pe = np.mean(abs(W_opt_old - W_opt)/W_opt_old)
         
         toc = time()
@@ -179,17 +179,13 @@ class QVtile:
         
         [W_opt, V, state, idx] = self.Q_f.opt(X, Alow, Ahigh)
         nidx = np.array([not(i) for i in idx])
-        print 'OPT POINTS: ' + str(state.shape[0])
-
-        if state.shape[0] == 0:
-            import pdb; pdb.set_trace()
 
         if Ascaled:
             W_opt  = Al[idx] + (Ah[idx] - Al[idx]) * W_opt
 
         V_old = self.V_f.predict(state)
 
-        self.V_f.fit(state, V)
+        self.V_f.fit(state, V, sgd=0, eta=0.1, n_iters=5, scale=0)
         
 
         if np.count_nonzero(V_old) < V_old.shape[0]:
@@ -200,14 +196,13 @@ class QVtile:
         toc = time()
         
         if output:
-            print 'Maximisation time: ' + str(toc - tic)
-            print 'Value function change: ' + str(round(self.v_e, 4))
+            print 'Value change: ' + str(round(self.v_e, 3)) + '\t---\tMax time: ' + str(round(toc - tic, 4))
 
         return [self.v_e, W_opt, state]
 
 class QVtree:
 
-    def __init__(self, D,  maxgrid, radius, para, num_split=50, num_leaf=25, num_est=200):
+    def __init__(self, D,  maxgrid, radius, para, num_split=40, num_leaf=20, num_est=215):
 
         self.Q_f = Tree(n_estimators=num_est, min_samples_split=num_split, min_samples_leaf=num_leaf, n_jobs=para.CPU_CORES)
         
@@ -216,8 +211,8 @@ class QVtree:
         L = int(140 / Twv)
         
         points = maxgrid
-        self.W_f = Tilecode(D, T, L, mem_max = 1, lin_spline=True, linT=6, cores=para.CPU_CORES)
-        self.V_f = Tilecode(D, T, L, mem_max = 1, lin_spline=True, linT=6, cores=para.CPU_CORES)
+        self.W_f = Tilecode(D, T, L, mem_max = 1, lin_spline=True, linT=7, cores=para.CPU_CORES)
+        self.V_f = Tilecode(D, T, L, mem_max = 1, lin_spline=True, linT=7, cores=para.CPU_CORES)
 
         self.maxgrid = maxgrid
         self.radius = radius

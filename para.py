@@ -298,8 +298,9 @@ class Para:
             self.target_price =  10 #np.array([50,200])
             self.t_cost_param = np.array([10, 100])
             self.Lambda_high_param = np.array([1, 2])
+            self.relative_risk_aversion = np.array([0, 3])
 
-            para_dist = [self.I_K_param, self.SD_I_param, self.rho_param, self.SA_K_param, self.evap_param, self.d_loss_param_a, self.d_loss_param_b,  self.t_cost_param, self.Lambda_high_param, [100, 100], [30, 70], [30, 70], self.theta_mu, self.theta_sig, self.q_bar_limits, self.rho_eps_param, self.sig_eta_param, self.prop_high, self.target_price]
+            para_dist = [self.I_K_param, self.SD_I_param, self.rho_param, self.SA_K_param, self.evap_param, self.d_loss_param_a, self.d_loss_param_b,  self.t_cost_param, self.Lambda_high_param, [100, 100], [30, 70], [30, 70], self.theta_mu, self.theta_sig, self.q_bar_limits, self.rho_eps_param, self.sig_eta_param, self.prop_high, self.target_price, self.relative_risk_aversion]
 
             with open('para_dist.pkl', 'wb') as f:
                 pickle.dump(para_dist, f)
@@ -343,7 +344,7 @@ class Para:
             self.sig_eta_param  = para_dist[16]
             self.prop_high      = para_dist[17]
             self.target_price   = para_dist[18]
-        
+            self.relative_risk_aversion = para_dist[19] 
             
     def set_property_rights(self, scenario='CS'):
 
@@ -417,14 +418,16 @@ class Para:
             self.ls = 1
             self.HL = 0
             self.opt_lam = 1
-
-        if self.HL == 1:
-            self.Lambda_high = self.prop * 1
-        else:
-            self.Lambda_high = self.prop * 1.5
-
-    def central_case(self, N = 100, printp=True):
         
+        if self.opt_lam == 1:
+            if self.HL == 1:
+                self.Lambda_high = self.prop * 1
+            else:
+                self.Lambda_high = self.prop * 1.5
+        else:
+            self.Lambda_high = self.prop
+
+    def central_case(self, N=100, utility=False, printp=True, risk=0):
         
         self.K = 1000000
         self.beta = 0.945
@@ -488,6 +491,23 @@ class Para:
             self.Lambda_high = self.prop * 1 #np.mean(self.Lambda_high_param)
         else:
             self.Lambda_high = self.prop * 1.5
+        
+        
+        if utility:
+            self.utility = 1 
+            risk = risk #self.relative_risk_aversion[1]
+            
+            low_land = self.L
+            high_land = self.L * self.high_size
+            profit_bar_high = low_land * (self.theta[0, 0] + self.theta[1, 0]*q_bar_low + self.theta[2, 0]*(q_bar_low**2)+ self.theta[3, 0] + self.theta[4, 0] + self.theta[5, 0]*q_bar_low)
+            profit_bar_low = high_land * (self.theta[0, 1] + self.theta[1, 1]*q_bar_high + self.theta[2, 1]*(q_bar_high**2)+ self.theta[3, 1] + self.theta[4, 1] + self.theta[5, 1]*q_bar_high)
+            
+            self.risk_aversion_low = risk / profit_bar_high
+            self.risk_aversion_high = risk / profit_bar_low
+        else: 
+            self.utility = 0 
+            self.risk_aversion_low = 0
+            self.risk_aversion_high = 0
         
         self.para_list = {'I_K': I_K, 'SD_I' : SD_I, 'Prop_high' :  self.prop, 't_cost' : self.t_cost, 'L' : self.Land,'N_high' : self.N_high, 'rho_I' : self.rho_I, 'SA_K' : SA_K, 'alpha' : self.alpha, 'delta1a' : self.delta1a, 'delta1b' : self.delta1b}
         
@@ -626,6 +646,16 @@ class Para:
         q_bar_low = max((-1* (self.theta[1,0]+self.theta[5,0])) / (2*self.theta[2,0]) + p/(self.theta[2,0]*2),0) 
         q_bar_high = max((-1* (self.theta[1,1]+self.theta[5,1])) / (2*self.theta[2,1]) + p/(self.theta[2,0]*2),0)
         self.prop = (self.N_high * q_bar_high * (self.high_size * self.L)) / ((self.N_high * q_bar_high * (self.high_size * self.L)) + self.N_low * q_bar_low * self.L)
+        
+        low_land = self.L
+        high_land = self.L * self.high_size
+        profit_bar_high = low_land * (self.theta[0, 0] + self.theta[1, 0]*q_bar_low + self.theta[2, 0]*(q_bar_low**2)+ self.theta[3, 0] + self.theta[4, 0] + self.theta[5, 0]*q_bar_low) 
+        profit_bar_low = high_land * (self.theta[0, 1] + self.theta[1, 1]*q_bar_high + self.theta[2, 1]*(q_bar_high**2)+ self.theta[3, 1] + self.theta[4, 1] + self.theta[5, 1]*q_bar_high) 
+        
+        self.utility = 1    
+        risk = uniform.rvs(loc=self.relative_risk_aversion[0], scale=self.relative_risk_aversion[1] - self.relative_risk_aversion[0])
+        self.risk_aversion_low = risk / profit_bar_high
+        self.risk_aversion_high = risk / profit_bar_low
 
         self.t_cost = (np.random.rand() * (self.t_cost_param[1]-self.t_cost_param[0]) + self.t_cost_param[0]) 
         
@@ -707,7 +737,7 @@ class Para:
         self.SDP_ITER = 100
 
         # SDP GRID points per dimension, S_t, I_t and I_t+1
-        self.SDP_GRID = 34
+        self.SDP_GRID = 33
         
         #======================================================
         #       Planner QV learning parameters
@@ -717,10 +747,16 @@ class Para:
         self.T1 = 50000
 
         # Max number of sample grid points
-        self.s_points1 = 420
+        self.s_points1 = 425
 
         # Sample grid radius
         self.s_radius1 = 0.02
+
+        # Stage 2 search range
+        self.policy_delta = 0.2
+
+        self.QV_ITER1 = 40
+        self.QV_ITER2 = 10
 
         #======================================================
         #       Optimal share search parameters
@@ -752,7 +788,7 @@ class Para:
         self.s_radius2 = 0.05
 
         # State sample gird max number of points
-        self.s_points2 = 2500
+        self.s_points2 = 3000
 
     def test(self, prop = 0.1):
 

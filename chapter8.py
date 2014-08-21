@@ -4,7 +4,8 @@ from __future__ import division
 import numpy as np
 import model
 from para import Para
-import results 
+from results import chapter8
+from results.chartbuilder import *
 
 para = Para(rebuild=True, charts=False)
 para.central_case(N = 100)
@@ -15,25 +16,59 @@ mod = model.Model(para)
 
 home = '/home/nealbob'
 folder = '/Dropbox/Model/results/chapter8/'
+out = '/Dropbox/Thesis/IMG/chapter8/'
 
 SW = []
+SWb = []
 S = []
 TIME = []
 
-sp = [False for i in range(5)]
-t1 = [4000, 10000, 20000, 40000, 75000]
-t2 = [4000, 10000, 20000, 40000, 75000]
-d = [0.2, 0.2, 0.2, 0.2, 0.2]
+m = 5
+sp = [False for i in range(m)]
+t1 = [5000, 10000, 20000, 50000, 80000]
+t2 = [5000, 10000, 20000, 50000, 80000]
+d  = [0.2] * m
+"""
+for j in range(m):
 
-for j in range(5):
-
-    sw, s, time = mod.chapter8(stage2=sp[j], T1=t1[j], T2=t2[j], d=d[j])
+    sw, s, time, _ = mod.chapter8(stage2=sp[j], T1=t1[j], T2=t2[j], d=d[j])
 
     SW.append(sw)
     S.append(s)
     TIME.append(time)
 
-myopicSW = mod.simulate_myopic(600000)
+myopicSW = mod.simulate_myopic(500000)
 
-results.chapter8.planner(SW, S, TIME, myopicSW)
+chapter8.planner(SW, S, TIME, myopicSW)
 
+"""
+
+for j in range(4):
+    
+    t1 = [400000, 500000, 600000, 700000]
+
+    _, _, _, swb = mod.chapter8(stage2=sp[j], T1=t1[j], T2=t2[j], d=d[j], decentral_test=True)
+
+    SWb.append(swb)
+
+print SWb
+
+"""
+
+#===========================================
+# S x I state space chart
+#===========================================
+
+mod.plannerSDP()
+
+mod.sim.simulate(mod.users, mod.storage, mod.utility, 10000, mod.para.CPU_CORES, planner=True, policy=True, polf=mod.sdp.W_f, delta=0, stats=True, planner_explore=False, t_cost_off=True) 
+
+S = mod.sim.series['S'] / 1000
+I = mod.sim.series['I'] / 1000
+
+data = [[S, I]]
+chart = {'OUTFILE': home + out + 'SbyI.pdf',
+ 'XLABEL': 'Storage (GL)',
+ 'YLABEL': 'Inflow (GL)' }
+build_chart(chart, data, chart_type='scatter')
+"""

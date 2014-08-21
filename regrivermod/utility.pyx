@@ -168,7 +168,7 @@ cdef class Utility:
             self.sr = 4
         elif para.sr == 'RS':
             self.sr = -1
-
+       
         self.ls = para.ls            # Loss deduction type
         self.HL = para.HL            # Priority or proportional
         self.A_bar = (self.K*(1 - self.delta1b) - self.delta1a)

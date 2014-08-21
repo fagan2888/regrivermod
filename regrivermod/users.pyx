@@ -83,7 +83,7 @@ cdef inline double excess_demand(double P, double Qbar, double t_cost, int N, do
 
         return Qtemp 
 
-cdef double[:] payoff(int N, double P, double t_cost, double[:] q, double[:]  a, double[:] e, double I, double[:,:] theta, double[:] L, double[:] pi):
+cdef double[:] payoff(int N, double P, double t_cost, double[:] q, double[:]  a, double[:] e, double I, double[:,:] theta, double[:] L, double[:] pi, double[:] risk, int utility):
     "Calculate all user payoffs"
 
     cdef int i
@@ -94,6 +94,10 @@ cdef double[:] payoff(int N, double P, double t_cost, double[:] q, double[:]  a,
             pi[i] = L[i] * e[i] * ( theta[i, 0] + theta[i, 3] * I + theta[i, 4] * I**2 + (theta[i, 1] + theta[i, 5] * I) * (q[i] / L[i]) + theta[i, 2] * (q[i] / L[i])**2)   + (a[i] - q[i]) * (P + t_cost)
         else:              # Water seller or non-trader
             pi[i] =  L[i] * e[i] * (  theta[i, 0] + theta[i, 3] * I + theta[i, 4] * I**2 + (theta[i, 1] + theta[i, 5] * I) * (q[i] / L[i]) + theta[i, 2] * (q[i] / L[i])**2 )  + (a[i] - q[i]) * P
+    
+    if utility == 1:
+        for i in range(N):
+            pi[i] = 1 - c_exp(-risk[i] * pi[i])
 
     return pi
 
@@ -174,7 +178,17 @@ cdef class Users:
         for i in range(self.N_low, self.N):
             for j in range(m):
                 self.theta[i,j] = para.theta[j,1]
- 
+
+        #--------------------------------------#
+        # Risk aversion
+        #--------------------------------------#
+        self.risk = np.zeros(self.N)
+        for i in range(0, self.N_low):
+            self.risk[i] = para.risk_aversion_low
+        for i in range(self.N_low, self.N):
+            self.risk[i] = para.risk_aversion_high
+        self.utility = para.utility
+
         #--------------------------------------#
         # Productivity shocks  
         #--------------------------------------#
@@ -301,7 +315,7 @@ cdef class Users:
 
         # Now estimate continuous approximation
         self.SW_f = Tilecode(2, [35, 35], 20, offset='optimal', lin_spline=True, linT=2, cores=para.CPU_CORES)
-        self.SW_f.fit(np.array([Q, I]).T, SW, sgd=False, eta=0.5, scale=0, n_iters=2)
+        self.SW_f.fit(np.array([Q, I]).T, SW, sgd=True, eta=0.2, scale=0, n_iters=2)
 
         # Plot fitted vs actual
         #pylab.figure()
@@ -448,7 +462,7 @@ cdef class Users:
         "Determine water consumption q, and payoff u"
        
         cdef double SW
-        cdef int i
+        cdef int i = 0
         cdef double t_cost = 0
 
         if planner == 1:
@@ -463,7 +477,7 @@ cdef class Users:
         if planner == 1:
             self.a[...] = self.q
 
-        self.profit = payoff(self.N, P, t_cost, self.q, self.a, self.e, I, self.theta, self.L, self.profit)
+        self.profit = payoff(self.N, P, t_cost, self.q, self.a, self.e, I, self.theta, self.L, self.profit, self.risk, self.utility)
 
         self.U_low = 0
         self.U_high = 0
@@ -649,12 +663,12 @@ cdef class Users:
     
     def update_policy(self, w_f_low, w_f_high, prob = 0.3, init=False, test = False, test_idx = 0):
         
+        if init:
+            self.policy = Function_Group(self.N, self.N_low, w_f_low, w_f_high)
         if test:
             self.w_f = w_f_low
             self.test_idx = test_idx
             self.testing = 1
-        if init:
-            self.policy = Function_Group(self.N, self.N_low, w_f_low, w_f_high)
         else:
             if prob == 1: 
                 index_low = self.I_low
