@@ -18,6 +18,7 @@ home = '/home/nealbob'
 folder = '/Dropbox/Model/results/chapter6/'
 out = '/Dropbox/Thesis/IMG/chapter6/'
 
+"""
 #==========================================
 # No trade - central case
 #==========================================
@@ -35,11 +36,26 @@ for scen in scenarios:
     results[scen], Lambda[scen] = mod.chapter6()
 
 chapter6.notrade(results, scenarios, Lambda)
-
+"""
 
 #==========================================
 # With trade - central case 
 #==========================================
+
+scenarios = ['CS-O'] #['RS-HL-O', 'RS-HL', 'RS-O', 'RS', 'CS', 'CS-O', 'CS-HL', 'CS-HL-O']
+results = {'CS-O' : 0} #{'RS-HL-O': 0, 'RS-HL' : 0, 'RS-O' : 0, 'RS' : 0, 'CS' : 0, 'CS-O' : 0} 
+Lambda = {'CS-O' : 0} #{'RS-HL-O': 0, 'RS-HL' : 0, 'RS-O' : 0, 'RS' : 0, 'CS' : 0, 'CS-O' : 0}
+
+para.central_case(N=100, printp=False)
+
+for scen in scenarios:
+    para.set_property_rights(scenario=scen)
+    
+    mod = model.Model(para)
+
+    results[scen], Lambda[scen] = mod.chapter6()
+
+chapter6.trade(results, scenarios, Lambda)
 
 #==========================================
 # General case 

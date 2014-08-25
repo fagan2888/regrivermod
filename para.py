@@ -788,7 +788,7 @@ class Para:
         self.s_radius2 = 0.05
 
         # State sample gird max number of points
-        self.s_points2 = 3000
+        self.s_points2 = 2900
 
     def test(self, prop = 0.1):
 

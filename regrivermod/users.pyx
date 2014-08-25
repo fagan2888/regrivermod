@@ -235,6 +235,15 @@ cdef class Users:
         self.I_e_h[2] = self.N_low + 2
         self.I_e_h[3] = self.N_low + 3
         self.I_e_h[4] = self.N_low + 4
+
+        self.share_e_l = np.zeros(2, dtype='int32')
+        self.share_e_l[0] = 5
+        self.share_e_l[1] = 6
+        self.share_e_h = np.zeros(2, dtype='int32')
+        self.share_e_h[0] = self.N_low + 5 
+        self.share_e_h[1] = self.N_low + 6 
+        self.share_adj = 0
+
         self.I_e = np.hstack([self.I_e_l, self.I_e_h])
         self.testing = 0
         self.test_idx = 0
@@ -327,6 +336,7 @@ cdef class Users:
     def set_shares(self, Lambda_high):
 
         low_c = 1 - Lambda_high
+        low_c  = low_c
 
         self.c_F_low = low_c / self.N_low                  # Low reliability inflow shares
         self.c_K_low = low_c / self.N_low                  # Low reliability capacity shares
@@ -342,6 +352,14 @@ cdef class Users:
         for i in range(self.N_low, self.N):
             self.c_F[i] = self.c_F_high
             self.c_K[i] = self.c_K_high
+
+        #Inflow share explorers
+        if self.share_explore:
+            self.c_F[self.share_e_l[0]] += self.share_adj / self.N_low
+            self.c_F[self.share_e_h[0]] -= self.share_adj / self.N_low
+            self.c_K[self.share_e_l[0]] += self.share_adj / self.N_low
+            self.c_K[self.share_e_h[0]] -= self.share_adj / self.N_low
+
 
     cdef double[:] withdraw(self, double S, double[:] s, double I):
         "User policy function, returns user withdrawal w, given current state: S, s, e and I"
@@ -464,6 +482,7 @@ cdef class Users:
         cdef double SW
         cdef int i = 0
         cdef double t_cost = 0
+        cdef double low_gain, high_gain
 
         if planner == 1:
             t_cost = 0
@@ -486,6 +505,10 @@ cdef class Users:
         for i in range(self.N_low, self.N):
             self.U_high += self.profit[i] 
         SW = self.U_low + self.U_high 
+
+        if self.share_explore == 1:
+            self.low_gain += self.profit[self.share_e_l[0]]  - self.profit[self.share_e_l[1]]
+            self.high_gain += self.profit[self.share_e_h[0]] - self.profit[self.share_e_h[1]]
 
         return SW
     
@@ -661,7 +684,7 @@ cdef class Users:
 
         return P0
     
-    def update_policy(self, w_f_low, w_f_high, prob = 0.3, init=False, test = False, test_idx = 0):
+    def update_policy(self, w_f_low, w_f_high, prob = 0.3, init=False, test=False, test_idx=0):
         
         if init:
             self.policy = Function_Group(self.N, self.N_low, w_f_low, w_f_high)
@@ -669,7 +692,8 @@ cdef class Users:
             self.w_f = w_f_low
             self.test_idx = test_idx
             self.testing = 1
-        else:
+
+        elif not(init):
             if prob == 1: 
                 index_low = self.I_low
                 index_high = self.I_high
@@ -677,12 +701,16 @@ cdef class Users:
                 # Low reliability users
                 index_low = np.array(self.I_low)[random.sample(range(1,self.N_low), int(prob * (self.N_low-1)))]
                 index_low = np.append(index_low, self.I_e_l)
-                
+                if self.share_explore == 1:
+                    index_low = np.append(index_low, self.share_e_l)
+
                 # High reliability users
                 index_high = np.array(self.I_high)[random.sample(range(1,self.N_high), int(prob * (self.N_high-1)))]
                 index_high = np.append(index_high, self.I_e_h)
+                if self.share_explore == 1:
+                    index_low = np.append(index_high, self.share_e_h)
 
-            self.policy.update(index_low, w_f_low, index_high, w_f_high)
+                self.policy.update(index_low, w_f_low, index_high, w_f_high)
 
     def set_policy(self, w_f_low, w_f_high):
         

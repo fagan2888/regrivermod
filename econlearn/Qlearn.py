@@ -24,7 +24,7 @@ class QVtile:
         Action-value function
     """
  
-    def __init__(self, D, T, L, mem_max, ms, maxgrid, radius, para, asgd=False):
+    def __init__(self, D, T, L, mem_max, ms, maxgrid, radius, para, asgd=False, linT=8):
 
         self.Q_f = Tilecode(D + 1, T, L, mem_max, min_sample=ms, cores=para.CPU_CORES)
         
@@ -33,8 +33,8 @@ class QVtile:
         L = int(130 / Twv)
         
         points = maxgrid
-        self.W_f = Tilecode(D, T, L, mem_max = 1, lin_spline=True, linT=7, cores=para.CPU_CORES)
-        self.V_f = Tilecode(D, T, L, mem_max = 1, lin_spline=True, linT=7, cores=para.CPU_CORES)
+        self.W_f = Tilecode(D, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=para.CPU_CORES)
+        self.V_f = Tilecode(D, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=para.CPU_CORES)
         self.maxgrid = maxgrid
         self.radius = radius
         self.D = D
@@ -51,7 +51,7 @@ class QVtile:
         self.Q_f = Tilecode(D + 1, T, L, mem_max, min_sample=ms, cores=self.CORES)
     
     
-    def iterate(self, XA, X1, u, A_low, A_high, ITER=50, Ascaled=False, plot=True, xargs=[], output=True, a = 0, b = 0, pc_samp=1):
+    def iterate(self, XA, X1, u, A_low, A_high, ITER=50, Ascaled=False, plot=True, xargs=[], output=True, a = 0, b = 0, pc_samp=1, maxT=60000):
 
         tic = time()
 
@@ -60,6 +60,8 @@ class QVtile:
         
         T = XA.shape[0]
         
+        self.value_error = np.zeros(ITER)
+
         tic = time()
         N = X1.shape[0]
         grid, m = buildgrid(X1, self.maxgrid, self.radius, scale=True, stopnum=700)
@@ -105,11 +107,11 @@ class QVtile:
         Q = u + self.beta * self.V_f.predict(X1, store_XS=precompute)
         
         # Fit Q function
-        self.Q_f.fit(XA, Q, pa=minpol, pb=maxpol , copy=False, unsupervised=precompute, sgd=self.asgd, asgd=self.asgd, eta=0.8, n_iters=1, scale=1* (1 / T), storeindex=(self.asgd and precompute), a=a, b=b, pc_samp=pc_samp)
+        self.Q_f.fit(XA, Q, pa=minpol, pb=maxpol , copy=False, unsupervised=precompute, sgd=self.asgd, asgd=self.asgd, eta=0.8, n_iters=1, scale=1* (1 / min(T, maxT)), storeindex=(self.asgd and precompute), a=a, b=b, pc_samp=pc_samp)
         
         # Optimise Q function
-        self.ve, W_opt, state = self.maximise(grid, Al, Ah, Ascaled, output=output)
-        
+        self.value_error[0], W_opt, state = self.maximise(grid, Al, Ah, Ascaled, output=output)
+         
         for j in range(1, ITER):
             # Q values
             Q = u + self.beta * self.V_f.fast_values()
@@ -118,7 +120,7 @@ class QVtile:
             self.Q_f.partial_fit(Q, 0)
 
             # Optimise Q function
-            self.ve, W_opt, state = self.maximise(grid, Al, Ah, Ascaled, output=output)
+            self.value_error[j], W_opt, state = self.maximise(grid, Al, Ah, Ascaled, output=output)
             
         W_opt_old = self.W_f.predict(state)
         self.W_f.fit(state, W_opt, sgd=0, eta=0.1, n_iters=5, scale=0)
@@ -179,6 +181,7 @@ class QVtile:
         
         [W_opt, V, state, idx] = self.Q_f.opt(X, Alow, Ahigh)
         nidx = np.array([not(i) for i in idx])
+        print 'OPT POINTS: ' + str(len(W_opt))
 
         if Ascaled:
             W_opt  = Al[idx] + (Ah[idx] - Al[idx]) * W_opt

@@ -24,11 +24,11 @@ S = []
 TIME = []
 
 m = 5
-sp = [False for i in range(m)]
+sp = [True for i in range(m)]
 t1 = [5000, 10000, 20000, 50000, 80000]
 t2 = [5000, 10000, 20000, 50000, 80000]
 d  = [0.2] * m
-"""
+
 for j in range(m):
 
     sw, s, time, _ = mod.chapter8(stage2=sp[j], T1=t1[j], T2=t2[j], d=d[j])
@@ -41,11 +41,11 @@ myopicSW = mod.simulate_myopic(500000)
 
 chapter8.planner(SW, S, TIME, myopicSW)
 
-"""
 
-for j in range(4):
+"""
+for j in range(3):
     
-    t1 = [400000, 500000, 600000, 700000]
+    t1 = [300000, 500000, 700000]
 
     _, _, _, swb = mod.chapter8(stage2=sp[j], T1=t1[j], T2=t2[j], d=d[j], decentral_test=True)
 
@@ -53,7 +53,7 @@ for j in range(4):
 
 print SWb
 
-"""
+
 
 #===========================================
 # S x I state space chart

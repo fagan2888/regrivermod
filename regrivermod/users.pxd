@@ -39,6 +39,13 @@ cdef class Users:
     cdef public int[:] I_e_l
     cdef public int[:] I_e_h
     cdef public int[:] I_e 
+    
+    cdef public int share_explore
+    cdef public int[:] share_e_l
+    cdef public int[:] share_e_h
+    cdef public double low_gain
+    cdef public double high_gain
+    cdef public double share_adj
 
     cdef public double[:] w
     cdef public double[:] w_scaled
