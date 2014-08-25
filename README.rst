@@ -7,7 +7,9 @@ All the code for my thesis: Water property rights in regulated rivers.  For more
 Overview
 ========
 
-Most of the work is performed by two cython modules ``econlearn`` (a machine learning toolkit) and ``regrivermod`` (a simulation model of a regulated river). All of the parameter assumptions are contained in ``para.py``. For a given set of parameters ``model.py`` combines ``econlearn`` and ``regrivermod`` to solve the various versions of the model. The scripts ``chapter3.py, ..., chapter8.py`` implement sensitivity analysis. Finally the ``results`` module is used to generate all of the figures and tables for my thesis.
+The repository contains two main cython modules ``econlearn`` (a machine learning toolkit) and ``regrivermod`` (a simulation model of a regulated river). 
+
+All of the parameter assumptions are contained in ``para.py``. For a given set of parameters ``model.py`` combines ``econlearn`` and ``regrivermod`` to solve the various versions of the model. The scripts ``chapter3.py, ..., chapter8.py`` implement sensitivity analysis. Finally, the ``results`` module is used to generate all of the figures and tables for my thesis.
 
 regrivermod
 -----------
@@ -28,10 +30,10 @@ regrivermod
     - Simulation:
       combines all of the above classes to perform simulations and record data
 
-    - Sdp:
+    - SDP:
       a class for Stochastic Dynamic Programming, used to solve the planner's storage problem 
 
-Here is a usage example, simulating the planner's (SDP) solution (of the model from chapter 3)::
+Here's an example, simulating the planner's (SDP) solution (of the model from chapter 3)::
 
     from regrivermod import *
     import Para                 # Parameter assumptions
@@ -70,9 +72,9 @@ Econlearn
     - samplegrid.pyx:
       selects approximately equidistantly spaced grids (i.e., sample grids) 
 
-I plan to add some other machine learning algorithms to ``econlearn`` including: fast approximate nearest neighbors (using tilecoding), fast local quadratic regression (using tilecoding), RBF network regression and density estimation (using RBFs and tilecoding).
+.. I plan to add some other machine learning algorithms to ``econlearn`` including: fast approximate nearest neighbors (using tilecoding), fast local quadratic regression (using tilecoding), RBF network regression and density estimation (using RBFs and tilecoding).
 
-Here is a usage example, solving the same planner's problem by fitted Q-V iteration (see chapter 8)::
+Here's an example, solving the same planner's problem by fitted Q-V iteration (see chapter 8)::
 
     from econlearn import Qlearn
 
