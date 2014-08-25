@@ -58,10 +58,10 @@ Here's an example, simulating the planner's (SDP) solution (of the model from ch
     sim.simulate(users, storage, utility, 100, 4, planner=True, policy=True, polf=sdp.W_f)
 
 
-Econlearn
+econlearn
 ---------
 
-``Econlearn`` is a machine learning toolkit for economist's. Its main purposes is to implement the batch reinforcement learning algorithm: fitted Q-V iteration, using tile coding for function approximation. ``econlearn`` contains a range of fast machine learning algorithms suitable for low (i.e., <10) dimensions.
+``Econlearn`` is a small machine learning toolkit. Its main purposes is to implement the batch reinforcement learning algorithm: fitted Q-V iteration, using tile coding for function approximation. ``econlearn`` contains a range of fast machine learning algorithms suitable for low (i.e., <10) dimensions.
 
 ``econlearn`` contains the following files:
 
