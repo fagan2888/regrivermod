@@ -36,7 +36,7 @@ regrivermod
     - Sdp:
       a class for Stochastic Dynamic Programming, used to solve the planner's storage problem 
 
-Here is a usage example, simulating the planner's (SDP) solution (of the model from chapter 3)::
+Here is a usage example, simulating the planner's (SDP) solution (of the model from chapter 3) .. code:: python
 
     from regrivermod import *
     import Para                 # Parameter assumptions
