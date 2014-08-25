@@ -61,7 +61,7 @@ Here's an example, simulating the planner's (SDP) solution (of the model from ch
 Econlearn
 ---------
 
-``Econlearn`` is a machine learning toolkit for economist's. Its main purposes is to implement the batch reinforcement learning algorithm: fitted $Q$-$V$ iteration, using tile coding for function approximation. ``econlearn`` contains a range of fast machine learning algorithms suitable for low (i.e., <10) dimensions.
+``Econlearn`` is a machine learning toolkit for economist's. Its main purposes is to implement the batch reinforcement learning algorithm: fitted Q-V iteration, using tile coding for function approximation. ``econlearn`` contains a range of fast machine learning algorithms suitable for low (i.e., <10) dimensions.
 
 ``econlearn`` contains the following files:
 
@@ -97,11 +97,11 @@ Installation
 
 This code requires installation of python with packages: cython, numpy, scipy, scikit-learn and pandas. If you don't have python yet a good option is to install `Anaconda <http://docs.continuum.io/anaconda/>`_.  
 
-Next download or clone this repository. Then you need to compile the cython modules. On linux you can run ``build.sh`` script from the terminal. Just navigate to the install directory then type:
+Next download or clone this repository. Then you need to compile the cython modules. On linux you can run ``build.sh`` script from the terminal. Just navigate to the install directory then type::
 
     bash build.sh
 
-Otherwise run ``setup.py`` for both ``econlearn`` and ``regrivermod``:
+Otherwise run ``setup.py`` for both ``econlearn`` and ``regrivermod``::
 
     cd econlearn
     python setup.py build_ext --inplace
