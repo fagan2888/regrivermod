@@ -9,7 +9,7 @@ Overview
 
 Figure x summarises the structure of the code: 
 
-.. image:: /model.jpg
+.. image:: model.jpg
     :scale: 60 %
 
 Most of the work is performed by two cython modules ``econlearn`` (a machine learning toolkit) and ``regrivermod`` (a simulation model of a regulated river). All of the parameter assumptions are contained in ``para.py``. For a given set of parameters ``model.py`` combines ``econlearn`` and ``regrivermod`` to solve the various versions of the model. The scripts ``chapter3.py, ..., chapter8.py`` implement sensitivity analysis. Finally the ``results`` module is used to generate all of the figures and tables for my thesis.
