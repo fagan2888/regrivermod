@@ -25,6 +25,7 @@ cdef inline int getindex(int j, int i, double[:, :] XS, int D, double[:,:] offse
     if dohash == 1:
         idx = hash_idx(idx, key, mem_max)
 
+
     return idx
 
 cdef inline int index(int j, int i, double[:, :] XS, int D, double[:,:] offset, int[:] flat, int size) nogil:
@@ -197,6 +198,7 @@ cdef class Tilecode:
         self.offset = np.zeros([self.L, self.D])
         self.CORES = cores
 
+
         # Calculate tile widths and total number of tiles
         cdef int k, j
         for k in range(self.D):
@@ -267,7 +269,7 @@ cdef class Tilecode:
         return R2
         
     def fit(self, double[:,:] X, double[:] Y, policy=0, pa=-1, pb=-1, unsupervised=False, score=False, copy=True, a=0, b=0, 
-            pc_samp=1, sgd=False, eta=0.01, n_iters=1, scale=0, asgd=False, storeindex=False):
+            pc_samp=1, sgd=False, eta=0.01, n_iters=1, scale=0, asgd=False, storeindex=False, samplegrid=False, M=0):
 
         """    
         Fit tilecode function by averaging (then by SGD if sgd=True)
@@ -355,8 +357,8 @@ cdef class Tilecode:
         self.count = np.zeros([self.mem_max], dtype='int32')
         self.key = np.zeros([self.mem_max], dtype='int32')
         
-        if self.dohash == 0:
-            self.key = np.array(range(self.mem_max), dtype='int32')
+        #if self.dohash == 0:
+        #    self.key = np.array(range(self.mem_max), dtype='int32')
 
         self.extrap = np.zeros(self.N, dtype='int32')
         cdef double[:,:] XS = np.zeros([self.N, self.D])
@@ -364,46 +366,50 @@ cdef class Tilecode:
         
         XS = self.scale_X(X, self.N, XS)
         self.extrap = self.check_extrap(XS, self.N, self.extrap)
+        
+        if samplegrid:
+            return self.fit_samplegrid(X, XS, self.N, M)
+        else:
 
-        self.fit_tiles(XS, Y)
-        
-        if storeindex:
-            self.datastruct_reverse = np.zeros([self.N, self.L], dtype='int32')
-            self.fit_data_reverse(XS, self.N, self.extrap)
-        
-        self.sgd = 0 
-        if sgd:
-            self.sgd = 1
-            if asgd == True:
-                self.asgd = 1
-                self.wav = np.zeros([self.mem_max])
-            else:
-                self.asgd = 0
-            self.eta = eta 
-            self.scale = scale 
+            self.fit_tiles(XS, Y)
             
-            self.tempidx = np.zeros(self.L, dtype='int32')
-            self.fit_sgd(XS, Y, eta, scale, n_iters, self.asgd)
-            self.wav = np.zeros([self.mem_max])
-        
-        if self.lin_spline == 1:
-            self.fit_linear(XS, Y)
-        
-        if score:
-            self.R2 = self.score(X, Y)
-            print 'R-squared: ' + str(self.R2)
-        
-        if unsupervised:
-            self.datastruct = np.ones(int(np.sum(self.count) + 10), dtype='int32')
-            self.datahash = np.zeros(self.mem_max, dtype='int32')
-            self.fit_data(XS, np.zeros(self.mem_max, dtype='int32'))
-            self.max_neigh = np.max(self.count) * self.L
+            if storeindex:
+                self.datastruct_reverse = np.zeros([self.N, self.L], dtype='int32')
+                self.fit_data_reverse(XS, self.N, self.extrap)
+            
+            self.sgd = 0 
+            if sgd:
+                self.sgd = 1
+                if asgd == True:
+                    self.asgd = 1
+                    self.wav = np.zeros([self.mem_max])
+                else:
+                    self.asgd = 0
+                self.eta = eta 
+                self.scale = scale 
+                
+                self.tempidx = np.zeros(self.L, dtype='int32')
+                self.fit_sgd(XS, Y, eta, scale, n_iters, self.asgd)
+                self.wav = np.zeros([self.mem_max])
+            
+            if self.lin_spline == 1:
+                self.fit_linear(XS, Y)
+            
+            if score:
+                self.R2 = self.score(X, Y)
+                print 'R-squared: ' + str(self.R2)
+            
+            if unsupervised:
+                self.datastruct = np.ones(int(np.sum(self.count) + 10), dtype='int32')
+                self.datahash = np.zeros(self.mem_max, dtype='int32')
+                self.fit_data(XS, np.zeros(self.mem_max, dtype='int32'))
+                self.max_neigh = np.max(self.count) * self.L
 
-        mem_usage = np.count_nonzero(self.count) / self.mem_max
-        if mem_usage < 0.025:
-            print 'Tilecoding memory usage: ' + str(mem_usage)
-            print 'On average ' + str(np.count_nonzero(self.count)/self.L) + ' of ' + str(self.SIZE) + ' tiles are active per layer'
-        
+            mem_usage = np.count_nonzero(self.count) / self.mem_max
+            if mem_usage < 0.025:
+                print 'Tilecoding memory usage: ' + str(mem_usage)
+                print 'On average ' + str(np.count_nonzero(self.count)/self.L) + ' of ' + str(self.SIZE) + ' tiles are active per layer'
+    
     cdef int[:] check_extrap(self, double[:,:] XS, int N, int[:] extrap):
 
         cdef int i, k
@@ -480,6 +486,92 @@ cdef class Tilecode:
                 for j in range(self.L):
                     idx = getindex(j, i, X, self.D, self.offset, self.flat, self.SIZE, self.dohash, self.mem_max, self.key)
                     self.datastruct_reverse[i, j] = idx
+   
+
+    def fit_samplegrid(self, double[:,:] X, double prop):
+        self.N = X.shape[0]
+        
+        cdef int idx = 0
+        cdef int i, j, k, h
+        cdef int m = 0
+        cdef double dens = 0
+        cdef double[:,:] grid
+        cdef double cmax = 0
+        cdef int cmax_idx = 0
+        cdef int[:] xc = np.zeros([self.N], dtype='int32')
+        cdef double[:] xc_dens = np.zeros([self.N])
+        cdef int[:] xc_count
+        cdef int M = 0
+
+        atemp = np.min(X, axis=0)
+        btemp = np.max(X, axis=0)
+        dtemp = 1 / (btemp - atemp)
+
+        # Memoryviews
+        self.a = atemp
+        self.b = btemp
+        self.d = dtemp
+        
+        # scale X
+        cdef double[:,:] XS = np.zeros([self.N, self.D])
+        XS = self.scale_X(X, self.N, XS)
+
+        # Zero weights
+        self.count = np.zeros([self.mem_max], dtype='int32')
+        xc_count = np.zeros(self.mem_max, dtype='int32')
+        self.key = np.zeros([self.mem_max], dtype='int32')
+        
+        self.datastruct_reverse = np.zeros([self.N, self.L], dtype='int32')
+
+        for i in prange(self.N, num_threads=self.CORES, nogil=True, schedule=guided):
+            for j in range(self.L):
+                idx = getindex(j, i, XS, self.D, self.offset, self.flat, self.SIZE, self.dohash, self.mem_max, self.key)
+                self.datastruct_reverse[i, j] = idx
+                self.count[idx] += 1
+        
+        mem_usage = np.count_nonzero(self.count) / self.mem_max
+        print 'Tilecoding memory usage: ' + str(mem_usage)
+        print 'On average ' + str(np.count_nonzero(self.count)/self.L) + ' of ' + str(self.SIZE) + ' tiles are active per layer'
+        
+        for i in range(self.N):
+            dens = 0
+            for j in range(self.L):
+                idx = self.datastruct_reverse[i, j]
+                dens += xc_count[idx] * self.Linv
+            if dens == 0:
+                xc[m] = i
+                m += 1
+                for j in range(self.L):
+                    idx = self.datastruct_reverse[i, j] 
+                    xc_count[idx] += 1
+        
+        if prop < 1:           
+            M = <int> (prop * m)
+            grid = np.zeros([M, self.D])
+            for h in range(m):  # Predict density
+                i = xc[h]
+                dens = 0
+                for j in range(self.L):
+                    idx = self.datastruct_reverse[i, j]
+                    dens += self.count[idx] * self.Linv
+                xc_dens[h] = dens
+
+            for j in range(M): # Select highest density points
+                cmax = 0
+                for h in range(m):
+                    if xc_dens[h] > cmax:
+                        cmax = xc_dens[h]
+                        cmax_idx = h
+                xc_dens[cmax_idx] = -1
+                for k in range(self.D):
+                    grid[j,k] = X[xc[cmax_idx], k]
+        else:
+            grid = np.zeros([m, self.D])
+            for j in range(m): 
+                for k in range(self.D):
+                    grid[j,k] = X[xc[j], k]
+   
+        return [grid, m]
     
     def predict_quad(self, X):
         
@@ -536,10 +628,10 @@ cdef class Tilecode:
         V = gsl_matrix_alloc(cols, cols)
         S = gsl_vector_alloc(cols)
         beta = gsl_vector_calloc(cols)
-        Xm = gsl_matrix_calloc(10, cols)
+        Xm = gsl_matrix_calloc(self.max_neigh, cols)
         XX = gsl_matrix_calloc(cols, cols)
         Xy = gsl_vector_calloc(cols)
-        y = gsl_vector_calloc(10)
+        y = gsl_vector_calloc(self.max_neigh)
 
         for i in range(N): #, nogil=True, num_threads=self.CORES, schedule=static):
             
@@ -582,6 +674,14 @@ cdef class Tilecode:
                 XX = gsl_matrix_calloc(cols, cols)
                 Xy = gsl_vector_calloc(cols)
                 y = gsl_vector_calloc(n[i])
+                
+                #gsl_matrix_set_zero(V)
+                #gsl_vector_set_zero(S)
+                #gsl_vector_set_zero(beta)
+                #gsl_matrix_set_zero(Xm)
+                #gsl_matrix_set_zero(XX)
+                #gsl_vector_set_zero(Xy)
+                #gsl_vector_set_zero(y)
                 
                 #NN_counter = gsl_vector_view_array(neigh_count, n[i])
                 #gsl_sort_vector_index(NN_counter.vector)
@@ -733,6 +833,50 @@ cdef class Tilecode:
                 n = self.count[i]
                 self.w[i] = self.wav[i] * (n**-1)
 
+    def partial_sgd(self, double[:,:] X, double[:] Y, double eta, double scale, int n_iters, int ASGD):
+
+        cdef int i, j, k, t, it = 0
+        cdef int[:] idxL = self.tempidx
+        cdef int idx = 0
+        cdef double Yhat
+        cdef double y
+        cdef double alpha = 0
+        cdef double error = 0
+        cdef double n = 0
+        cdef double power = (2.0/3.0)
+    
+        cdef int N = X.shape[0]
+        self.count = np.zeros([N, self.mem_max], dtype='int32')
+
+        for it in range(n_iters):
+            t = 0
+            for i in range(N):
+                if self.extrap[i] == 0:
+                    t += 1
+                    alpha =  eta * (((1 +  eta * scale * t)**power)**-1)
+
+                    # predict yhat
+                    y = 0
+                    idx = 0 
+                    for j in range(self.L): 
+                        idx = getindex(j, i, X, self.D, self.offset, self.flat, self.SIZE, self.dohash, self.mem_max, self.key)
+                        self.count[idx] += 1
+                        y += self.w[idx]
+                        idxL[j] = idx
+                    y =  y * self.Linv
+
+                    # compute error
+                    error = (Y[i] - y) * self.Linv
+
+                    for j in range(self.L):
+                        self.w[idxL[j]] += error * alpha
+                        self.wav[idxL[j]] += self.w[idxL[j]]
+                        idxL[j] = 0
+
+        if ASGD == 1:           
+            for i in prange(self.mem_max, nogil=True, num_threads=self.CORES, schedule=guided):
+                n = self.count[i]
+                self.w[i] = self.wav[i] * (n**-1)
 
 
     cdef void fit_linear(self,  double[:,:] X, double[:] Y):
@@ -921,7 +1065,7 @@ cdef class Tilecode:
 
         return [actions, values, state, index]
 
-    def plot(self, xargs=0, showdata=False, label='', showplot=True, quad=False, returndata=False):
+    def plot(self, xargs=0, showdata=True, label='', showplot=True, quad=False, returndata=False):
 
         """
         Plot the function on one dimension
@@ -953,7 +1097,7 @@ cdef class Tilecode:
             pylab.plot(X, Y, 'o', Xsmooth, Ysmooth)
         else:
             k = x.index('x')
-            Xsmooth = np.linspace(self.a[k], self.b[k], 200)
+            Xsmooth = np.linspace(self.a[k], self.b[k]*1.2, 200)
 
             xpoints = np.ones([200, self.D])
             xpoints[:, k]  = 1
@@ -963,7 +1107,10 @@ cdef class Tilecode:
                 xpoints[:, i] = xpoints[:, i] * x[i]
             xpoints[:, k] = Xsmooth
             if quad:
+                tic = time.time()
                 Ysmooth = self.predict_quad(xpoints)
+                toc = time.time()
+                print 'Quad time: ' + str(toc-tic)
             else:
                 Ysmooth = self.predict(xpoints)
             idx = Ysmooth != 0
@@ -1006,15 +1153,22 @@ cdef class Tilecode:
             values[i] = predict(self.D, i, XS, 0, self.Tinv, self.offset, self.flat, self.Linv, self.w, self.count, self.min_sample, self.lin_spline, self.lin_w, self.lin_c, self.lin_T, self.SIZE, self.L, self.dohash, self.mem_max, self.key)
     
         return values
-    
-    cdef double[:] N_values_policy(self, double[:,:] X, int N, double[:] values):
+
+
+    cdef double[:] N_values_policy(self, double[:,:] X, int N, double[:] values, int[:] extrap):
         
         cdef int i, k
+        cdef double xs, xmax
         
         for i in range(N):
             for k in range(self.D):
-                X[i, k] = ((X[i, k] - self.a[k]) * self.d[k]) * self.T[k]
-            values[i] = predict(self.D, i, X, 0, self.Tinv, self.offset, self.flat, self.Linv, self.w, self.count, self.min_sample, self.lin_spline, self.lin_w, self.lin_c, self.lin_T, self.SIZE, self.L, self.dohash, self.mem_max, self.key)
+                xs = ((X[i, k] - self.a[k]) * self.d[k]) * self.T[k]
+                xmax = self.T[k] + 0.0001
+                if xs < -0.0001 or xs > xmax:
+                    extrap[i] = 1
+                X[i, k] = xs
+
+            values[i] = predict(self.D, i, X, extrap[i], self.Tinv, self.offset, self.flat, self.Linv, self.w, self.count, self.min_sample, self.lin_spline, self.lin_w, self.lin_c, self.lin_T, self.SIZE, self.L, self.dohash, self.mem_max, self.key)
     
         return values
     
@@ -1221,7 +1375,6 @@ cdef class Function_Group:
         #cdef double Linv = self.Linv
         #cdef int D = self.D
 
-        cdef int flat = self.flat[0]
         cdef int T = self.T[0]
 
         for i in range(self.N):
@@ -1239,8 +1392,8 @@ cdef class Function_Group:
                 for j in range(self.L):
                     idx = 0
                     for k in range(self.D):
-                        idx +=  c_int(xs[k] + self.offset[j, k]) #* flat
-                    idx *= flat
+                        idx +=  c_int(xs[k] + self.offset[j, k]) * self.flat[k]
+                    
                     idx += self.SIZE * j
                     
                     if self.count[i, idx] > 0:
@@ -1271,7 +1424,7 @@ cdef class Function_Group:
         
         return values
 
-    def plot(self, xargs=0, showdata=False, label='', showplot=True):
+    def plot(self, xargs=0, showdata=True, label='', showplot=True):
         
         """
         Plot all the user functions on one dimension

@@ -5,6 +5,7 @@ import numpy as np
 cimport cython
 cimport numpy as np
 import pylab
+from tile_wrapper import TilecodeSamplegrid
 
 cdef extern from "math.h":
     double c_min "fmin" (double, double)
@@ -28,6 +29,9 @@ def buildgrid(double[:,:] x, int M, double radius, scale = False, stopnum = 1000
     ============
 
     """
+
+    import time
+    tic = time.time()
 
     cdef int N = x.shape[0]
     cdef int D = x.shape[1]
@@ -89,7 +93,8 @@ def buildgrid(double[:,:] x, int M, double radius, scale = False, stopnum = 1000
         else:
             xc_counter[j_star] += 1
             stop_counter += 1 
-        if stop_counter > stop_num and m > M:
+        if stop_counter > stop_num: #and m > M:
+            print 'Stopped after: ' + str(i) + ' of ' + str(N) + ' points.'
             break
     
     M = <int> c_min(M, m)
@@ -109,12 +114,17 @@ def buildgrid(double[:,:] x, int M, double radius, scale = False, stopnum = 1000
             for k in range(D):
                 grid[j,k] = xc[cmax_idx, k]
     
+    toc = time.time()
+    print 'State grid points: ' + str(grid.shape[0]) + ', of maximum: ' + str(m) + ', Time taken: ' + str(toc - tic)
+    
     return [np.asarray(grid), m]
 
+def test(L, size, M, ra):
+    
+    import pylab
+    import time
 
-def test():
-
-    pylab.ioff()
+    #pylab.ioff()
     fig_width_pt = 350 			     # Get this from LaTeX using \showthe\columnwidth
     inches_per_pt = 1.0/72.27                # Convert pt to inch
     golden_mean = ((5**0.5)-1.0)/2.0         # Aesthetic ratio
@@ -135,27 +145,58 @@ def test():
     out = '/Dropbox/Thesis/IMG/chapter8/'
     img_ext = '.pdf'
     
-    pylab.rcParams.update(params)
-    x1 = np.random.normal(size=10000)
-    x2 = np.random.normal(size=10000)
+    #pylab.rcParams.update(params)
+    x1 = np.random.normal(size=size)
+    x2 = np.random.normal(size=size)
     X = np.array([x1, x2]).T
+    pylab.scatter(x1, x2)
+    #pylab.ylim(-4, 4)
+    #pylab.xlim(-4, 4)
+    #pylab.savefig(home + out + 'scatter.pdf', bbox_inches='tight')
+    pylab.show()
+    grid, m = buildgrid(X, M, 0.4, scale=False, stopnum=100000)
+    pylab.scatter(grid[:,0], grid[:, 1])
+    #pylab.ylim(-4, 4)
+    #pylab.xlim(-4, 4)
+    #pylab.savefig(home + out + 'approx_grid.pdf', bbox_inches='tight')
+    pylab.show()
+
+    #tic = time.time() 
+    #grid, m = buildgrid(X, 100, 0.4, scale=False, stopnum=size)
+    #toc = time.time()
+    #print str(toc-tic)
+    #print m
+    #pylab.scatter(grid[:,0], grid[:, 1])
+    #pylab.ylim(-4, 4)
+    #pylab.xlim(-4, 4)
+    #pylab.savefig(home + out + 'grid.pdf', bbox_inches='tight')
+    #pylab.show()
+    
+    a = np.min(X, axis=0)
+    b = np.max(X, axis=0)
+    r = 0.4 / (max(b) - min(a)) * ra
+    print 'radius: ' + str(r)
+     
+    #from tilecode import Tilecode
+
+    #tile = Tilecode(2, [Tr, Tr] , L, mem_max =1 , cores=2, offset = off) 
+    
+    tile = TilecodeSamplegrid(2, L, mem_max=1, cores=4)
+    
+    tic = time.time()
+    grid = tile.fit(X, r, M)
+    toc = time.time()
+    print str(toc - tic)
+    print tile.max_points
+    pylab.scatter(grid[:,0], grid[:, 1])
+    pylab.ylim(-4, 4)
+    pylab.xlim(-4, 4)
+    #pylab.savefig(home + out + 'tilegrid.pdf', bbox_inches='tight')
+    pylab.show()
+
     pylab.scatter(x1, x2)
     pylab.ylim(-4, 4)
     pylab.xlim(-4, 4)
-    pylab.savefig(home + out + 'scatter.pdf', bbox_inches='tight')
+    #pylab.savefig(home + out + 'scatter.pdf', bbox_inches='tight')
     pylab.show()
-
-    grid, m = buildgrid(X, 100, 0.4, scale=False, stopnum=2000)
-    pylab.scatter(grid[:,0], grid[:, 1])
-    pylab.ylim(-4, 4)
-    pylab.xlim(-4, 4)
-    pylab.savefig(home + out + 'approx_grid.pdf', bbox_inches='tight')
-    pylab.show()
-
-    grid, m = buildgrid(X, 100, 0.4, scale=False, stopnum=10000)
-    pylab.scatter(grid[:,0], grid[:, 1])
-    pylab.ylim(-4, 4)
-    pylab.xlim(-4, 4)
-    pylab.savefig(home + out + 'grid.pdf', bbox_inches='tight')
-    pylab.show()
-
+    return tile

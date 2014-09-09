@@ -75,6 +75,7 @@ cdef class Users:
     
     cdef public int test_idx
     cdef public int testing
+    cdef public int test_explore
 
     cdef public double trade
     cdef double c_pi
@@ -83,6 +84,7 @@ cdef class Users:
     cdef double[:] state_single_zero 
     cdef double[:,:] state_planner_zero
     cdef double[:] N_zeros
+    cdef int[:] N_ints
 
     cdef public int init
     cdef double delta1a

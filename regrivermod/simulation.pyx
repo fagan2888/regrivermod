@@ -45,6 +45,18 @@ cdef extern from "stdlib.h":
 cdef extern from "fast_floattoint.h":
     int c_int "Real2Int" (double)
 
+cdef extern from "math.h":
+    double c_log "log" (double)
+
+cdef extern from "math.h":
+    double c_exp "exp" (double)
+
+cdef extern from "math.h":
+    double c_sin "sin" (double)
+
+cdef extern from "math.h":
+    double c_cos "cos" (double)
+
 def retry_on_eintr(function, *args, **kw):
     while True:
         try:
@@ -89,6 +101,14 @@ def run_sim(int job, int T, int stats, Users users, Storage storage, Utility uti
         X1_h = np.zeros([N_e_h, T, 4])
         u_t_l = np.zeros([N_e_l, T])
         u_t_h = np.zeros([N_e_h, T])
+    elif users.test_explore == 1:
+        XA_l = np.zeros([1, T, 5])
+        X1_l = np.zeros([1, T, 4])
+        XA_h = np.zeros([1, T, 5])
+        X1_h = np.zeros([1, T, 4])
+        u_t_l = np.zeros([1, T])
+        u_t_h = np.zeros([1, T])
+
 
     cdef double[:] W_sim = np.zeros(T)
     cdef double[:] Q_sim = np.zeros(T)
@@ -108,7 +128,14 @@ def run_sim(int job, int T, int stats, Users users, Storage storage, Utility uti
     cdef double S1
     cdef double I1
 
-    cdef double test_payoff = 0
+    cdef double[:] test_payoff = np.zeros(T)
+    cdef int record_state = 1
+
+    if users.testing == 1 and users.test_explore == 0:
+        record_state = 0
+    elif stats == 1:
+        record_state = 0
+
 
     cdef double I_tilde 
     cdef int t = 0
@@ -128,15 +155,15 @@ def run_sim(int job, int T, int stats, Users users, Storage storage, Utility uti
         
         # Users make withdrawals 
         users.withdraw(storage.S, utility.s, I_tilde)
-
+        
         W_sim[t] = utility.release(users.w, storage.S)
         users.a[...] = utility.a
         
-        if users.testing == 0:
+        if record_state == 1: 
             ##########  Record user state and action pairs [w, S, s, e, I] ###########
             for i in range(N_e_l):
                 idx = I_e_l[i]
-                XA_l[i, t, 0] = users.w_scaled[idx]
+                XA_l[i, t, 0] = users.w[idx]
                 XA_l[i, t, 1] = S_sim[t]
                 XA_l[i, t, 2] = utility.s[idx]
                 XA_l[i, t, 3] = users.e[idx]
@@ -144,7 +171,7 @@ def run_sim(int job, int T, int stats, Users users, Storage storage, Utility uti
             
             for i in range(N_e_h):
                 idx = I_e_h[i]
-                XA_h[i, t, 0] = users.w_scaled[idx]
+                XA_h[i, t, 0] = users.w[idx]
                 XA_h[i, t, 1] = S_sim[t]
                 XA_h[i, t, 2] = utility.s[idx]
                 XA_h[i, t, 3] = users.e[idx]
@@ -168,7 +195,7 @@ def run_sim(int job, int T, int stats, Users users, Storage storage, Utility uti
             X_high_sim[t] = users.X_high
         
         if users.testing == 1:
-            test_payoff += users.profit[users.test_idx] 
+            test_payoff[t] = users.profit[users.test_idx] 
 
         ### State transition ###
 
@@ -182,7 +209,7 @@ def run_sim(int job, int T, int stats, Users users, Storage storage, Utility uti
         # New productivity shocks
         users.update()
 
-        if users.testing == 0:
+        if record_state == 1:
             ############### Record state transition [S1, s1, e1, I1] and payoff #####
             for i in range(N_e_l):
                 idx = I_e_l[i]
@@ -199,19 +226,20 @@ def run_sim(int job, int T, int stats, Users users, Storage storage, Utility uti
                 X1_h[i, t, 3] = I1_tilde
                 u_t_h[i, t] = users.profit[idx]
             #########################################################################
-    
+
     if stats == 1:
-        data = {'XA_l': np.asarray(XA_l), 'X1_l' : np.asarray(X1_l), 'u_t_l' : np.asarray(u_t_l), 'XA_h': np.asarray(XA_h), 'X1_h' : np.asarray(X1_h), 'u_t_h' : np.asarray(u_t_h), 'W': np.asarray(W_sim), 'SW': np.asarray(SW_sim), 'S': np.asarray(S_sim), 'I': np.asarray(I_sim),  'Z': np.asarray(Z_sim), 'U_low' : np.asarray(U_low_sim) , 'U_high' : np.asarray(U_high_sim), 'W_low' : np.asarray(W_low_sim) , 'W_high' : np.asarray(W_high_sim), 'S_low' : np.asarray(S_low_sim) , 'S_high' : np.asarray(S_high_sim), 'X_low' : np.asarray(X_low_sim) , 'X_high' : np.asarray(X_high_sim), 'P' : np.asarray(P_sim),  'Q' : np.asarray(Q_sim)}
+        data = {'W': np.asarray(W_sim), 'SW': np.asarray(SW_sim), 'S': np.asarray(S_sim), 'I': np.asarray(I_sim),  'Z': np.asarray(Z_sim), 'U_low' : np.asarray(U_low_sim) , 'U_high' : np.asarray(U_high_sim), 'W_low' : np.asarray(W_low_sim) , 'W_high' : np.asarray(W_high_sim), 'S_low' : np.asarray(S_low_sim) , 'S_high' : np.asarray(S_high_sim), 'X_low' : np.asarray(X_low_sim) , 'X_high' : np.asarray(X_high_sim), 'P' : np.asarray(P_sim),  'Q' : np.asarray(Q_sim)}
     else:
-        if users.testing == 0:
+        if record_state == 1:
             data = {'XA_l': np.asarray(XA_l), 'X1_l' : np.asarray(X1_l), 'u_t_l' : np.asarray(u_t_l), 'XA_h': np.asarray(XA_h), 'X1_h' : np.asarray(X1_h), 'u_t_h' : np.asarray(u_t_h), 'W': np.asarray(W_sim), 'SW': np.asarray(SW_sim), 'S': np.asarray(S_sim), 'I': np.asarray(I_sim),  'Z': np.asarray(Z_sim), 'P' : np.asarray(P_sim), 'Q' : np.asarray(Q_sim)}
         else:
-            data = {'test' : test_payoff/T}    
+            data = {'test' : np.asarray(test_payoff)}    
     
     if multi:
         que.put(data)
     else:
         return data 
+
 
 def run_planner_sim(int job, int T, Users users, Storage storage, Utility utility, Tilecode policy, double delta,  int planner, int explore, q, seed, multi = True, myopic = False):
 
@@ -254,6 +282,9 @@ def run_planner_sim(int job, int T, Users users, Storage storage, Utility utilit
 
     cdef Tilecode perf_market = users.perf_market
 
+    cdef double U, V, Z
+    cdef double c_pi = math.pi
+    cdef int i
     if delta > 0:
         finetune = 1
 
@@ -282,13 +313,23 @@ def run_planner_sim(int job, int T, Users users, Storage storage, Utility utilit
                 state[0] = storage.S
                 state[1] = I_tilde
                 w_star = policy.one_value(state)
-                ran = c_rand()
-                w_min = c_fmax(w_star - delta * storage.S, 0)
-                w_max = c_fmin(w_star + delta * storage.S, storage.S)
-                W_sim[t] = w_min + ran * (w_max - w_min)
+                #ran = c_rand()
+                #w_min = c_fmax(w_star - delta * storage.S, 0)
+                #w_max = c_fmin(w_star + delta * storage.S, storage.S)
+                #for i in range(100000):
+                U = c_rand()
+                V = c_rand()
+                Z = ((-2 * c_log(U))**0.5)*c_cos(2*c_pi*V)
+                W_sim[t] = c_fmin(c_fmax(Z * (delta * storage.S) + w_star, 0), storage.S)
+                #    if W_sim[t] < storage.S and W_sim[t] > 0:
+                #        break
+                #    Z = ((-2 * c_log(U))**0.5)*c_sin(2*c_pi*V)
+                #    W_sim[t] = Z * (delta * storage.S) + w_star
+                #    if W_sim[t] < storage.S and W_sim[t] > 0:
+                #        break
 
                 ##########  Record state and action pairs [W, S, I,] ###########
-                XA[t, 0] = ran
+                XA[t, 0] = W_sim[t]
                 XA[t, 1] = S_sim[t]
                 XA[t, 2] = I_tilde
                 ###############################################################
@@ -340,8 +381,8 @@ class Simulation:
     "Decentralised model simulation class"
 
     def __init__(self, para):
-        
-        self.percentiles = False              # Don't calculate percentile stats unless asked
+       
+        self.sample_rate = para.sample_rate
 
         self.N = para.N                       # Number of users
         self.beta = para.beta                 # Discount rate
@@ -354,21 +395,21 @@ class Simulation:
         self.stats = {}
         names  = ['Mean', 'SD', '25th', '75th', '2.5th', '97.5th', 'Min', 'Max']
         formats = ['f4','f4','f4','f4','f4','f4','f4','f4']
-        self.stats['S'] = np.zeros(para.ITER2 + 3, dtype={'names':names, 'formats':formats})
-        self.stats['W'] = np.zeros(para.ITER2 + 3, dtype={'names':names, 'formats':formats})
-        self.stats['I'] = np.zeros(para.ITER2 + 3, dtype={'names':names, 'formats':formats})
-        self.stats['SW'] = np.zeros(para.ITER2 + 3, dtype={'names':names, 'formats':formats})
-        self.stats['Z'] = np.zeros(para.ITER2 + 3, dtype={'names':names, 'formats':formats})
-        self.stats['U_low'] = np.zeros(para.ITER2 + 3, dtype={'names':names, 'formats':formats})
-        self.stats['U_high'] = np.zeros(para.ITER2 + 3, dtype={'names':names, 'formats':formats})
-        self.stats['W_low'] = np.zeros(para.ITER2 + 3, dtype={'names':names, 'formats':formats})
-        self.stats['W_high'] = np.zeros(para.ITER2 + 3, dtype={'names':names, 'formats':formats})
-        self.stats['S_low'] = np.zeros(para.ITER2 + 3, dtype={'names':names, 'formats':formats})
-        self.stats['S_high'] = np.zeros(para.ITER2 + 3, dtype={'names':names, 'formats':formats})
-        self.stats['X_low'] = np.zeros(para.ITER2 + 3, dtype={'names':names, 'formats':formats})
-        self.stats['X_high'] = np.zeros(para.ITER2 + 3, dtype={'names':names, 'formats':formats})
-        self.stats['P'] = np.zeros(para.ITER2 + 3, dtype={'names':names, 'formats':formats})
-        self.stats['Q'] = np.zeros(para.ITER2 + 3, dtype={'names':names, 'formats':formats})
+        self.stats['S'] = np.zeros(para.ITER2 + 4, dtype={'names':names, 'formats':formats})
+        self.stats['W'] = np.zeros(para.ITER2 + 4, dtype={'names':names, 'formats':formats})
+        self.stats['I'] = np.zeros(para.ITER2 + 4, dtype={'names':names, 'formats':formats})
+        self.stats['SW'] = np.zeros(para.ITER2 + 4, dtype={'names':names, 'formats':formats})
+        self.stats['Z'] = np.zeros(para.ITER2 + 4, dtype={'names':names, 'formats':formats})
+        self.stats['U_low'] = np.zeros(para.ITER2 + 4, dtype={'names':names, 'formats':formats})
+        self.stats['U_high'] = np.zeros(para.ITER2 + 4, dtype={'names':names, 'formats':formats})
+        self.stats['W_low'] = np.zeros(para.ITER2 + 4, dtype={'names':names, 'formats':formats})
+        self.stats['W_high'] = np.zeros(para.ITER2 + 4, dtype={'names':names, 'formats':formats})
+        self.stats['S_low'] = np.zeros(para.ITER2 + 4, dtype={'names':names, 'formats':formats})
+        self.stats['S_high'] = np.zeros(para.ITER2 + 4, dtype={'names':names, 'formats':formats})
+        self.stats['X_low'] = np.zeros(para.ITER2 + 4, dtype={'names':names, 'formats':formats})
+        self.stats['X_high'] = np.zeros(para.ITER2 + 4, dtype={'names':names, 'formats':formats})
+        self.stats['P'] = np.zeros(para.ITER2 + 4, dtype={'names':names, 'formats':formats})
+        self.stats['Q'] = np.zeros(para.ITER2 + 4, dtype={'names':names, 'formats':formats})
         
         # Data series
         self.series = {'S' : 0, 'W' : 0, 'I' : 0, 'SW' : 0, 'Z' : 0, 'P' : 0, 'Q' : 0} 
@@ -377,72 +418,153 @@ class Simulation:
         self.p_series = {'S' : 0, 'W' : 0, 'I' : 0, 'SW' : 0, 'Z' : 0, 'U_low' : 0, 'U_high' : 0, 'Q' : 0} 
         
         self.ITER = 0
+        self.S = np.zeros(para.ITER2 + 4)
+
+    def test_sim(self, int T, Users users, Storage storage, Utility utility, Tilecode market_d):
+        
+        users.seed(0)
+        storage.seed(0)
+        
+        # Representative user explorers 
+        cdef int[:] I_e_l = users.I_e_l 
+        cdef int[:] I_e_h = users.I_e_h 
+        cdef int N_e_l = users.N_e #len(I_e_l)
+        cdef int N_e_h = users.N_e #len(I_e_h)
+        cdef int N_e = N_e_l + N_e_h
 
 
-    def stack_sims(self, data, planner = False, stats=False, solve_planner = True, testing=0):
+        cdef double[:] W_sim = np.zeros(T)
+        cdef double[:] Q_sim = np.zeros(T)
+        cdef double[:] SW_sim = np.zeros(T)
+        cdef double[:] S_sim = np.zeros(T)
+        cdef double[:] I_sim = np.zeros(T)
+        cdef double[:] Z_sim = np.zeros(T)
+        cdef double[:] P_sim = np.zeros(T)
+
+        cdef double I_tilde 
+        cdef int t = 0
+        cdef int i = 0
+        cdef int idx
+
+        storage.precompute_I_shocks(T)
+
+        # Run simulation
+        for t in range(T):
+            
+            print '-------------------------------------------------'
+            print 'Time: ' + str(t)
+
+            # Initial state
+            S_sim[t] = storage.S
+            I_sim[t] = storage.I
+            Z_sim[t] = storage.Spill 
+            I_tilde = I_sim[t] * (storage.I_bar**-1)
+            
+            print 'Storage: ' + str(S_sim[t])
+            print 'Inflow: ' + str(I_sim[t])
+            print 'Spill: ' + str(Z_sim[t])
+            
+            print 'User accounts: ' + str(np.array(utility.s))
+            print 'User account sum: ' + str(np.sum(utility.s))
+
+            # Users make withdrawals 
+            users.withdraw(storage.S, utility.s, I_tilde)
+            
+            print 'User withdrawals: ' + str(np.array(users.w))
+            print 'User withdrawal sum: ' + str(np.sum(users.w))
+            
+            W_sim[t] = utility.release(users.w, storage.S)
+            users.a[...] = utility.a
+            print 'Withdrawals: ' + str(W_sim[t])
+            print 'User allocations: ' + str(np.array(users.a))
+            
+            # Water is delivered and spot market opens
+            P_sim[t] = users.clear_market(I_tilde, market_d, 0)
+            SW_sim[t] = users.consume(P_sim[t], I_tilde, 0)
+            
+            print 'Price: ' + str(P_sim[t])
+            print 'Welfare: ' + str(SW_sim[t])
+
+            ### State transition ###
+
+            # New Inflows
+            storage.update(W_sim[t], t)
+
+            print 'Storage: ' + str(S_sim[t])
+            print 'Inflow: ' + str(I_sim[t])
+            print 'Spill: ' + str(Z_sim[t])
+            # User accounts are updated
+            utility.update_test(storage.S, storage.I, storage.Loss, storage.Spill, users.w, 0)
+
+            # New productivity shocks
+            users.update()
+
+            import pdb; pdb.set_trace()
+
+    def stack_sims(self, data, planner = False, stats=False, solve_planner = True, testing=False, partial=False):
         """
         Combine simulation data from multiple processes
         """
         
-        if testing == 1:
-            test_array = np.array([d['test'] for d in data])
-            test_payoff = np.mean(test_array)
-            if test_payoff > 0:
-                print 'Test user welfare: ' + str(test_payoff)
-                self.test_payoff = test_payoff
+        if planner:
+            if solve_planner: 
+                self.XA_t = np.vstack(d['XA'] for d in data)
+                self.X_t1 = np.vstack(d['X1'] for d in data)
+                self.series = self.p_series
+            
+            for x in self.series:
+                self.series[x] = np.hstack(d[x] for d in data)  
+            self.T = len(self.series['S'])
+            self.summary_stats(sample = 1, percentiles = stats)
         else:
-            if planner:
-                if solve_planner: 
-                    self.XA_t = np.vstack(d['XA'] for d in data)
-                    self.X_t1 = np.vstack(d['X1'] for d in data)
-                    self.series = self.p_series
-                
-                for x in self.series:
-                    self.series[x] = np.hstack(d[x] for d in data)  
-                self.T = len(self.series['S'])
-                if stats:
-                    self.summary_stats(sample = 1)
+            if testing:
+                test_array = np.hstack([d['test'] for d in data])
+                test_payoff = np.mean(test_array)
+                print 'Test user welfare, mean: ' + str(test_payoff)
+                print 'Test user welfare, min: ' + str(np.min(test_array))
+                print 'Test user welfare, max: ' + str(np.max(test_array))
+                print 'Test user welfare, SD: ' + str(np.var(test_array)**0.5)
+                self.test_payoff = test_payoff
             else:
                 if stats:
                     self.series = self.full_series
+                    for x in self.series:
+                        self.series[x] = np.hstack(d[x] for d in data)  
                 else:
-                    self.series = self.series_old
-                
-                for x in self.series:
-                    self.series[x] = np.hstack(d[x] for d in data)  
-                
+                    for x in self.series:
+                        self.series[x] = np.hstack(d[x] for d in data)  
+                    
+                    group = ['_l', '_h']
+                    if not(partial):
+                        self.XA_t = [0,0]       # State action samples
+                        self.X_t1 = [0,0]       # State transition samples
+                        self.u_t = [0,0]        # Payoff samples
+                    for h in range(2):
+                        XA_t = np.hstack(d['XA' + group[h]] for d in data)
+                        X_t1 = np.hstack(d['X1' + group[h]] for d in data)
+                        u_t = np.hstack(d['u_t' + group[h]] for d in data)
+                        N_e = XA_t.shape[0]
+                        if N_e > 0:
+                            XA_t = np.vstack(XA_t[i,:,:] for i in range(N_e))
+                            X_t1 = np.vstack(X_t1[i,:,:] for i in range(N_e))
+                            u_t = np.hstack(u_t[i,:] for i in range(N_e))
+                        if partial:
+                            N1 = self.u_t[0].shape[0]
+                            N2 = u_t.shape[0]
+                            sample = np.random.choice(range(N1), size=N2, replace=False)
+                            self.XA_t[h][sample, :] = XA_t 
+                            self.X_t1[h][sample, :] = X_t1 
+                            self.u_t[h][sample] = u_t
+                        else: 
+                            self.XA_t[h] = XA_t 
+                            self.X_t1[h] = X_t1 
+                            self.u_t[h] = u_t
 
                 self.T = len(self.series['S'])
-                if stats:
-                    self.summary_stats(sample = 1)
-
-                ####### Q-learning data
-                
-                #Q-learning data
-                self.XA_t = [0,0]       # State action samples
-                self.X_t1 = [0,0]       # State transition samples
-                self.u_t = [0,0]        # Payoff samples
-
-                self.XA_t[0] = np.hstack(d['XA_l'] for d in data)
-                self.X_t1[0] = np.hstack(d['X1_l'] for d in data)
-                self.u_t[0] = np.hstack(d['u_t_l'] for d in data)
-                N_e_l = self.XA_t[0].shape[0]
-                if N_e_l > 0:
-                    self.XA_t[0] = np.vstack(self.XA_t[0][i,:,:] for i in range(N_e_l))
-                    self.X_t1[0] = np.vstack(self.X_t1[0][i,:,:] for i in range(N_e_l))
-                    self.u_t[0] = np.hstack(self.u_t[0][i,:] for i in range(N_e_l))
-                self.XA_t[1] = np.hstack(d['XA_h'] for d in data)
-                self.X_t1[1] = np.hstack(d['X1_h'] for d in data)
-                self.u_t[1] = np.hstack(d['u_t_h'] for d in data)
-                N_e_h = self.XA_t[1].shape[0]
-                if N_e_h > 0: 
-                    self.XA_t[1] = np.vstack(self.XA_t[1][i,:,:] for i in range(N_e_h))
-                    self.X_t1[1] = np.vstack(self.X_t1[1][i,:,:] for i in range(N_e_h))
-                    self.u_t[1] = np.hstack(self.u_t[1][i,:] for i in range(N_e_h))
-        
+                self.summary_stats(sample = 1, percentiles=stats)
             self.ITER +=1 
     
-    def summary_stats(self, sample = 0.5):
+    def summary_stats(self, sample = 0.5, percentiles=False):
         
         tic = time.time()
         N = int(sample * self.T)
@@ -452,7 +574,7 @@ class Simulation:
             self.stats[x]['SD'][self.ITER] = np.std(self.series[x])
             self.stats[x]['Min'][self.ITER] = np.min(self.series[x])
             self.stats[x]['Max'][self.ITER] = np.max(self.series[x])
-            if self.percentiles:
+            if percentiles:
                 self.stats[x]['25th'][self.ITER] = np.percentile(self.series[x][0:N], 25)
                 self.stats[x]['75th'][self.ITER] = np.percentile(self.series[x][0:N], 75)
                 self.stats[x]['2.5th'][self.ITER] = np.percentile(self.series[x][0:N], 2.5)
@@ -477,6 +599,7 @@ class Simulation:
         ques = [RetryQueue() for i in range(num_process)]
 
         if planner:
+            self.planner = True
             if t_cost_off:
                 tc_off = 1
             else:
@@ -495,6 +618,9 @@ class Simulation:
             for j in jobs: j.join()
         
         else:
+            if self.planner == True:
+                self.planner = False
+                self.series = self.series_old
             if num_process == 1:
                 datalist.append(run_sim(0, T, st, users, storage, utility, users.market_d, 0, False))
             else:
@@ -509,7 +635,11 @@ class Simulation:
         print 'Simulation time: ' + str(round(toc - tic,2))
         
         tic1 = time.time()
-        self.stack_sims(datalist, planner = planner, stats = stats, solve_planner = planner_explore, testing = users.testing)
+        if users.testing == 1 and users.test_explore == 0:
+            testing = True
+        else:
+            testing = False
+        self.stack_sims(datalist, planner = planner, stats = stats, solve_planner = planner_explore, testing=testing, partial=partial)
         toc1 = time.time()
        
         del datalist
@@ -520,4 +650,13 @@ class Simulation:
             print 'Inflow mean: ' + str(np.mean(self.series['I'])) 
             print 'Withdrawal mean: ' + str(np.mean(self.series['W']))  
             print 'Welfare mean: ' + str(np.mean(self.series['SW']))
+        
+        if self.ITER <=2:
+            self.S[self.ITER - 1] = np.mean(self.series['S'])
+        else:
+            self.S[self.ITER - 1] = np.mean(self.series['S']) * self.sample_rate + (1 - self.sample_rate) * self.S[self.ITER - 2]
+
+        if self.ITER > 1:
+            pylab.plot(self.S[0:self.ITER])
+            pylab.show()
 

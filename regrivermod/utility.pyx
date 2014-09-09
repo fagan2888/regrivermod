@@ -35,7 +35,8 @@ cdef inline double[:] storage_loss(int N, double L, double[:] s, double[:] w, do
     cdef double temp_sum_s = 0
     
     if ls == 0:
-        loss[i] = L * c_F[i] 
+        for i in range(N):
+            loss[i] = L * c_F[i] 
     else:    
         for i in range(N):
             
@@ -64,6 +65,11 @@ cdef inline double[:] calc_x(int N, double[:] s, double[:] acc_max, double[:] c_
             else:
                 J[i] = 0
                 maxx[i] = 0
+        
+        for i in range(N):
+            if J[i] == 1:
+                x[i] += c_max(c_min((c_F[i] / sumc_F ) * diff, maxx[i]), minx[i])
+    
     if diff < 0:
         for i in range(N):
             if s[i] > 0: 
@@ -73,10 +79,10 @@ cdef inline double[:] calc_x(int N, double[:] s, double[:] acc_max, double[:] c_
             else:
                 J[i] = 0
                 minx[i] = 0
-
-    for i in range(N):
-        if J[i] == 1:
-            x[i] += c_max(c_min((c_F[i] / sumc_F ) * diff, maxx[i]), minx[i])
+        
+        for i in range(N):
+            if J[i] == 1:
+                x[i] += c_max(c_min((c_F[i] / sumc_F ) * diff, maxx[i]), minx[i])
 
     return x
 
@@ -294,7 +300,7 @@ cdef class Utility:
                     s = update_accounts(self.N, self.s, w, self.l, self.x, self.acc_max, lamI, s) 
                 elif self.sr == 2:                  # OA
                     for i in range(self.N):
-                        self.x[i] = Spill * self.c_F[i] 
+                        self.x[i] = -Spill * self.c_F[i] 
                     s = update_accounts(self.N, self.s, w, self.l, self.x, self.acc_max, lamI, s)
                 elif self.sr == 4:                  # CS-SWA
                     lamI_Spill  = allocate(self.N, self.N_low, I - Spill, self.HL, self.c_F, self.Lambda_high, self.A_bar, lamI)
@@ -404,7 +410,7 @@ cdef class Utility:
                     s = update_accounts(self.N, self.s, w, self.l, self.x, self.acc_max, lamI, s) 
                 elif self.sr == 2:                  # OA
                     for i in range(self.N):
-                        self.x[i] = Spill * self.c_F[i] 
+                        self.x[i] = -Spill * self.c_F[i] 
                     s = update_accounts(self.N, self.s, w, self.l, self.x, self.acc_max, lamI, s)
                 elif self.sr == 4:                  # CS-SWA
                     lamI_Spill  = allocate(self.N, self.N_low, I - Spill, self.HL, self.c_F, self.Lambda_high, self.A_bar, lamI)
@@ -434,6 +440,8 @@ cdef class Utility:
 
             if it == 100:
                 print 'Accounts failed to reconcile!'
+            
+            print 's: ' + str(np.array(s)) 
             
             # Update user accounts
             for i in range(self.N):

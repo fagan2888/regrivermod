@@ -111,9 +111,9 @@ def planner(SW, S, solvetime, myopic):
 def decentralised(SWb):
 
     home = '/home/nealbob'
-    out = '/Dropbox/Thesis/IMG/chapter8/'
+    out = '/Dropbox/Thesis/IMG/chapter8/test/'
     img_ext = '.pdf'
-    table_out = '/Dropbox/Thesis/STATS/chapter8/'
+    table_out = '/Dropbox/Thesis/STATS/chapter8/test/'
 
     # Input data
 
@@ -126,7 +126,7 @@ def decentralised(SWb):
     
     # ======================
 
-    chart = {'OUTFILE' : (home + out + 'decentral_test_high' + img_ext),
+    chart = {'OUTFILE' : (home + out + 'decentral_test_low' + img_ext),
       'YLABEL' : 'User payoff (\$m)',
       'XLABEL' : 'Simulation length (T)'}
 

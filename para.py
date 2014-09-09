@@ -21,11 +21,14 @@ class Para:
             #home = '/users/MAC'
             folder = '/Dropbox/Thesis/STATS/chapter3/'
             folder2 = '/Dropbox/Thesis/STATS/chapter2/'
+            folder7 = '/Dropbox/Thesis/STATS/chapter7/'
             out = '/Dropbox/Thesis/IMG/chapter3/'
+            out7 = '/Dropbox/Thesis/IMG/chapter7/'
             img_ext = '.pdf'
             
             MDB_dams = pandas.read_csv(home + folder + 'MDB_dams.csv')
             AUS_RIVERS = pandas.read_csv(home + folder + 'AUS_RIVERS.csv')
+            OMEGA = pandas.read_csv(home + folder7 + 'omega.csv') 
             
             #MDB_table = pandas.read_csv(home + folder + 'MDB_table.csv')
             #open(home + folder + "MDB_table.tex", "w").write(MDB_table.to_latex(index=False, float_format=lambda x: '%10.1f' % x ))
@@ -299,9 +302,21 @@ class Para:
             self.t_cost_param = np.array([10, 100])
             self.Lambda_high_param = np.array([1, 2])
             self.relative_risk_aversion = np.array([0, 3])
+            
+            #### Summer-Winter model - chapter 7
+            self.ch7_param = {}
+            self.ch7_param['omega_mu'] = [0.7, 0.85]
+            self.ch7_param['omega_sig'] = [0.04, 0.12]
+            self.ch7_param['omega_ab'] = [0.5, 0.95]
+            self.ch7_param['delta_a']= [0.02, 0.06]
+            self.ch7_param['F_bar'] = [2, 3] 
+            self.ch7_param['delta_b'] = [0.3, 0.6]
+            self.ch7_param['delta_Ea'] = [0, 0.1]
+            self.ch7_param['delta_Eb']= [0.1, 0.3]
+            self.ch7_param['delta_R'] = [0, 0.2]
 
-            para_dist = [self.I_K_param, self.SD_I_param, self.rho_param, self.SA_K_param, self.evap_param, self.d_loss_param_a, self.d_loss_param_b,  self.t_cost_param, self.Lambda_high_param, [100, 100], [30, 70], [30, 70], self.theta_mu, self.theta_sig, self.q_bar_limits, self.rho_eps_param, self.sig_eta_param, self.prop_high, self.target_price, self.relative_risk_aversion]
-
+            para_dist = [self.I_K_param, self.SD_I_param, self.rho_param, self.SA_K_param, self.evap_param, self.d_loss_param_a, self.d_loss_param_b,  self.t_cost_param, self.Lambda_high_param, [100, 100], [30, 70], [30, 70], self.theta_mu, self.theta_sig, self.q_bar_limits, self.rho_eps_param, self.sig_eta_param, self.prop_high, self.target_price, self.relative_risk_aversion, self.ch7_param]
+                    
             with open('para_dist.pkl', 'wb') as f:
                 pickle.dump(para_dist, f)
                 f.close()
@@ -345,6 +360,7 @@ class Para:
             self.prop_high      = para_dist[17]
             self.target_price   = para_dist[18]
             self.relative_risk_aversion = para_dist[19] 
+            self.ch7_param      = para_dist[20]
             
     def set_property_rights(self, scenario='CS'):
 
@@ -431,7 +447,7 @@ class Para:
         
         self.K = 1000000
         self.beta = 0.945
-        
+       
         I_K = np.mean(self.I_K_param)
         SD_I = np.mean(self.SD_I_param)
         
@@ -456,6 +472,17 @@ class Para:
         self.theta_I = v / m
         self.k_I = m**2 / v
         
+        #Summer Winter Model parameters - chapter 7
+        #################################################
+        self.ch7 = {}
+        for para in self.ch7_param:
+            self.ch7[para] = np.mean(self.ch7_param[para])
+        
+        self.ch7['delta_Ea'] = self.ch7['delta_Ea'] * self.I_bar
+        self.ch7['delta_a'] = self.ch7['delta_a'] * self.I_bar
+        self.ch7['F_bar'] = self.ch7['F_bar'] * self.I_bar
+        ##################################################
+
         self.alpha = (SA_K*self.K) / (self.K**(2.0/3))
 
         self.delta1a = np.mean(self.d_loss_param_a) * self.I_bar
@@ -594,6 +621,19 @@ class Para:
         self.k_I = m**2 / v
         #print 'theta_I ' + str(self.theta_I)
         #print 'k_I ' + str(self.k_I)
+        
+        #Summer Winter Model parameters - chapter 7
+        #################################################
+        self.ch7 = {}
+        for para in self.ch7_para:
+            a = self.ch7_param[para][0]
+            b = self.ch7_param[para][1]
+            self.ch7[para] = uniform.rvs(loc=a, scale=(b - a))
+
+        self.ch7['delta_Ea'] = self.ch7['delta_Ea'] * self.I_bar
+        self.ch7['delta_a'] = self.ch7['delta_a'] * self.I_bar
+        self.ch7['F_bar'] = self.ch7['F_bar'] * self.I_bar
+        ##################################################
         
         self.alpha = (SA_K*self.K) / (self.K**(2.0/3))
 
@@ -746,14 +786,12 @@ class Para:
         # Simulation sample size
         self.T1 = 50000
 
-        # Max number of sample grid points
-        self.s_points1 = 425
-
-        # Sample grid radius
-        self.s_radius1 = 0.02
+        # Sample grid parameters
+        self.sg_radius1 = 0.02
+        self.sg_points1 = 425
 
         # Stage 2 search range
-        self.policy_delta = 0.2
+        self.policy_delta = 0.16
 
         self.QV_ITER1 = 40
         self.QV_ITER2 = 10
@@ -768,27 +806,33 @@ class Para:
         #       Decentralised model QV learning parameters
         #======================================================
 
-        self.ITER1 = 45             # Initialization stage QV iterations
-        self.ITER2 = 20              # Main learning iterations
+        self.ITER1 = 40             # Initialization stage QV iterations
+        self.ITER2 = 20             # Main learning iterations
         self.iters = 1              # QV iterations per learning iteration 
 
         #Proportion of users to update
-        self.update_rate = [0.12] * 5 + [0.1] * 15 
-        
+        self.update_rate = [0.1] * 5 + [0.1] * 15 
+       
+        #Proportion of sample size to replace each iteration (< 1 implies rolling batch)
+        self.sample_rate = 0.2
+
         # Number of exploring agents per class
-        self.N_e = [5] * 10 + [2] * 10 
+        self.N_e = [5] * 5 + [4] * 5 + [3] * 5 + [2] * 5
 
         # Exploration range
-        self.d = [0] * 5 + [0.5] * 10 + [0.25] * 5 
+        self.d = [0.25] * 5 + [0.2] * 5 + [0.15] * 5 + [0.075] * 5 
 
         # Total sample size, actual sim length = T1 / (2*N_e)
-        self.T2 = 600000
-        
-        # State sample grid radius
-        self.s_radius2 = 0.05
+        self.T2 = 500000 
 
-        # State sample gird max number of points
-        self.s_points2 = 2900
+        # State sample grid parameters
+        self.s_radius2 = 0.045
+        self.s_points2 = 3750
+        self.sg_samp2 = 0.4
+        self.sg_prop = [0.80]*5 + [0.85]*5 + [0.9]*5 + [0.95]*5
+
+        # Number of linear spline knots (for policy and value functions)
+        self.linT = 4
 
     def test(self, prop = 0.1):
 

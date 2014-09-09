@@ -61,7 +61,7 @@ Here's an example, simulating the planner's (SDP) solution (of the model from ch
 econlearn
 ---------
 
-``Econlearn`` is a small machine learning toolkit. Its main purposes is to implement the batch reinforcement learning algorithm: fitted Q-V iteration, using tile coding for function approximation. ``econlearn`` contains a range of fast machine learning algorithms suitable for low (i.e., <10) dimensions.
+``econlearn`` is a small machine learning toolkit. Its main purposes is to implement the batch reinforcement learning algorithm: fitted Q-V iteration, using tile coding for function approximation. ``econlearn`` contains a range of fast machine learning algorithms suitable for low (i.e., <10) dimensions.
 
 ``econlearn`` contains the following files:
 

@@ -42,9 +42,9 @@ chapter6.notrade(results, scenarios, Lambda)
 # With trade - central case 
 #==========================================
 
-scenarios = ['CS-O'] #['RS-HL-O', 'RS-HL', 'RS-O', 'RS', 'CS', 'CS-O', 'CS-HL', 'CS-HL-O']
-results = {'CS-O' : 0} #{'RS-HL-O': 0, 'RS-HL' : 0, 'RS-O' : 0, 'RS' : 0, 'CS' : 0, 'CS-O' : 0} 
-Lambda = {'CS-O' : 0} #{'RS-HL-O': 0, 'RS-HL' : 0, 'RS-O' : 0, 'RS' : 0, 'CS' : 0, 'CS-O' : 0}
+scenarios = ['OA'] #['RS-HL-O', 'RS-HL', 'RS-O', 'RS', 'CS', 'CS-O', 'CS-HL', 'CS-HL-O']
+results = {'OA' : 0} #{'RS-HL-O': 0, 'RS-HL' : 0, 'RS-O' : 0, 'RS' : 0, 'CS' : 0, 'CS-O' : 0} 
+Lambda = {'OA' : 0} #{'RS-HL-O': 0, 'RS-HL' : 0, 'RS-O' : 0, 'RS' : 0, 'CS' : 0, 'CS-O' : 0}
 
 para.central_case(N=100, printp=False)
 

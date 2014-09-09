@@ -7,6 +7,7 @@ from tilecode import Tilecode
 from samplegrid import buildgrid 
 from sklearn.ensemble import ExtraTreesRegressor as Tree
 #from sklearn.ensemble import RandomForestRegressor as Tree
+from tile_wrapper import TilecodeSamplegrid
 
 class QVtile:
 
@@ -24,34 +25,36 @@ class QVtile:
         Action-value function
     """
  
-    def __init__(self, D, T, L, mem_max, ms, maxgrid, radius, para, asgd=False, linT=8):
+    def __init__(self, D, T, L, mem_max, ms, radius, para, asgd=False, linT=6, init=False, W_f=0, V_f=0):
 
         self.Q_f = Tilecode(D + 1, T, L, mem_max, min_sample=ms, cores=para.CPU_CORES)
         
-        Twv = int((1 / radius) / 2)
-        T = [Twv for t in range(D)]
-        L = int(130 / Twv)
-        
-        points = maxgrid
-        self.W_f = Tilecode(D, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=para.CPU_CORES)
-        self.V_f = Tilecode(D, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=para.CPU_CORES)
-        self.maxgrid = maxgrid
         self.radius = radius
-        self.D = D
-
-        self.first = True
         
+        if init:
+            self.W_f = W_f
+            self.V_f = V_f
+            self.first = False
+        else:
+            Twv = int((1 / self.radius) / 2)
+            T = [Twv for t in range(D)]
+            L = int(130 / Twv)
+            self.W_f = Tilecode(D, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=para.CPU_CORES)
+            self.V_f = Tilecode(D, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=para.CPU_CORES)
+            self.first = True
+        
+        self.D = D
         self.beta = para.beta
         self.CORES = para.CPU_CORES
         self.asgd = asgd
+   
 
-    
     def resetQ(self, D, T, L, mem_max, ms):
 
         self.Q_f = Tilecode(D + 1, T, L, mem_max, min_sample=ms, cores=self.CORES)
     
     
-    def iterate(self, XA, X1, u, A_low, A_high, ITER=50, Ascaled=False, plot=True, xargs=[], output=True, a = 0, b = 0, pc_samp=1, maxT=60000):
+    def iterate(self, XA, X1, u, A_low, A_high, ITER=50, Ascaled=False, plot=True, xargs=[], output=True, a = 0, b = 0, pc_samp=1, maxT=60000, eta=0.8, tilesg=False, sg_prop=0.96, sg_samp=1, sg_points=100):
 
         tic = time()
 
@@ -61,14 +64,21 @@ class QVtile:
         T = XA.shape[0]
         
         self.value_error = np.zeros(ITER)
-
-        tic = time()
-        N = X1.shape[0]
-        grid, m = buildgrid(X1, self.maxgrid, self.radius, scale=True, stopnum=700)
+        
+        if not(tilesg):
+            grid, m = buildgrid(X1, sg_points, self.radius, scale=True, stopnum=X1.shape[0])
+        else: 
+            nn = int(X1.shape[0]*sg_samp)
+            tic = time()
+            tile = TilecodeSamplegrid(X1.shape[1], 25, mem_max=0.4, cores=self.CORES)
+            grid = tile.fit(X1[0:nn], self.radius, prop=sg_prop)
+            toc = time()
+            print 'State grid points: ' + str(grid.shape[0]) + ', of maximum: ' + str(tile.max_points) + ', Time taken: ' + str(toc - tic)
+            del tile
+        
         points = grid.shape[0]
-        toc = time()
-        print 'State grid points: ' + str(points) + ', of maximum: ' + str(m) + ', Time taken: ' + str(toc - tic)
 
+        ticfit = time()
         if self.first:
             self.W_f.fit(grid, np.zeros(points))
             self.V_f.fit(grid, np.zeros(points))
@@ -87,9 +97,11 @@ class QVtile:
             for i in range(points):
                 Al[i] = A_low(grid[i,:])
                 Ah[i] = A_high(grid[i,:])
-                minpol = min(Al)
-                maxpol = max(Ah)
+                minpol = np.min(Al)
+                maxpol = np.max(Ah)
         
+        tocfit = time()
+        print 'Constraint time: ' + str(tocfit - ticfit)
         
         if ITER == 1:
             precompute = False
@@ -99,16 +111,22 @@ class QVtile:
         # ------------------
         #   Q-learning
         # ------------------
-        
+
         #First iteration
         j = 0
 
         # Q values
+        ticfit = time()
         Q = u + self.beta * self.V_f.predict(X1, store_XS=precompute)
+        tocfit = time()
+        print 'V prediction time: ' + str(tocfit - ticfit)
         
         # Fit Q function
-        self.Q_f.fit(XA, Q, pa=minpol, pb=maxpol , copy=False, unsupervised=precompute, sgd=self.asgd, asgd=self.asgd, eta=0.8, n_iters=1, scale=1* (1 / min(T, maxT)), storeindex=(self.asgd and precompute), a=a, b=b, pc_samp=pc_samp)
-        
+        ticfit = time()
+        self.Q_f.fit(XA, Q, pa=minpol, pb=maxpol , copy=False, unsupervised=precompute, sgd=self.asgd, asgd=self.asgd, eta=eta, n_iters=1, scale=1* (1 / min(T, maxT)), storeindex=(self.asgd and precompute), a=a, b=b, pc_samp=pc_samp)
+        tocfit = time()
+        print 'Q Fitting time: ' + str(tocfit - ticfit)
+
         # Optimise Q function
         self.value_error[0], W_opt, state = self.maximise(grid, Al, Ah, Ascaled, output=output)
          
@@ -122,12 +140,16 @@ class QVtile:
             # Optimise Q function
             self.value_error[j], W_opt, state = self.maximise(grid, Al, Ah, Ascaled, output=output)
             
-        W_opt_old = self.W_f.predict(state)
+        ticfit = time()
+        NN = min(X1.shape[0], 20000)
+        W_opt_old = self.W_f.predict(X1[0:NN,:])
         self.W_f.fit(state, W_opt, sgd=0, eta=0.1, n_iters=5, scale=0)
-        self.pe = np.mean(abs(W_opt_old - W_opt)/W_opt_old)
-        
+        W_opt_new = self.W_f.predict(X1[0:NN,:])
+        self.pe = np.mean((W_opt_old - W_opt_new)/W_opt_old)
         toc = time()
-
+        tocfit = time()
+        print 'Policy time: ' + str(tocfit - ticfit)
+        
         print 'Solve time: ' + str(toc - tic) + ', Policy change: ' + str(self.pe)
         
         if plot:
@@ -187,21 +209,21 @@ class QVtile:
             W_opt  = Al[idx] + (Ah[idx] - Al[idx]) * W_opt
 
         V_old = self.V_f.predict(state)
-
+        
         self.V_f.fit(state, V, sgd=0, eta=0.1, n_iters=5, scale=0)
         
 
         if np.count_nonzero(V_old) < V_old.shape[0]:
-            self.v_e = 1
+            self.ve = 1
         else:
-            self.v_e = np.mean(abs(V_old - V)/V_old)
+            self.ve = np.mean(abs(V_old - V)/V_old)
 
         toc = time()
         
         if output:
-            print 'Value change: ' + str(round(self.v_e, 3)) + '\t---\tMax time: ' + str(round(toc - tic, 4))
+            print 'Value change: ' + str(round(self.ve, 3)) + '\t---\tMax time: ' + str(round(toc - tic, 4))
 
-        return [self.v_e, W_opt, state]
+        return [self.ve, W_opt, state]
 
 class QVtree:
 

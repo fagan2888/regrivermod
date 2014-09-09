@@ -10,9 +10,8 @@ import random
 cimport numpy as np
 cimport cython
 from econlearn.tilecode cimport Tilecode, Function_Group
-
-DTYPE = np.float64
-ctypedef np.float64_t DTYPE_t
+from econlearn.samplegrid import buildgrid
+from regrivermod.storage cimport Storage
 
 cdef extern from "math.h":
     double c_fmax "fmax" (double, double)
@@ -107,7 +106,6 @@ cdef class Users:
     Consumptive water users class
     includes all consumptive users (high and low reliability)
     """
-    
     
     def __init__(self, para):
 
@@ -223,18 +221,8 @@ cdef class Users:
 
         self.exploring = 1
         self.N_e = 5                                 # 5 explorers per class
-        self.I_e_l = np.zeros(self.N_e, dtype='int32')
-        self.I_e_h = np.zeros(self.N_e, dtype='int32')
-        self.I_e_l[0] = 0
-        self.I_e_l[1] = 1
-        self.I_e_l[2] = 2
-        self.I_e_l[3] = 3
-        self.I_e_l[4] = 4
-        self.I_e_h[0] = self.N_low
-        self.I_e_h[1] = self.N_low + 1
-        self.I_e_h[2] = self.N_low + 2
-        self.I_e_h[3] = self.N_low + 3
-        self.I_e_h[4] = self.N_low + 4
+        self.I_e_l = np.random.choice(np.array(self.I_low), size=self.N_e, replace=False)
+        self.I_e_h = np.random.choice(np.array(self.I_high), size=self.N_e, replace=False)
 
         self.share_e_l = np.zeros(2, dtype='int32')
         self.share_e_l[0] = 5
@@ -246,15 +234,16 @@ cdef class Users:
 
         self.I_e = np.hstack([self.I_e_l, self.I_e_h])
         self.testing = 0
+        self.test_explore = 0
         self.test_idx = 0
 
         self.c_pi = math.pi
         self.two_zeros = np.zeros(2)                            # Aggregate state [S, I]
-        self.N_zeros = np.zeros(self.N)                            # Aggregate state [S, I]
+        self.N_zeros = np.zeros(self.N)                            
+        self.N_ints = np.zeros(self.N, dtype='int32')                            
         self.state_planner_zero = np.zeros([self.N, 2])         # Aggregate state [S, I]
         self.state_zero = np.zeros([self.N, 4])                 # N User states [S, s, e, I]
         self.state_single_zero = np.zeros(4)                    # Single user state [S, s, e, I]
-        self.init = 1
 
         ##################      Estimate market demand curve    ###############
 
@@ -332,7 +321,7 @@ cdef class Users:
         #pylab.title('Social welfare function (planners payoff)')
         #self.SW_f.plot(['x', 1], showdata=True)
         #pylab.show()
-
+        
     def set_shares(self, Lambda_high):
 
         low_c = 1 - Lambda_high
@@ -367,42 +356,39 @@ cdef class Users:
         cdef int i
         cdef double wstar = 0
         cdef double[:] wplanner = self.N_zeros
+        cdef int[:] extrap_planner = self.N_ints
         cdef double[:, :] state = self.state_zero
         cdef double[:] state_single = self.state_single_zero
         cdef double[:,:] state_planner = self.state_planner_zero
-       
-        # Initial user policy functions derived from planners solution    
-    
-        if self.init == 1:
-            for i in range(self.N):
-                state_planner[i, 0] = s[i] * (self.c_F[i]**-1) + self.delta1a
-                state_planner[i, 1] = I    
-            wplanner = self.W_f.N_values_policy(state_planner, self.N, wplanner)
-            for i in range(self.N):
-                self.w[i] = c_fmax(c_fmin((wplanner[i] - self.delta1a) * self.c_F[i], s[i]), 0)
-        
-        # Actual user policy functions 
+        cdef double U, V, Z
 
-        else:
-            for i in range(self.N):
-                state[i, 0] = S
-                state[i, 1] = s[i]
-                state[i, 2] = self.e[i]
-                state[i, 3] = I
+        for i in range(self.N):
+            state[i, 0] = S
+            state[i, 1] = s[i]
+            state[i, 2] = self.e[i]
+            state[i, 3] = I
 
-            # Optimal policy
-            self.w = self.policy.get_values(state, self.w)
+        # Optimal policy
+        self.w = self.policy.get_values(state, self.w)
         
-        # Exploration
-        self.explore(s)
-       
         if self.testing == 1:
             i = self.test_idx    
-            state_single[0] = S
-            state_single[1] = s[i]
-            state_single[2] = self.e[i]
-            state_single[3] = I
-            self.w[i] = self.w_f.one_value(state_single) 
+            if self.test_explore == 1:
+                U = c_rand()
+                V = c_rand()
+                Z = ((-2 * c_log(U))**0.5)*c_cos(2*self.c_pi*V)
+                self.w[i] = c_fmin(c_fmax(Z * (self.d * s[i]) + self.w[i], 0), s[i])
+                #self.w[i] = c_rand() * s[i] 
+            else:
+                state_single[0] = S
+                state_single[1] = s[i]
+                state_single[2] = self.e[i]
+                state_single[3] = I
+                self.w[i] = c_fmax(c_fmin(self.w_f.one_value(state_single), s[i]), 0)
+        else:                   
+            if self.exploring == 1:
+                # Exploration
+                self.explore(s)
         
         return self.w
    
@@ -450,31 +436,28 @@ cdef class Users:
         cdef double w_max = 0
         cdef int l_idx = 0
         cdef int h_idx = 0
+        cdef double U, V, Z1, Z2
         
-        if delta == 0 or delta == 1:
+        if delta == 0:
             for i in range(self.N_e):
                 
                 l_idx = self.I_e_l[i]
                 self.w[l_idx] = s[l_idx] * c_rand() 
-                self.w_scaled[l_idx] = self.w[l_idx]
                 
                 h_idx = self.I_e_h[i]
                 self.w[h_idx] = s[h_idx] * c_rand() 
-                self.w_scaled[h_idx] = self.q[h_idx]
         else: 
             for i in range(self.N_e):
+                U = c_rand()
+                V = c_rand()
+                Z1 = ((-2 * c_log(U))**0.5)*c_cos(2*self.c_pi*V)
+                Z2 = ((-2 * c_log(U))**0.5)*c_sin(2*self.c_pi*V)
                 
                 l_idx = self.I_e_l[i]
-                w_min = c_fmax(self.w[l_idx] - delta * s[l_idx], 0)
-                w_max = c_fmin(self.w[l_idx] + delta * s[l_idx], s[l_idx])
-                self.w_scaled[l_idx] = c_rand()
-                self.w[l_idx] = w_min + (w_max - w_min) * self.w_scaled[l_idx] 
+                self.w[l_idx] = c_fmin(c_fmax(Z1 * (delta * s[l_idx]) + self.w[l_idx], 0), s[l_idx]) 
                 
                 h_idx = self.I_e_h[i]
-                w_min = c_fmax(self.w[h_idx] - delta * s[h_idx], 0)
-                w_max = c_fmin(self.w[h_idx] + delta * s[h_idx], s[h_idx])
-                self.w_scaled[h_idx] = c_rand()
-                self.w[h_idx] = w_min + (w_max - w_min) *  self.w_scaled[h_idx]
+                self.w[h_idx] = c_fmin(c_fmax(Z2 * (delta * s[h_idx]) + self.w[h_idx], 0), s[h_idx]) 
     
     cdef double consume(self, double P, double I, int planner):
         "Determine water consumption q, and payoff u"
@@ -521,13 +504,20 @@ cdef class Users:
     
         return self.trade
     
-    def set_explorers(self, N_e, d=0):
+    def set_explorers(self, N_e, d=0, testing=False, test_idx=0):
         
         """Set the number of explorers per user class (maximum of 5)"""
 
         self.N_e = N_e
         self.d = d
-    
+        
+        self.I_e_l = np.random.choice(np.array(self.I_low), size=self.N_e, replace=False)
+        self.I_e_h = np.random.choice(np.array(self.I_high), size=self.N_e, replace=False)
+        
+        if testing:
+            self.testing = 1
+            self.test_explore = 1
+            self.test_idx = test_idx
     
     cdef void update(self):
         """
@@ -684,33 +674,31 @@ cdef class Users:
 
         return P0
     
-    def update_policy(self, w_f_low, w_f_high, prob = 0.3, init=False, test=False, test_idx=0):
+    def update_policy(self, w_f_low, w_f_high, prob = 0.3, test=False, test_idx=0):
         
-        if init:
-            self.policy = Function_Group(self.N, self.N_low, w_f_low, w_f_high)
         if test:
             self.w_f = w_f_low
             self.test_idx = test_idx
             self.testing = 1
+            self.test_explore = 0
 
-        elif not(init):
-            if prob == 1: 
-                index_low = self.I_low
-                index_high = self.I_high
-            else:
-                # Low reliability users
-                index_low = np.array(self.I_low)[random.sample(range(1,self.N_low), int(prob * (self.N_low-1)))]
-                index_low = np.append(index_low, self.I_e_l)
-                if self.share_explore == 1:
-                    index_low = np.append(index_low, self.share_e_l)
+        if prob == 1: 
+            index_low = self.I_low
+            index_high = self.I_high
+        else:
+            # Low reliability users
+            index_low = np.array(self.I_low)[random.sample(range(1,self.N_low), int(prob * (self.N_low-1)))]
+            index_low = np.append(index_low, self.I_e_l)
+            if self.share_explore == 1:
+                index_low = np.append(index_low, self.share_e_l)
 
-                # High reliability users
-                index_high = np.array(self.I_high)[random.sample(range(1,self.N_high), int(prob * (self.N_high-1)))]
-                index_high = np.append(index_high, self.I_e_h)
-                if self.share_explore == 1:
-                    index_low = np.append(index_high, self.share_e_h)
+            # High reliability users
+            index_high = np.array(self.I_high)[random.sample(range(1,self.N_high), int(prob * (self.N_high-1)))]
+            index_high = np.append(index_high, self.I_e_h)
+            if self.share_explore == 1:
+                index_low = np.append(index_high, self.share_e_h)
 
-                self.policy.update(index_low, w_f_low, index_high, w_f_high)
+            self.policy.update(index_low, w_f_low, index_high, w_f_high)
 
     def set_policy(self, w_f_low, w_f_high):
         
@@ -748,4 +736,69 @@ cdef class Users:
             SW[i] += c_sum(self.N, self.profit)
 
         return [np.array(Q), np.array(I), np.array(SW)]
+
+    def init_policy(self, Tilecode W_f, Tilecode V_f, Storage storage, linT, CORES, radius):
+        
+        cdef int i, N = 100000    
+        cdef double wplanner = 0
+        cdef double[:] state = np.zeros(2)
+        cdef double s, I, e, S
+        cdef double[:,:] X = np.zeros([N, 4])
+        cdef double[:] w = np.zeros(N)
+        cdef double[:] v = np.zeros(N)
+        cdef double wp, vp = 0
+        
+        for i in range(N):
+            
+            X[i, 0] = c_rand() * storage.K
+            X[i, 1] = c_rand() * self.c_F_low * (storage.K - storage.delta1a)
+            X[i, 2] = c_rand() * 2
+            X[i, 3] = c_rand() * storage.Imax / storage.I_bar
+            
+            state[0] = X[i, 1] * (self.c_F_low**-1) + self.delta1a
+            state[1] = X[i, 3]    
+            
+            wp = W_f.one_value(state)
+            vp = V_f.one_value(state)
+            
+            w[i] = c_fmax(c_fmin((wp - self.delta1a) * self.c_F_low, X[i, 1]), 0)
+            v[i] = vp * self.c_F_low
+        
+        
+        Twv = int((1 / radius) / 2)
+        T = [Twv for t in range(4)]
+        L = int(130 / Twv)
+        w_f_low = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
+        v_f_low = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
+        w_f_low.fit(X, w)
+        v_f_low.fit(X, v)
+        
+        for i in range(N):
+            
+            X[i, 0] = c_rand() * storage.K
+            X[i, 1] = c_rand() * self.c_F_high * (storage.K - storage.delta1a)
+            X[i, 2] = c_rand() * 2
+            X[i, 3] = c_rand() * storage.Imax / storage.I_bar
+            
+            state[0] = X[i, 1] * (self.c_F_high**-1) + self.delta1a
+            state[1] = X[i, 3]    
+            
+            wp = W_f.one_value(state)
+            vp = V_f.one_value(state)
+            
+            w[i] = c_fmax(c_fmin((wp - self.delta1a) * self.c_F_high, X[i, 1]), 0)
+            v[i] = vp * self.c_F_high
+        
+        
+        Twv = int((1 / radius) / 2)
+        T = [Twv for t in range(4)]
+        L = int(130 / Twv)
+        w_f_high = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
+        v_f_high = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
+        w_f_high.fit(X, w)
+        v_f_high.fit(X, v)
+        
+        self.policy = Function_Group(self.N, self.N_low, w_f_low, w_f_high)
+        
+        return [[w_f_low, w_f_high], [v_f_low,  v_f_high]]
 

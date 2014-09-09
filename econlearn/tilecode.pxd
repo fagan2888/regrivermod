@@ -97,7 +97,7 @@ cdef class Tilecode:
 
     cdef double[:] N_values(self, double[:,:] X, int N, double[:] values, double[:,:] XS)
     
-    cdef double[:] N_values_policy(self, double[:,:] X, int N, double[:] values)
+    cdef double[:] N_values_policy(self, double[:,:] X, int N, double[:] values, int[:] extrap)
 
     cdef void fit_data(self, double[:,:] X, int[:] countsofar)
 
@@ -107,7 +107,6 @@ cdef class Tilecode:
     
     cpdef partial_fit(self, double[:] Y, int copy)
     
-
 cdef class Function_Group:
 
     cdef public int N, D, L, N_low         # Here N is number of users
