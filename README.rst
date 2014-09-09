@@ -88,7 +88,7 @@ Here's an example, solving the same planner's problem by fitted Q-V iteration (s
     sim.simulate(users, storage, utility, 50000, 4, planner=True, policy=False,  
     planner_explore=True)
         
-    qv = Qlearn.QVtile(2, T, L, 1, 1, para.s_points1, para.s_radius1, para, asgd=True)
+    qv = Qlearn.QVtile(2, T, L, 1, 1, para.sg_radius1, para, asgd=True)
         
     qv.iterate(sim.XA_t, sim.X_t1, sim.series['SW'], Alow, Ahigh, ITER=50) 
 
