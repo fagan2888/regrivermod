@@ -32,7 +32,9 @@ cdef class Utility:
 
     cdef double delta1a
     cdef double delta1b
-   
+
+    cdef int M
+
     cdef double[:] temp
     cdef double[:] temp2
     cdef double[:] temp3
@@ -44,4 +46,5 @@ cdef class Utility:
     
     cdef void update_storage_accounts(self, double S, double I, double L, double Spill, double[:] w)
 
+    cdef double deliver_ch7(self, double[:] w, double S, int M)
 

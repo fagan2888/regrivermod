@@ -5,7 +5,7 @@ from Cython.Build import cythonize
 
 import numpy as np
 
-extNames = ['storage', 'utility', 'users', 'sdp', 'simulation']
+extNames = ['storage', 'utility', 'users', 'sdp', 'simulation', 'environment', 'market']
 
 def makeHtml(extName):
     extPath = extName + ".pyx", 

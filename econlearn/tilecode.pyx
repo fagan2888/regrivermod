@@ -10,7 +10,7 @@ cimport cython
 from sklearn.linear_model import LinearRegression as OLS
 from displace import Displace
 from cython.parallel import prange, parallel
-from cython_gsl cimport *
+#from cython_gsl cimport *
 
 # ===============================================
 #   Inline functions
@@ -572,23 +572,8 @@ cdef class Tilecode:
                     grid[j,k] = X[xc[j], k]
    
         return [grid, m]
-    
+    """ 
     def predict_quad(self, X):
-        
-        """    
-        Return predicted value 
-
-        Parameters
-        -----------
-        X : array, shape=(N, D) or (D,)
-            Input data
-
-        Returns
-        --------
-    
-        Y : array, shape=(N,)
-            Predicted values
-        """
         
         cdef int i, k, N = 0
 
@@ -748,6 +733,7 @@ cdef class Tilecode:
         gsl_vector_free(y)
         
         return yhat
+    """
 
     cpdef partial_fit(self, double[:] Y, int copy):
 
@@ -1106,13 +1092,7 @@ cdef class Tilecode:
             for i in range(self.D):
                 xpoints[:, i] = xpoints[:, i] * x[i]
             xpoints[:, k] = Xsmooth
-            if quad:
-                tic = time.time()
-                Ysmooth = self.predict_quad(xpoints)
-                toc = time.time()
-                print 'Quad time: ' + str(toc-tic)
-            else:
-                Ysmooth = self.predict(xpoints)
+            Ysmooth = self.predict(xpoints)
             idx = Ysmooth != 0
             if showdata:
                 pylab.plot(self.X[:, k], self.Y, 'o', Xsmooth[idx], Ysmooth[idx], label = label)

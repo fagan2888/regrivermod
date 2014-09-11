@@ -75,7 +75,7 @@ class QVtile:
             toc = time()
             print 'State grid points: ' + str(grid.shape[0]) + ', of maximum: ' + str(tile.max_points) + ', Time taken: ' + str(toc - tic)
             del tile
-        
+         
         points = grid.shape[0]
 
         ticfit = time()

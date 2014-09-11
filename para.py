@@ -807,29 +807,28 @@ class Para:
         #======================================================
 
         self.ITER1 = 40             # Initialization stage QV iterations
-        self.ITER2 = 20             # Main learning iterations
+        self.ITER2 = 25             # Main learning iterations
         self.iters = 1              # QV iterations per learning iteration 
 
         #Proportion of users to update
-        self.update_rate = [0.1] * 5 + [0.1] * 15 
+        self.update_rate = [0.15] * 5 + [0.2] * 50 #+ [0.05] * 5
        
         #Proportion of sample size to replace each iteration (< 1 implies rolling batch)
-        self.sample_rate = 0.2
+        self.sample_rate = 0.1
 
         # Number of exploring agents per class
-        self.N_e = [5] * 5 + [4] * 5 + [3] * 5 + [2] * 5
+        self.N_e = [5] * 4 + [4] * 4 + [3] * 4 + [2] * 50
 
         # Exploration range
-        self.d = [0.25] * 5 + [0.2] * 5 + [0.15] * 5 + [0.075] * 5 
+        self.d = [0.25] * 4 + [0.2] * 4 + [0.15] * 4 + [0.085] * 50 
 
         # Total sample size, actual sim length = T1 / (2*N_e)
         self.T2 = 500000 
 
         # State sample grid parameters
-        self.s_radius2 = 0.045
-        self.s_points2 = 3750
+        self.sg_radius2 = 0.045
         self.sg_samp2 = 0.4
-        self.sg_prop = [0.80]*5 + [0.85]*5 + [0.9]*5 + [0.95]*5
+        self.sg_prop2 = 0.85 #[0.80]*5 + [0.85]*5 + [0.9]*5 + [0.95]*5
 
         # Number of linear spline knots (for policy and value functions)
         self.linT = 4

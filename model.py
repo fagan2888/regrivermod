@@ -145,17 +145,17 @@ class Model:
             La = 25
             Tb = [5, 5, 6, 4, 4]
             Lb = 25
-            minsamp = 5
+            minsamp = 3
             asgd = True
         
         if init:
             self.HL = [0, 1]
             self.users.testing = 0
-            w_f, v_f = self.users.init_policy(self.sdp.W_f, self.sdp.V_f, self.storage, self.para.linT, self.para.CPU_CORES, self.para.s_radius2)
+            w_f, v_f = self.users.init_policy(self.sdp.W_f, self.sdp.V_f, self.storage, self.para.linT, self.para.CPU_CORES, self.para.sg_radius2)
             if not(partial):
                 self.qvHL = [0, 0]
                 for h in self.HL:
-                    self.qvHL[h] = Qlearn.QVtile(4, Ta, La, 1, minsamp, self.para.s_points2, self.para.s_radius2, self.para, asgd=asgd, linT=self.para.linT, init=True, W_f=w_f[h], V_f=v_f[h])
+                    self.qvHL[h] = Qlearn.QVtile(4, Ta, La, 1, minsamp, self.para.sg_radius2, self.para, asgd=asgd, linT=self.para.linT, init=True, W_f=w_f[h], V_f=v_f[h])
 
         self.users.set_explorers(N_e, d, testing, test_idx=test_idx)
         if testing:
@@ -172,7 +172,7 @@ class Model:
         Ahigh = lambda X: X[1]          # w < s
         
         for h in self.HL:
-            self.qvHL[h].iterate(self.sim.XA_t[h], self.sim.X_t1[h], self.sim.u_t[h], Alow, Ahigh, ITER=ITER, Ascaled=False, plot=True, xargs=[1000000, 'x', 1, 1], a = [0, 0, 0, 0.25, 0.25], b = [100, 100, 100, 99.75, 100], pc_samp=0.25, maxT=500000, eta=eta)
+            self.qvHL[h].iterate(self.sim.XA_t[h], self.sim.X_t1[h], self.sim.u_t[h], Alow, Ahigh, ITER=ITER, Ascaled=False, plot=False, xargs=[1000000, 'x', 1, 1], a = [0, 0, 0, 0.25, 0.25], b = [100, 100, 100, 99.75, 100], pc_samp=0.25, maxT=500000, eta=eta, tilesg=True, sg_samp=self.para.sg_samp2, sg_prop=self.para.sg_prop2)
 
         toc = time()
         st = toc - tic    
@@ -180,7 +180,6 @@ class Model:
         
         return [self.sim.stats, self.qvHL]
         
-
     def plannerQVTree(self, t_cost_off=True, T1=200000, T2=400000, simT=800000, stage1=True, stage2=True, d=0.15, seed=0):
 
         tic = time()
@@ -363,7 +362,7 @@ class Model:
         
         print 'User starting values, fitted Q-iteration ...'
      
-        stats, qv = self.multiQV(5, 0.25, ITER=self.para.ITER1, init=True, type='ASGD')
+        stats, qv = self.multiQV(self.para.N_e[0], self.para.d[0], ITER=self.para.ITER1, init=True, type='ASGD')
         
         #self.users.update_policy(qv[0].W_f, qv[1].W_f, prob = 0.0)
         

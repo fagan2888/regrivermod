@@ -41,6 +41,8 @@ cdef class Storage:
     cdef public double F1_tilde
     cdef public double F2_tilde
     cdef public double F3_tilde
+    cdef public double F2_min
+    cdef public double max_E
    
     cdef double[:] EPS      # eps_I shock series 
     cdef double[:] OMEGA    # omega shock series 
@@ -57,9 +59,9 @@ cdef class Storage:
 
     cdef double release(self, double W)
     
-    cdef double release_ch7(self, double W, int M)
+    cpdef double release_ch7(self, double W, int M)
 
-    cdef double extract_ch7(self, double E)
+    cpdef double extract_ch7(self, double E)
 
     cdef void river_flow(self, double W, double E, int M)
 

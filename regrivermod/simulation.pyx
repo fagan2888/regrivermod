@@ -13,11 +13,12 @@ from sklearn import preprocessing as pre
 from sklearn import neighbors as near
 from multiprocessing.queues import Queue
 import errno
-
 cimport cython
 from regrivermod.storage cimport Storage
 from regrivermod.users cimport Users
 from regrivermod.utility cimport Utility
+from regrivermod.environment cimport Environment
+from regrivermod.market cimport Market
 from econlearn.tilecode cimport Tilecode
 
 cdef inline double c_sum(int N, double[:] x):
@@ -501,6 +502,8 @@ class Simulation:
 
             import pdb; pdb.set_trace()
 
+    #def test_ch7_sim(self, int T, Users users, Storage storage, Utility utility, Market market, Enironment env):   
+
     def stack_sims(self, data, planner = False, stats=False, solve_planner = True, testing=False, partial=False):
         """
         Combine simulation data from multiple processes
@@ -531,14 +534,18 @@ class Simulation:
                     for x in self.series:
                         self.series[x] = np.hstack(d[x] for d in data)  
                 else:
-                    for x in self.series:
-                        self.series[x] = np.hstack(d[x] for d in data)  
-                    
                     group = ['_l', '_h']
                     if not(partial):
                         self.XA_t = [0,0]       # State action samples
                         self.X_t1 = [0,0]       # State transition samples
                         self.u_t = [0,0]        # Payoff samples
+                        for x in self.series:
+                            self.series[x] = np.hstack(d[x] for d in data)  
+                    else:
+                        for x in self.series:
+                            temp =  np.hstack(d[x] for d in data)
+                            N = temp.shape[0]
+                            self.series[x] = np.hstack([self.series[x][N::], temp])  
                     for h in range(2):
                         XA_t = np.hstack(d['XA' + group[h]] for d in data)
                         X_t1 = np.hstack(d['X1' + group[h]] for d in data)
@@ -651,12 +658,10 @@ class Simulation:
             print 'Withdrawal mean: ' + str(np.mean(self.series['W']))  
             print 'Welfare mean: ' + str(np.mean(self.series['SW']))
         
-        if self.ITER <=2:
+        if self.ITER > 0:
             self.S[self.ITER - 1] = np.mean(self.series['S'])
-        else:
-            self.S[self.ITER - 1] = np.mean(self.series['S']) * self.sample_rate + (1 - self.sample_rate) * self.S[self.ITER - 2]
 
         if self.ITER > 1:
-            pylab.plot(self.S[0:self.ITER])
+            pylab.plot(self.S[1:self.ITER])
             pylab.show()
 

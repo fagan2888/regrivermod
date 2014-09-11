@@ -8,6 +8,7 @@ cimport cython
 import math
 from econlearn.tilecode cimport Tilecode
 
+
 cdef extern from "math.h":
     double c_min "fmin" (double, double)
 
@@ -147,13 +148,32 @@ cdef class Storage:
         return c_max((1 - self.delta1b) * W - self.delta1a,0)
     
     @cython.initializedcheck(False) 
-    cdef double release_ch7(self, double W, int M):
-        "ch7: Returns water available to extract, given withdrawal W"
+    cpdef double release_ch7(self, double sum_w, int M):
+        
+        cdef double W = 0
 
-        return W - loss_12(W, self.delta_a, self.delta_b, self.F_bar[M])
-       
+        # Determine release required to satisfy user withdrawals
+        if sum_w > 0:
+            if M == 0:
+                W = sum_w + self.delta_a + self.delta_Ea
+                if W > self.F_bar[0]:
+                    W = (W - self.F_bar[0] * self.delta_b)*((1 - self.delta_b)**-1)
+            else:
+                W = sum_w + self.delta_a
+
+        self.max_E = sum_w
+
+        self.min_F2 = (W + self.Spill) - loss_12(W + self.Spill, self.delta_a, self.delta_b, self.F_bar[M]) - self.max_E
+
+        return W
+    
+    def loss12(self, F1, int M):
+        """Python wrapper for inline function loss_12"""
+
+        return loss_12(F1, self.delta_a, self.delta_b, self.F_bar[M])
+
     @cython.initializedcheck(False) 
-    cdef double extract_ch7(self, double E):
+    cpdef double extract_ch7(self, double E):
         "ch7: Returns water available at demand node, given extraction E"
 
         return c_max((1 - self.delta_Eb) * E - self.delta_Ea , 0)   
@@ -180,30 +200,18 @@ cdef class Storage:
          else:
             self.I = self.C * self.OMEGA[t] 
          
-         if W == -1: # Natural flows
-            W = self.I
-            E = 0
-         if W == -2: # Planners solution
-             self.X[0] = self.S
-             self.X[1] = self.C / self.I_bar
-             W = self.policy.one_value(self.X)
-             E = self.release_ch7(W, M)
-
          self.storage_transition(W)
          
          # Natural flows
-         self.river_flow(W, E, M)
+         self.river_flow(self.I, 0, M)
          self.F1_tilde = self.F1
          self.F2_tilde = self.F2
          self.F3_tilde = self.F3
 
+         # Actual flows
          self.river_flow(W, E, M)
 
          return self.S
-
-    def set_test_policy(self, Tilecode policy):
-
-        self.policy = policy
 
     def update_ch7_test(self, W, E, M, t):
 
@@ -221,7 +229,7 @@ cdef class Storage:
         print 'River flow, node 3, actual: ' + str(self.F3) + ', natural: ' + str(self.F3_tilde)
         print 'River loss, node 1 to 2, actual: ' + str(self.loss_12) 
 
-    def natural_flows_ch7_test(self, int T, W):
+    def river_flows_ch7_test(self, int T):
         
         cdef int t, M
         cdef double[:, :] I_sim = np.zeros([T, 2])
@@ -233,7 +241,7 @@ cdef class Storage:
         
         for t in range(T):
             for M in range(2):
-                self.update_ch7(W, 0, M, t)
+                self.update_ch7(-1, 0, M, t)
                 
                 I_sim[t, M] = self.I
                 F1_sim[t, M] = self.F1

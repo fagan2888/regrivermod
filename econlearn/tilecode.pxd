@@ -101,7 +101,7 @@ cdef class Tilecode:
 
     cdef void fit_data(self, double[:,:] X, int[:] countsofar)
 
-    cdef double[:] local_quadratic(self, double[:, :] X, int N)
+    #cdef double[:] local_quadratic(self, double[:, :] X, int N)
     
     cdef void fit_data_reverse(self, double[:,:] X, int N, int[:] extrap)
     
