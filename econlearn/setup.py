@@ -2,7 +2,7 @@ from distutils.core import setup
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
 from Cython.Build import cythonize
-import cython_gsl
+#import cython_gsl
 import numpy as np
 
 extNames = ['tilecode', 'samplegrid'] 
