@@ -2,20 +2,13 @@ cimport numpy as np
 import numpy as np
 cimport cython
 
-ctypedef np.float64_t float_t
-ctypedef np.int32_t int_t
-
-cdef extern from "math.h" nogil:
-    double c_min "fmin" (double, double)
-
-cdef extern from "math.h" nogil:
-    double c_max "fmax" (double, double)
-
-cdef extern from "stdlib.h" nogil:
-    int c_abs "abs" (int)
-
-cdef extern from "math.h":
-    double c_log "log" (double)
+from libc.math cimport fmin as c_min
+from libc.math cimport fmax as c_max
+from libc.math cimport log as c_log
+from libc.math cimport exp as c_exp
+from libc.math cimport sin as c_sin
+from libc.math cimport cos as c_cos
+from libc.stdlib cimport abs as c_abs
 
 cdef extern from "fastonebigheader.h":
     double c_log_approx "fastlog" (double)

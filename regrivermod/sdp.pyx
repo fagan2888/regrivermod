@@ -8,20 +8,24 @@ cimport cython
 from time import time
 import sys
 import pylab
+
 from econlearn.tilecode cimport Tilecode
 
-ctypedef np.float64_t float_t
-ctypedef np.int_t int_t
+from libc.math cimport fmin as c_min
+from libc.math cimport fmax as c_max
+from libc.math cimport log as c_log
+from libc.math cimport exp as c_exp
+from libc.math cimport sin as c_sin
+from libc.math cimport cos as c_cos
 
-cdef extern from "math.h":
-    double c_max "fmax" (double, double)
+from libc.stdlib cimport srand as c_seed
+from libc.stdlib cimport rand
+from libc.stdlib cimport RAND_MAX
 
-cdef extern from "math.h":
-    double c_min "fmin" (double, double)
-
-cdef extern from "stdlib.h":
-    double c_rand "drand48" ()
-
+@cython.cdivision(True)
+cdef inline double c_rand() nogil:
+   
+    return rand() / (<double> RAND_MAX)
 
 cdef class SDP:
 

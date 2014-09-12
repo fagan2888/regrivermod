@@ -3,32 +3,27 @@ import numpy as np
 import time
 from scipy.stats import lognorm, gamma, truncnorm
 import pylab
+import math
+
 cimport numpy as np
 cimport cython
-import math
 from econlearn.tilecode cimport Tilecode
 
+from libc.math cimport fmin as c_min
+from libc.math cimport fmax as c_max
+from libc.math cimport log as c_log
+from libc.math cimport exp as c_exp
+from libc.math cimport sin as c_sin
+from libc.math cimport cos as c_cos
 
-cdef extern from "math.h":
-    double c_min "fmin" (double, double)
+from libc.stdlib cimport srand as c_seed
+from libc.stdlib cimport rand
+from libc.stdlib cimport RAND_MAX
 
-cdef extern from "math.h":
-    double c_max "fmax" (double, double)
-
-cdef extern from "math.h":
-    double c_log "log" (double)
-
-cdef extern from "math.h":
-    double c_cos "cos" (double)
-
-cdef extern from "math.h":
-    double c_exp "exp" (double)
-
-cdef extern from "stdlib.h":
-    double c_rand "drand48" ()
-
-cdef extern from "stdlib.h":
-    void c_seed "srand48" (int)
+@cython.cdivision(True)
+cdef inline double c_rand() nogil:
+   
+    return rand() / (<double> RAND_MAX)
 
 cdef inline double c_sum(int N, double[:] x):
     

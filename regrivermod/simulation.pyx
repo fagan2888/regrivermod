@@ -13,6 +13,7 @@ from sklearn import preprocessing as pre
 from sklearn import neighbors as near
 from multiprocessing.queues import Queue
 import errno
+
 cimport cython
 from regrivermod.storage cimport Storage
 from regrivermod.users cimport Users
@@ -20,6 +21,22 @@ from regrivermod.utility cimport Utility
 from regrivermod.environment cimport Environment
 from regrivermod.market cimport Market
 from econlearn.tilecode cimport Tilecode
+
+from libc.math cimport fmin as c_min
+from libc.math cimport fmax as c_max
+from libc.math cimport log as c_log
+from libc.math cimport exp as c_exp
+from libc.math cimport sin as c_sin
+from libc.math cimport cos as c_cos
+
+from libc.stdlib cimport srand as c_seed
+from libc.stdlib cimport rand
+from libc.stdlib cimport RAND_MAX
+
+@cython.cdivision(True)
+cdef inline double c_rand() nogil:
+   
+    return rand() / (<double> RAND_MAX)
 
 cdef inline double c_sum(int N, double[:] x):
     
@@ -30,33 +47,6 @@ cdef inline double c_sum(int N, double[:] x):
         sumx += x[i]
 
     return sumx
-
-cdef extern from "math.h":
-    double c_fmax "fmax" (double, double)
-
-cdef extern from "math.h":
-    double c_fmin "fmin" (double, double)
-
-cdef extern from "stdlib.h":
-    double c_rand "drand48" ()
-
-cdef extern from "stdlib.h":
-    void c_seed "srand48" (int)
-
-cdef extern from "fast_floattoint.h":
-    int c_int "Real2Int" (double)
-
-cdef extern from "math.h":
-    double c_log "log" (double)
-
-cdef extern from "math.h":
-    double c_exp "exp" (double)
-
-cdef extern from "math.h":
-    double c_sin "sin" (double)
-
-cdef extern from "math.h":
-    double c_cos "cos" (double)
 
 def retry_on_eintr(function, *args, **kw):
     while True:
@@ -315,13 +305,13 @@ def run_planner_sim(int job, int T, Users users, Storage storage, Utility utilit
                 state[1] = I_tilde
                 w_star = policy.one_value(state)
                 #ran = c_rand()
-                #w_min = c_fmax(w_star - delta * storage.S, 0)
-                #w_max = c_fmin(w_star + delta * storage.S, storage.S)
+                #w_min = c_max(w_star - delta * storage.S, 0)
+                #w_max = c_min(w_star + delta * storage.S, storage.S)
                 #for i in range(100000):
                 U = c_rand()
                 V = c_rand()
                 Z = ((-2 * c_log(U))**0.5)*c_cos(2*c_pi*V)
-                W_sim[t] = c_fmin(c_fmax(Z * (delta * storage.S) + w_star, 0), storage.S)
+                W_sim[t] = c_min(c_max(Z * (delta * storage.S) + w_star, 0), storage.S)
                 #    if W_sim[t] < storage.S and W_sim[t] > 0:
                 #        break
                 #    Z = ((-2 * c_log(U))**0.5)*c_sin(2*c_pi*V)
@@ -340,7 +330,7 @@ def run_planner_sim(int job, int T, Users users, Storage storage, Utility utilit
             else:
                 state[0] = storage.S
                 state[1] = I_tilde
-                W_sim[t] = c_fmax(c_fmin(policy.one_value(state), S_sim[t]), 0)
+                W_sim[t] = c_max(c_min(policy.one_value(state), S_sim[t]), 0)
 
         # Water delivered
         Q_sim[t] = storage.release(W_sim[t])

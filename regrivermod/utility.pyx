@@ -4,18 +4,13 @@
 from __future__ import division
 import numpy as np
 import pylab
-cimport numpy as np
 import time
+
 cimport cython
-
-cdef extern from "math.h":
-    double c_min "fmin" (double, double)
-
-cdef extern from "math.h":
-    double c_max "fmax" (double, double)
-
-cdef extern from "math.h":
-    double c_log "log" (double)
+cimport numpy as np
+from libc.math cimport fmin as c_min
+from libc.math cimport fmax as c_max
+from libc.math cimport log as c_log
 
 cdef inline double c_sum(int N, double[:] x):
     

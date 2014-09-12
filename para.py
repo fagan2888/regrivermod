@@ -481,6 +481,7 @@ class Para:
         self.ch7['delta_Ea'] = self.ch7['delta_Ea'] * self.I_bar
         self.ch7['delta_a'] = self.ch7['delta_a'] * self.I_bar
         self.ch7['F_bar'] = self.ch7['F_bar'] * self.I_bar
+        
         ##################################################
 
         self.alpha = (SA_K*self.K) / (self.K**(2.0/3))
@@ -811,7 +812,7 @@ class Para:
         self.iters = 1              # QV iterations per learning iteration 
 
         #Proportion of users to update
-        self.update_rate = [0.15] * 5 + [0.2] * 50 #+ [0.05] * 5
+        self.update_rate = [12] * 5 + [10] * 50 #+ [0.05] * 5
        
         #Proportion of sample size to replace each iteration (< 1 implies rolling batch)
         self.sample_rate = 0.1

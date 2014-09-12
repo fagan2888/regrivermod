@@ -7,11 +7,12 @@ cimport numpy as np
 import pylab
 from tile_wrapper import TilecodeSamplegrid
 
-cdef extern from "math.h":
-    double c_min "fmin" (double, double)
-
-cdef extern from "math.h":
-    double c_max "fmax" (double, double)
+from libc.math cimport fmin as c_min
+from libc.math cimport fmax as c_max
+from libc.math cimport log as c_log
+from libc.math cimport exp as c_exp
+from libc.math cimport sin as c_sin
+from libc.math cimport cos as c_cos
 
 def buildgrid(double[:,:] x, int M, double radius, scale = False, stopnum = 1000):
 

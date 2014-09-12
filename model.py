@@ -129,7 +129,7 @@ class Model:
         
         return [self.sim.stats, self.qv, st]
 
-    def multiQV(self,  N_e, d, ITER, init=False, type='ASGD', eta=0.7, testing=False, test_idx=0, partial=False):
+    def multiQV(self, ITER, init=False, type='ASGD', eta=0.7, testing=False, test_idx=0, partial=False):
         
         tic = time()
         
@@ -157,13 +157,12 @@ class Model:
                 for h in self.HL:
                     self.qvHL[h] = Qlearn.QVtile(4, Ta, La, 1, minsamp, self.para.sg_radius2, self.para, asgd=asgd, linT=self.para.linT, init=True, W_f=w_f[h], V_f=v_f[h])
 
-        self.users.set_explorers(N_e, d, testing, test_idx=test_idx)
         if testing:
             bigT = self.para.T2
         elif partial:
-            bigT = int((self.para.T2 / N_e) * self.para.sample_rate)
+            bigT = int((self.para.T2 / self.users.N_e) * self.para.sample_rate)
         else:
-            bigT = int(self.para.T2 / N_e)
+            bigT = int(self.para.T2 / self.users.N_e)
         
         self.sim.simulate(self.users, self.storage, self.utility, bigT, self.para.CPU_CORES, stats=False, partial=partial)
         
@@ -361,10 +360,10 @@ class Model:
         ##################          User starting values              #################
         
         print 'User starting values, fitted Q-iteration ...'
-     
-        stats, qv = self.multiQV(self.para.N_e[0], self.para.d[0], ITER=self.para.ITER1, init=True, type='ASGD')
         
-        #self.users.update_policy(qv[0].W_f, qv[1].W_f, prob = 0.0)
+        self.users.set_explorers(self.para.N_e[0], self.para.d[0])
+     
+        stats, qv = self.multiQV(ITER=self.para.ITER1, init=True, type='ASGD')
         
         ##################          Main Q-learning              #################
 
@@ -375,21 +374,18 @@ class Model:
         
         for i in range(self.para.ITER2):
             
-            N_e = self.para.N_e[i]
-            d = self.para.d[i]
-            
             print '\n  ---  Iteration: ' + str(i) + '  ---\n'
-            print 'Number of Explorers: '+ str(N_e * 2) + ' of ' + str(self.para.N)  
-            print 'Exploration range: ' + str(d)   
+            print 'Number of Explorers: '+ str(self.para.N_e[i] * 2) + ' of ' + str(self.para.N)  
+            print 'Exploration temperature: ' + str(self.para.d[i])   
             print '-----------------------------------------'
 
-            stats, qv = self.multiQV(N_e, d, ITER=self.para.iters, type='ASGD', partial=True)
+            stats, qv = self.multiQV(ITER=self.para.iters, type='ASGD', partial=True)
             
             for h in range(2):
                 V_e[i, h] = qv[h].ve
                 P_e[i, h] = qv[h].pe
 
-            self.users.update_policy(qv[0].W_f, qv[1].W_f, prob = self.para.update_rate[i])
+            self.users.update_policy(qv[0].W_f, qv[1].W_f, Np=self.para.update_rate[i], N_e=self.para.N_e[i + 1], d=self.para.d[i + 1])
         
         self.users.exploring = 0
         self.sim.simulate(self.users, self.storage, self.utility, self.para.T0, self.para.CPU_CORES, stats = True)

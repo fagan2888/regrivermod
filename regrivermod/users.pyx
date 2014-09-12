@@ -1,5 +1,5 @@
 #!python
-#cython: boundscheck=False, wraparound=False, nonecheck=False, cdivision=False, initializedcheck=False
+#cython: boundscheck=False, wraparound=False, nonecheck=False, cdivision=True, initializedcheck=False
 
 from __future__ import division
 import numpy as np
@@ -7,35 +7,26 @@ import pylab
 import time
 import math
 import random
+
 cimport numpy as np
 cimport cython
 from econlearn.tilecode cimport Tilecode, Function_Group
 from econlearn.samplegrid import buildgrid
 from regrivermod.storage cimport Storage
+from libc.math cimport fmin as c_min
+from libc.math cimport fmax as c_max
+from libc.math cimport log as c_log
+from libc.math cimport exp as c_exp
+from libc.math cimport sin as c_sin
+from libc.math cimport cos as c_cos
 
-cdef extern from "math.h":
-    double c_fmax "fmax" (double, double)
+from libc.stdlib cimport srand as c_seed
+from libc.stdlib cimport rand
+from libc.stdlib cimport RAND_MAX
 
-cdef extern from "math.h":
-    double c_fmin "fmin" (double, double)
-    
-cdef extern from "math.h":
-    double c_log "log" (double)
-
-cdef extern from "math.h":
-    double c_exp "exp" (double)
-
-cdef extern from "math.h":
-    double c_sin "sin" (double)
-
-cdef extern from "math.h":
-    double c_cos "cos" (double)
-
-cdef extern from "stdlib.h":
-    double c_rand "drand48" ()
-
-cdef extern from "stdlib.h":
-    void c_seed "srand48" (int)
+cdef inline double c_rand() nogil:
+   
+    return rand() / (<double> RAND_MAX)
 
 cdef inline double c_sum(int N, double[:] x):
     
@@ -55,11 +46,11 @@ cdef inline double[:] demand(double P, double t_cost, int N, double[:] mv, doubl
     for i in range(N):
         
         if mv[i] > (P + t_cost):
-            q[i] = c_fmax(d_c[i] + d_b[i] * (P + t_cost), 0)
+            q[i] = c_max(d_c[i] + d_b[i] * (P + t_cost), 0)
         elif mv[i] < P:
-            q[i] = c_fmax(d_c[i] + d_b[i] * P, 0)
+            q[i] = c_max(d_c[i] + d_b[i] * P, 0)
         else:
-            q[i] = c_fmax(c_fmin(a[i], d_c[i]), 0)
+            q[i] = c_max(c_min(a[i], d_c[i]), 0)
     
     return q
 
@@ -72,11 +63,11 @@ cdef inline double excess_demand(double P, double Qbar, double t_cost, int N, do
         for i in range(N):
             
             if mv[i] > (P + t_cost):
-                Qtemp += c_fmax(d_c[i] + d_b[i] * (P + t_cost), 0)
+                Qtemp += c_max(d_c[i] + d_b[i] * (P + t_cost), 0)
             elif mv[i] < P:
-                Qtemp += c_fmax(d_c[i] + d_b[i] * P, 0)
+                Qtemp += c_max(d_c[i] + d_b[i] * P, 0)
             else:
-                Qtemp += c_fmin(a[i], d_c[i])
+                Qtemp += c_min(a[i], d_c[i])
         
         Qtemp = Qtemp - Qbar
 
@@ -149,10 +140,10 @@ cdef class Users:
         #--------------------------------------#
         low_c = 1 - para.Lambda_high 
         
-        self.c_F_low = low_c / self.N_low                  # Low reliability inflow shares
-        self.c_K_low = low_c / self.N_low                  # Low reliability capacity shares
-        self.c_F_high = (1 - low_c) / self.N_high          # High reliability inflow shares
-        self.c_K_high = (1 - low_c) / self.N_high          # High reliability capacity shares
+        self.c_F_low = low_c / <double> self.N_low                  # Low reliability inflow shares
+        self.c_K_low = low_c / <double> self.N_low                  # Low reliability capacity shares
+        self.c_F_high = (1 - low_c) / <double> self.N_high          # High reliability inflow shares
+        self.c_K_high = (1 - low_c) / <double> self.N_high          # High reliability capacity shares
         self.K = para.K
         self.c_F = np.zeros(self.N)
         self.c_K = np.zeros(self.N)
@@ -283,7 +274,7 @@ cdef class Users:
         P_perf = np.zeros(points)
 
         for i in range(points):
-            atemp = Q[i] / self.N
+            atemp = Q[i] / <double> self.N
             self.a = np.ones(self.N) * atemp
             self.demand_para(I[i])
             self.mv(I[i])
@@ -327,10 +318,10 @@ cdef class Users:
         low_c = 1 - Lambda_high
         low_c  = low_c
 
-        self.c_F_low = low_c / self.N_low                  # Low reliability inflow shares
-        self.c_K_low = low_c / self.N_low                  # Low reliability capacity shares
-        self.c_F_high = (1 - low_c) / self.N_high          # High reliability inflow shares
-        self.c_K_high = (1 - low_c) / self.N_high          # High reliability capacity shares
+        self.c_F_low = low_c / <double> self.N_low                  # Low reliability inflow shares
+        self.c_K_low = low_c / <double> self.N_low                  # Low reliability capacity shares
+        self.c_F_high = (1 - low_c) / <double> self.N_high          # High reliability inflow shares
+        self.c_K_high = (1 - low_c) / <double> self.N_high          # High reliability capacity shares
         self.c_F = np.zeros(self.N)
         self.c_K = np.zeros(self.N)
 
@@ -344,10 +335,10 @@ cdef class Users:
 
         #Inflow share explorers
         if self.share_explore:
-            self.c_F[self.share_e_l[0]] += self.share_adj / self.N_low
-            self.c_F[self.share_e_h[0]] -= self.share_adj / self.N_low
-            self.c_K[self.share_e_l[0]] += self.share_adj / self.N_low
-            self.c_K[self.share_e_h[0]] -= self.share_adj / self.N_low
+            self.c_F[self.share_e_l[0]] += self.share_adj / <double> self.N_low
+            self.c_F[self.share_e_h[0]] -= self.share_adj / <double> self.N_low
+            self.c_K[self.share_e_l[0]] += self.share_adj / <double> self.N_low
+            self.c_K[self.share_e_h[0]] -= self.share_adj / <double> self.N_low
 
 
     cdef double[:] withdraw(self, double S, double[:] s, double I):
@@ -377,17 +368,16 @@ cdef class Users:
                 U = c_rand()
                 V = c_rand()
                 Z = ((-2 * c_log(U))**0.5)*c_cos(2*self.c_pi*V)
-                self.w[i] = c_fmin(c_fmax(Z * (self.d * s[i]) + self.w[i], 0), s[i])
+                self.w[i] = c_min(c_max(Z * (self.d * s[i]) + self.w[i], 0), s[i])
                 #self.w[i] = c_rand() * s[i] 
             else:
                 state_single[0] = S
                 state_single[1] = s[i]
                 state_single[2] = self.e[i]
                 state_single[3] = I
-                self.w[i] = c_fmax(c_fmin(self.w_f.one_value(state_single), s[i]), 0)
+                self.w[i] = c_max(c_min(self.w_f.one_value(state_single), s[i]), 0)
         else:                   
             if self.exploring == 1:
-                # Exploration
                 self.explore(s)
         
         return self.w
@@ -425,7 +415,7 @@ cdef class Users:
         cdef int i
 
         for i in range(self.N):
-            self.MV[i] = c_fmax(self.e[i] * (self.theta[i,1] + self.theta[i,5]*I + (2 * self.theta[i,2] * self.a[i] / self.L[i])), 0)
+            self.MV[i] = c_max(self.e[i] * (self.theta[i,1] + self.theta[i,5]*I + (2 * self.theta[i,2] * self.a[i] / self.L[i])), 0)
 
 
     cdef void explore(self, double[:] s):
@@ -454,10 +444,10 @@ cdef class Users:
                 Z2 = ((-2 * c_log(U))**0.5)*c_sin(2*self.c_pi*V)
                 
                 l_idx = self.I_e_l[i]
-                self.w[l_idx] = c_fmin(c_fmax(Z1 * (delta * s[l_idx]) + self.w[l_idx], 0), s[l_idx]) 
+                self.w[l_idx] = c_min(c_max(Z1 * (delta * s[l_idx]) + self.w[l_idx], 0), s[l_idx]) 
                 
                 h_idx = self.I_e_h[i]
-                self.w[h_idx] = c_fmin(c_fmax(Z2 * (delta * s[h_idx]) + self.w[h_idx], 0), s[h_idx]) 
+                self.w[h_idx] = c_min(c_max(Z2 * (delta * s[h_idx]) + self.w[h_idx], 0), s[h_idx]) 
     
     cdef double consume(self, double P, double I, int planner):
         "Determine water consumption q, and payoff u"
@@ -472,7 +462,7 @@ cdef class Users:
         else:
             t_cost = self.t_cost
 
-        I = c_fmax(c_fmin(I, 2), 0.5)
+        I = c_max(c_min(I, 2), 0.5)
 
         self.q = demand(P, t_cost, self.N, self.MV, self.d_cons, self.d_beta, self.a, self.q)
 
@@ -540,8 +530,8 @@ cdef class Users:
             eps1 = Z1 * self.sig_eta 
             eps2 = Z2 * self.sig_eta 
             
-            self.e[i] = c_fmax(1 + self.rho_eps * (self.e[i] - 1) + eps1, 0) 
-            self.e[i + 1] = c_fmax(1 + self.rho_eps * (self.e[i + 1] - 1) + eps2, 0) 
+            self.e[i] = c_max(1 + self.rho_eps * (self.e[i] - 1) + eps1, 0) 
+            self.e[i + 1] = c_max(1 + self.rho_eps * (self.e[i + 1] - 1) + eps2, 0) 
             i += 2
     
     cdef demand_para(self, double I = 1.0):
@@ -550,7 +540,7 @@ cdef class Users:
 
         for i in range(self.N):
             self.d_beta[i] = self.L[i]*((2 * self.theta[i,2]* self.e[i])**-1) 
-            self.d_cons[i] = c_fmax(self.L[i]*(self.theta[i,1] + self.theta[i,5] * I) * ((-2.0 * self.theta[i,2])**-1),0) 
+            self.d_cons[i] = c_max(self.L[i]*(self.theta[i,1] + self.theta[i,5] * I) * ((-2.0 * self.theta[i,2])**-1),0) 
 
     cdef double clear_market(self, double I, Tilecode market_d, int planner):
 
@@ -561,7 +551,7 @@ cdef class Users:
         cdef double P = 0
         cdef double t_cost = 0
 
-        I = c_fmax(c_fmin(I, 2),0.5)
+        I = c_max(c_min(I, 2),0.5)
         
         # Update user demand parameters
         self.demand_para(I)
@@ -579,7 +569,7 @@ cdef class Users:
 
         P = self.solve_price(Q, P_guess, self.Pmax, t_cost)
 
-        return c_fmax(P, 0)
+        return c_max(P, 0)
 
     cdef double solve_price(self, double Q, double P_guess, double Pmax, double t_cost):
         """
@@ -605,7 +595,7 @@ cdef class Users:
                 elif EX1 > 0:
                     P0 = P1 * (1.1)
             else:
-                P0 = c_fmax(P1 - (EX1 * (P1 - P2) * ((EX1 - EX2)**-1)), 0)
+                P0 = c_max(P1 - (EX1 * (P1 - P2) * ((EX1 - EX2)**-1)), 0)
             EX0 = excess_demand(P0, Q, t_cost, self.N, self.MV, self.d_cons, self.d_beta, self.a)
 
             if P0 == 0 and EX0 <= 0:
@@ -624,9 +614,9 @@ cdef class Users:
         if abs(EX0) > tol2 and Q > tol:         # Use bisection method
             
             iters = 0
-            if c_fmin(EX0, EX2) < 0 and c_fmax(EX0, EX2) > 0:
-                P0 = c_fmin(P0, P2)
-                P1 = c_fmax(P0, P2)
+            if c_min(EX0, EX2) < 0 and c_max(EX0, EX2) > 0:
+                P0 = c_min(P0, P2)
+                P1 = c_max(P0, P2)
             else:
                 if EX0 > 0:
                     P0 = P0
@@ -674,31 +664,42 @@ cdef class Users:
 
         return P0
     
-    def update_policy(self, w_f_low, w_f_high, prob = 0.3, test=False, test_idx=0):
+    def update_policy(self, w_f_low, w_f_high, Np=10, test=False, test_idx=0, explore=True, N_e=5, d=0):
+        
+        self.N_e = N_e
+        self.d = d
         
         if test:
             self.w_f = w_f_low
             self.test_idx = test_idx
             self.testing = 1
-            self.test_explore = 0
+            if explore:
+                self.test_explore = 1
+            else:
+                self.test_explore = 0
 
-        if prob == 1: 
+        if explore:
+            self.exploring = 1
+        else:
+            self.exploring = 0
+
+        if Np == self.N: 
             index_low = self.I_low
             index_high = self.I_high
+            self.I_e_l = np.random.choice(np.array(self.I_low), size=self.N_e, replace=False)
+            self.I_e_h = np.random.choice(np.array(self.I_high), size=self.N_e, replace=False)
         else:
-            # Low reliability users
-            index_low = np.array(self.I_low)[random.sample(range(1,self.N_low), int(prob * (self.N_low-1)))]
-            index_low = np.append(index_low, self.I_e_l)
+            index_low = np.random.choice(np.array(self.I_low), size=Np, replace=False)
+            self.I_e_l = index_low[0:self.N_e]
             if self.share_explore == 1:
                 index_low = np.append(index_low, self.share_e_l)
 
-            # High reliability users
-            index_high = np.array(self.I_high)[random.sample(range(1,self.N_high), int(prob * (self.N_high-1)))]
-            index_high = np.append(index_high, self.I_e_h)
+            index_high = np.random.choice(np.array(self.I_high), size=Np, replace=False)
+            self.I_e_h = index_high[0:self.N_e]
             if self.share_explore == 1:
                 index_low = np.append(index_high, self.share_e_h)
 
-            self.policy.update(index_low, w_f_low, index_high, w_f_high)
+        self.policy.update(index_low, w_f_low, index_high, w_f_high)
 
     def set_policy(self, w_f_low, w_f_high):
         
@@ -730,7 +731,7 @@ cdef class Users:
 
         for i in range(points):
             for j in range(self.N):
-                self.a[j] = Q[i] * (1/self.N)
+                self.a[j] = Q[i] * (1/ <double> self.N)
             P = self.clear_market(I[i], perf_market,  1)
             self.consume(P, I[i], 1)
             SW[i] += c_sum(self.N, self.profit)
@@ -761,7 +762,7 @@ cdef class Users:
             wp = W_f.one_value(state)
             vp = V_f.one_value(state)
             
-            w[i] = c_fmax(c_fmin((wp - self.delta1a) * self.c_F_low, X[i, 1]), 0)
+            w[i] = c_max(c_min((wp - self.delta1a) * self.c_F_low, X[i, 1]), 0)
             v[i] = vp * self.c_F_low
         
         
@@ -786,7 +787,7 @@ cdef class Users:
             wp = W_f.one_value(state)
             vp = V_f.one_value(state)
             
-            w[i] = c_fmax(c_fmin((wp - self.delta1a) * self.c_F_high, X[i, 1]), 0)
+            w[i] = c_max(c_min((wp - self.delta1a) * self.c_F_high, X[i, 1]), 0)
             v[i] = vp * self.c_F_high
         
         
