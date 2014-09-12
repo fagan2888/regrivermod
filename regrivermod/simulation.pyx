@@ -607,7 +607,7 @@ class Simulation:
                 explore = 0
             if not(policy):
                 polf = Tilecode(2, [2,2], 2)
-
+            
             args = [(i, T, users, storage, utility, polf, delta, tc_off, explore, ques[i], seed, True, myopic) for i in range(num_process)]
             jobs = [multiprocessing.Process(target=run_planner_sim, args=(a)) for a in args]
             for j in jobs: j.start()

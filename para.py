@@ -339,7 +339,7 @@ class Para:
                 f.close()
 
         else:
-            with open('para_dist.pkl', 'rb') as f:
+            with open('para_dist.pkl', 'rU') as f:
                 para_dist = pickle.load(f)
                 f.close()
     
