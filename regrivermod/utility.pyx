@@ -7,7 +7,6 @@ import pylab
 import time
 
 cimport cython
-cimport numpy as np
 from regrivermod.storage cimport Storage
 from libc.math cimport fmin as c_min
 from libc.math cimport fmax as c_max
@@ -25,17 +24,16 @@ cdef inline double c_sum(int N, double[:] x) nogil:
     return sumx
 
 cdef inline double[:] storage_loss(int N, double L, double[:] s, double[:] w, double[:] loss, double[:] c_F, int ls):
-    "User storage loss deduction"
+    """User storage loss deduction"""
 
     cdef int i = 0
     cdef double temp_sum_s = 0
     
     if ls == 0:
         for i in range(N):
-            loss[i] = L * c_F[i] 
-    else:    
+            loss[i] = L * c_F[i]
+    else:
         for i in range(N):
-            
             temp_sum_s += s[i]
 
         if temp_sum_s > 0:
@@ -44,7 +42,7 @@ cdef inline double[:] storage_loss(int N, double L, double[:] s, double[:] w, do
         else:
             for i in range(N):
                 loss[i] = 0 
-    
+
     return loss
 
 cdef inline double[:] calc_x(int N, double[:] s, double[:] acc_max, double[:] c_F, double[:] x, double diff, double[:] J, double[:] minx, double[:] maxx):
