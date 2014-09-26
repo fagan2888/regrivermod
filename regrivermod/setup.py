@@ -17,7 +17,7 @@ def makeExtension(extName):
         extName,
         [extPath],
         include_dirs = [np.get_include(), "..", "../include"],
-        extra_compile_args = ["-ffast-math", "-march=native" ],
+        extra_compile_args = ["-O3", "-ffast-math", "-march=native" ],
         libraries = ["m",]
         )
 

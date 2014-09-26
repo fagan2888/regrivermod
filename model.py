@@ -8,19 +8,26 @@ from results.chartbuilder import *
 
 class Model:
 
-    def __init__(self, para):
+    def __init__(self, para, ch7=False):
         
         pylab.ioff()
-
+        
         #################           Create objects          #################
         
         print '\nDecentralised storage model with ' + str(para.N) + ' users. \n'
-        
+
         self.para = para
-        self.storage = Storage(para)
+        self.storage = Storage(para, ch7)
         self.users = Users(para)
         self.sim = Simulation(para)
-        self.utility = Utility(self.users, self.storage, para)
+         
+        if ch7:
+            self.env = Environment(para)
+            self.market = Market(para, self.users)
+            self.utility = Utility(self.users, self.storage, para, ch7, self.env)
+            self.market.estimate_market_demand(self.storage, self.users, self.env, self.utility, self.para)
+        else:
+            self.utility = Utility(self.users, self.storage, para)
 
     def plannerSDP(self, seed=0, plot=False):
         
@@ -109,20 +116,23 @@ class Model:
 
             self.sim.simulate(self.users, self.storage, self.utility, T2, self.para.CPU_CORES, planner=True, policy=True, polf=self.qv.W_f, 
                     delta=d, stats=False, planner_explore=True, t_cost_off=t_cost_off)
-
-            XA = np.vstack([XA, self.sim.XA_t])
-            X = np.vstack([X, self.sim.X_t1])
-            SW = np.hstack([SW, self.sim.series['SW']])
+            if not(stage1):
+                XA = self.sim.XA_t
+                X = self.sim.X_t1
+                SW = self.sim.series['SW']
+            else:
+                XA = np.vstack([XA, self.sim.XA_t])
+                X = np.vstack([X, self.sim.X_t1])
+                SW = np.hstack([SW, self.sim.series['SW']])
             
             self.qv.iterate(XA, X, SW, Alow, Ahigh, ITER=self.para.QV_ITER2, Ascaled=False,
-                    plot=True, xargs=['x', 1], eta=0.8, sg_points=self.para.sg_points1)
+                    plot=False, xargs=['x', 1], eta=0.8, sg_points=self.para.sg_points1)
             
         toc = time()
         st = toc - tic    
         print 'Solve time: ' + str(st)
         
         if simulate:
-            self.sim.ITER = 1
             self.sim.simulate(self.users, self.storage, self.utility, self.para.T0, self.para.CPU_CORES, planner=True, policy=True, polf=self.qv.W_f, delta=0, stats=True, planner_explore=False, t_cost_off=t_cost_off, seed=seed)
 
         self.utility.sr = SR
@@ -227,20 +237,17 @@ class Model:
         img_ext = '.pdf'
         
         big_tic = time()
-        self.sim.percentiles = True
         
         # Planners problem
         p_stats, p_sdp, p_st = self.plannerSDP()
-       
 
         #################           Solve Release sharing problem          #################
         
-        self.sim.percentiles = False
         #     Search for optimal shares by stochastic hill climbing
         
         print '\n Solve release sharing problem... '
         
-        stats, qv, st = self.plannerQV(t_cost_off=False, stage1=True, stage2=True, T1=self.para.T1, T2=self.para.T1, d=self.para.policy_delta, simulate=False)
+        stats, qv, st = self.plannerQV(t_cost_off=False, stage1=True, stage2=True, T1=self.para.T1, T2=self.para.T1, d=self.para.policy_delta, simulate=True)
         
         ITER = 0 
         if self.para.opt_lam == 1:
@@ -261,9 +268,10 @@ class Model:
 
             self.users.set_shares(Lambda[i]) 
             self.utility.set_shares(Lambda[i], self.users)
+            
             stats, qv, st = self.plannerQV(t_cost_off=False, stage1=True, stage2=True, T1=self.para.T1, T2=self.para.T1, d=self.para.policy_delta)
             
-            SW[i] = self.sim.stats['SW']['Mean'][1]
+            SW[i] = self.sim.stats['SW']['Mean'][self.sim.ITEROLD]
             if SW[i] > SW_max:
                 delta *= 0.8
                 Lambda_max = Lambda[i]
@@ -283,72 +291,166 @@ class Model:
              'YLABEL': 'Mean welfare',
              'XLABEL': 'High reliability user inflow share' }
             build_chart(chart, data, chart_type='scatter')
-
-        self.sim.ITER = 1
+        
         self.sim.percentiles = True
         self.sim.simulate(self.users, self.storage, self.utility, self.para.T0, self.para.CPU_CORES, planner=True, policy=True, polf=self.qv.W_f, delta=0, stats=True, planner_explore=False, t_cost_off=False)
         self.sim.percentiles = False
+        
 
         #################           Solve storage right problem          #################
         if self.utility.sr >= 0:
-            
-            self.users.W_f = self.qv.W_f
-            N_e = 5                             # Max Number of explorers per user group
-            d = 0                               # Search all feasible space
+
+            temp = self.para.ITER2
+            self.sim.ITER = 1
+            self.sim.ITEROLD = 0
+            self.sim.ITERNEW = 1
+
+            ### ============================
+            if self.para.opt_lam: 
+
+                if self.para.unbundled:
+                    self.para.ITER2 = 140
+                else:
+                    self.para.ITER2 = 100
+
+                n = np.count_nonzero(self.sim.stats['SW']['Mean']) - 1
+                # Optimal inflow shares
+                SW = np.zeros(self.para.ITER2)
+                SW[0] = self.sim.stats['SW']['Mean'][n]
+                SW_max = SW[0]
+                Lambda = np.zeros(self.para.ITER2)
+                Lambda[0] = Lambda_max
+                delta = Lambda[0] / 10
+                LambdaK = np.zeros(self.para.ITER2)
+                LambdaK[0] = Lambda_max
+                deltaK = delta
+                j = 0
+                counter = 0
+                Kchange = False
+            # ===============================
 
         ##################          User starting values                #################
-
             print 'User starting values, fitted Q-iteration ...'
+            
+            self.users.set_explorers(self.para.N_e[0], self.para.d[0])
          
-            stats, qv = self.multiQV(N_e, d, ITER=self.para.ITER1, init=True, policy = qv.W_f)
-
-            self.users.set_policy(qv[0].W_f, qv[0].W_f)
+            stats, qv = self.multiQV(ITER=self.para.ITER1, init=True, type='ASGD')
             
         ##################          Main Q-learning                     #################
-            if self.para.opt_lam:
-                users.share_adj = 0.01              # Inflow share adjustment rate
-                self.users.share_expore = 1
-                self.users.set_shares(self.para.Lambda_high)
+        
+            V_e = np.zeros([self.para.ITER2, 2])      # Value error
+            P_e = np.zeros([self.para.ITER2, 2])      # Policy error
 
             print '\nSolve decentralised problem, multiple agent fitted Q-iteration ...'
             
             for i in range(self.para.ITER2):
-                N_e = self.para.N_e[i]
-                d = self.para.d[i]
-                update_rate = self.para.update_rate[i]
-                
                 print '\n  ---  Iteration: ' + str(i) + '  ---\n'
-                print 'Number of Explorers: '+ str(N_e * 2) + ' of ' + str(self.para.N)  
-                print 'Exploration range: ' + str(d)   
+                print 'Number of Explorers: '+ str(self.para.N_e[i] * 2) + ' of ' + str(self.para.N)  
+                print 'Exploration temperature: ' + str(self.para.d[i])   
                 print '-----------------------------------------'
+
+                stats, qv = self.multiQV(ITER=self.para.iters, type='ASGD', partial=True)
                 
-                stats, qv = self.multiQV(N_e, d, ITER=self.para.iters)
+                for h in range(2):
+                    V_e[i, h] = qv[h].ve
+                    P_e[i, h] = qv[h].pe
+
+                self.users.update_policy(qv[0].W_f, qv[1].W_f, Np=self.para.update_rate[i], N_e=self.para.N_e[i + 1], d=self.para.d[i + 1])
                 
-                self.users.update_policy(qv[0].W_f, qv[1].W_f, prob = update_rate)
-                
+                ### ================================
+                # Optimal Inflow shares
                 if self.para.opt_lam:
-                    if users.low_gain > 0 and users.high_gain > 0:
-                        users.share_adj *= 1
-                    if users.low_gain < 0 and users.high_gain < 0:
-                        users.share_adj *= -1
-                    newLambda =  self.para.Lambda_high-self.users.share_adj
-                    self.utility.set_shares(newLambda, self.users)
-                    self.users.set_shares(newLambda)
-                    print 'Share adjustment: ' + str(self.users.share_adj) + ' Lambda high: ' + str(newLambda)
+                    counter += 1 
+                    if counter > 8 and i > 16:
+                        counter = 0
+                        ITER = self.sim.ITEROLD
+                        SW[j] = self.sim.stats['SW']['Mean'][ITER]
+                        
+                        if j == 0:
+                            Lambda[j + 1] = max(min(Lambda[j] + delta*0.5, 0.99), 0.01)
+                            LambdaK[j + 1] = LambdaK[j]
+                            SW_max = SW[j]
+                        else:
+                            if self.para.unbundled:
+                                if Kchange:
+                                    if SW[j] > SW_max:
+                                        deltaK *= 0.9
+                                        LambdaK[j + 1] = LambdaK[j]
+                                        SW_max = SW[j]
+                                    else:
+                                        deltaK *= -0.75
+                                        LambdaK[j + 1] = LambdaK[j - 1]
+                                    Lambda[j + 1] = max(min(Lambda[j] + 1 * delta, 0.99), 0.01)
+                                    Kchange = False
+                                else:  
+                                    if SW[j] > SW_max:
+                                        delta *= 0.9
+                                        Lambda[j + 1] = Lambda[j]
+                                        SW_max = SW[j]
+                                    else:
+                                        delta *= -0.75
+                                        Lambda[j + 1] = Lambda[j - 1]
+                                    LambdaK[j + 1] = max(min(LambdaK[j] + 1 * deltaK, 0.99), 0.01)
+                                    Kchange = True
+                                
+                                pylab.scatter(Lambda[0:j+1], SW[0:j+1])
+                                pylab.show()
+                                pylab.scatter(LambdaK[0:j+1], SW[0:j+1])
+                                pylab.show()
+                                
+                                print '--- Optimal Inflow share search ---'
+                                print 'Lambda previous: ' + str(Lambda[j -1])
+                                print 'Lambda: ' + str(Lambda[j])
+                                print 'Lambda next: ' + str(Lambda[j + 1])
+                                print '--- Optimal Capacity share search ---'
+                                print 'Lambda K previous: ' + str(LambdaK[j -1])
+                                print 'Lambda K: ' + str(LambdaK[j])
+                                print 'Lambda K next: ' + str(LambdaK[j + 1])
+                                print 'Old welfare: ' + str(SW[j-1])
+                                print 'Welfare: ' + str(SW[j])
+                                print 'Welfare: ' + str(SW_max)
+                            else:
+                                if SW[j] > SW[j - 1]:
+                                    delta *= 0.9
+                                else:
+                                    delta *= -0.75
 
+                                Lambda[j + 1] = max(min(Lambda[j] + 1 * delta, 0.99), 0.01)
+                                
+                                pylab.scatter(Lambda[0:j+1], SW[0:j+1])
+                                pylab.show()
+                    
+                                print '--- Optimal share search ---'
+                                print 'Lambda previous: ' + str(Lambda[j -1])
+                                print 'Lambda: ' + str(Lambda[j])
+                                print 'Lambda next: ' + str(Lambda[j + 1])
+                                print 'Old welfare: ' + str(SW[j-1])
+                                print 'Welfare: ' + str(SW[j])
+                            
+                        
+                        self.users.set_shares(Lambda[j + 1], self.para.unbundled, LambdaK[j + 1]) 
+                        self.utility.set_shares(Lambda[j + 1], self.users)
+                        j += 1
+                ### =================================== 
+
+            self.users.exploring = 0
             self.sim.simulate(self.users, self.storage, self.utility, self.para.T2, self.para.CPU_CORES, stats = True)
+            self.para.ITER2 = temp
         
-
         big_toc = time()
         print "Total time (minutes): " + str(round((big_toc - big_tic) / 60,2))
         
         Lambda_high = self.utility.Lambda_high
+        if self.para.unbundled:
+            Lambda_K = LambdaK[j]
+        else:
+            Lambda_K = Lambda_high
+        
+        self.sim.finalise_stats()
 
         stats = self.sim.stats
 
-        del self
-
-        return stats, Lambda_high
+        return stats, Lambda_high, Lambda_K
         
     def chapter5(self):
        
@@ -386,7 +488,7 @@ class Model:
                 P_e[i, h] = qv[h].pe
 
             self.users.update_policy(qv[0].W_f, qv[1].W_f, Np=self.para.update_rate[i], N_e=self.para.N_e[i + 1], d=self.para.d[i + 1])
-        
+            
         self.users.exploring = 0
         self.sim.simulate(self.users, self.storage, self.utility, self.para.T0, self.para.CPU_CORES, stats = True)
         

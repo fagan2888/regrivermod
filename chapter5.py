@@ -7,7 +7,7 @@ import numpy as np
 from para import Para
 import model
 
-para = Para(rebuild=True, charts=False)
+para = Para(rebuild=False, charts=False)
 para.central_case(N=100, printp=False)
 para.set_property_rights(scenario='CS')
 para.solve_para()

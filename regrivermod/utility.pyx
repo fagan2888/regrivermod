@@ -8,11 +8,13 @@ import time
 
 cimport cython
 cimport numpy as np
+from regrivermod.storage cimport Storage
 from libc.math cimport fmin as c_min
 from libc.math cimport fmax as c_max
 from libc.math cimport log as c_log
+from libc.math cimport fabs as c_abs
 
-cdef inline double c_sum(int N, double[:] x):
+cdef inline double c_sum(int N, double[:] x) nogil:
     
     cdef double sumx = 0
     cdef int i = 0
@@ -90,22 +92,6 @@ cdef inline double[:] update_accounts(int N, double[:] s, double[:] w, double[:]
 
     return values
 
-cdef inline double[:] allocate(int N, int N_low, double A, int HL, double[:] c_F, double Lambda_high, double A_bar, double[:] a):
-    
-    cdef int i = 0 
-
-    if HL == 0:
-        for i in range(N):
-            a[i] = A * c_F[i]
-    else:
-        for i in range(N_low, N):
-            a[i] =  c_min(A, A_bar * Lambda_high) * (c_F[i] / Lambda_high)
-        for i in range(0, N_low):
-            a[i] = c_max(A - A_bar * Lambda_high, 0) * ( c_F[i] / (1 - Lambda_high))
-
-    return a
-
-
 cdef class Utility:
 
     def __init__(self, users, storage, para, ch7=False, env=0):
@@ -113,14 +99,17 @@ cdef class Utility:
         self.N = users.N          
         self.N_low = users.N_low
         self.N_high = users.N_high
-        
+         
         if ch7:
             self.ch7 = 1
+            self.I_env = self.N
             self.N +=  1
             if para.ch7['High']:
                 self.N_high += 1
             else:
                 self.N_low += 1
+        else:
+            self.ch7 = 0
         
         self.I_low = np.zeros(self.N_low, dtype='int32')
         self.I_high = np.zeros(self.N_high, dtype='int32')
@@ -133,7 +122,7 @@ cdef class Utility:
             for i in range(self.N_high):
                 self.I_high[i]  = i + self.N_low
         else:
-            for i in range(self.N_low - 1):
+            for i in range(self.N_low):
                 self.I_low[i] = i
             for i in range(self.N_high):
                 self.I_high[i]  = i + self.N_low
@@ -151,12 +140,19 @@ cdef class Utility:
         self.temp2 = np.zeros(self.N)
         self.temp3 = np.zeros(self.N)
         self.temp4 = np.zeros(self.N)
-        
+        self.c_F = np.zeros(self.N)
+        self.c_K = np.zeros(self.N)
+        self.w = np.zeros(self.N)
+
         if ch7:
             self.delta1a = storage.delta_a
+            self.delta_Ea = storage.delta_Eb
             self.delta1b = storage.delta_Eb
-            self.c_F = np.array([users.c_F + env.c_F])
-            self.c_K = np.array([users.c_K + env.c_K])
+            for i in range(self.N - 1):
+                self.c_F[i] = users.c_F[i] 
+                self.c_K[i] = users.c_K[i] 
+            self.c_F[self.N - 1] = env.Lambda_I
+            self.c_K[self.N - 1] = env.Lambda_K
             self.fixed_loss = storage.delta_a + storage.delta_Ea 
         else:
             self.c_F = users.c_F                        # User inflow shares
@@ -209,6 +205,23 @@ cdef class Utility:
 
         self.Lambda_high = para.Lambda_high
         self.M = 0
+    
+    cdef double[:] allocate(self, double A, double[:] a) nogil:
+        
+        cdef int i = 0 
+
+        if self.HL == 0:
+            for i in range(self.N):
+                a[i] = A * self.c_F[i]
+        else:
+            for i in range(self.N_high):
+                a[self.I_high[i]] =  c_min(A, self.A_bar * self.Lambda_high) * (self.c_F[self.I_high[i]] / self.Lambda_high)
+            for i in range(self.N_low):
+                a[self.I_low[i]] = c_max(A - self.A_bar * self.Lambda_high, 0) * (self.c_F[self.I_low[i]] / (1 - self.Lambda_high))
+
+        return a
+
+
 
     def set_shares(self, Lambda_high, users, env=0):
 
@@ -227,19 +240,19 @@ cdef class Utility:
         self.acc_max = np.zeros(self.N)
         if self.sr == 0:
             for i in range(self.N):
-                self.acc_max[i] = self.c_K[i] * self.K * (1 - self.fixed_loss)
+                self.acc_max[i] = self.c_K[i] * (self.K  - self.fixed_loss)
         elif self.sr == 1:
             for i in range(self.N):
-                self.acc_max[i] = self.K * (1 - self.fixed_loss)
+                self.acc_max[i] = self.K - self.fixed_loss
         elif self.sr == 2:
             for i in range(self.N):
-                self.acc_max[i] = self.K * (1 - self.fixed_loss)
+                self.acc_max[i] = self.K - self.fixed_loss
         elif self.sr == 3:
             for i in range(self.N):
-                self.acc_max[i] = self.K * (1 - self.fixed_loss)
+                self.acc_max[i] = self.K - self.fixed_loss
         elif self.sr == 4:
             for i in range(self.N):
-                self.acc_max[i] = self.c_K[i] * self.K * (1 - self.fixed_loss)
+                self.acc_max[i] = self.c_K[i] * (self.K - self.fixed_loss)
 
     cdef double release(self, double[:] w, double S):
         
@@ -260,34 +273,72 @@ cdef class Utility:
         for i in range(self.N):
             self.a[i] = w[i] * (1 - self.delta1b)
 
-        return W
+        return W   
     
-    cdef double deliver_ch7(self, double[:] w, double S, int M):
+    cdef double deliver_ch7(self, double[:] users_w, double env_w, Storage storage,  int M):
         
-        W = c_sum(self.N, w) 
+        cdef double W = 0
+        cdef int i = 0
+         
+        for i in range(self.N - 1):
+            self.w[i] = users_w[i]
+            W += users_w[i]
 
         if W > 0:
             self.delivered = 1
         else:
             self.delivered = 0
         
+        self.w[self.I_env] = env_w
+        W += env_w
+        
+        self.max_E = storage.delta_Ea * self.delivered + W
+        
         # User allocations (adjusted for delivery losses)
         for i in range(self.N):
-            self.a[i] = w[i] * (1 - self.delta1b)
-        
+            self.a[i] = self.w[i] * (1 - storage.delta_Eb)
+
+        self.A = c_sum(self.N, self.a)
+
         self.M = M
+
+        # Physical withdrawals to satisfy orders
+        if self.delivered == 1 and M == 0:
+            W = W + storage.delta_a + storage.delta_Ea
+            if W > storage.F_bar[0]:
+                W = (W - storage.F_bar[0] * storage.delta_b)*((1 - storage.delta_b)**-1)
+        elif self.delivered == 0 and M == 0:
+            W = W + storage.delta_a
+            if W > storage.F_bar[0]:
+                W = (W - storage.F_bar[0] * storage.delta_b)*((1 - storage.delta_b)**-1)
+        elif M == 1 and storage.S > self.fixed_loss:
+            W = W + storage.delta_a
+            if W > storage.F_bar[0]:
+                W = (W - storage.F_bar[1] * storage.delta_b)*((1 - storage.delta_b)**-1)
+        elif storage.S < self.fixed_loss:
+            W = 0
+        
+        return W
+    
+    cdef double extract(self, double qe):
+
+        cdef double E
+
+        E = c_max(self.max_E - qe / (1 - self.delta1b), 0)
+
+        return E
 
     cdef void update(self, double S, double I, double L, double Spill, double[:] w, double A):
     
         if self.sr == -1:       # Release sharing (planner storage)
-            self.a = allocate(self.N, self.N_low, A, self.HL, self.c_F, self.Lambda_high, self.A_bar, self.a)
+            self.a = self.allocate(A, self.a)
         else:                   # Storage rights 
             self.update_storage_accounts(S, I, L, Spill, w)
 
     def update_test(self, S, I, L, Spill, w,  A):
 
         if self.sr == -1:       # Release sharing (planner storage)
-            self.a = allocate(self.N, self.N_low, A, self.HL, self.c_F, self.Lambda_high, self.A_bar, self.a)
+            self.a = self.allocate(A, self.a)
         else:                   # Storage rights
             self.update_storage_accounts_test(S, I, L, Spill, w)
 
@@ -320,13 +371,22 @@ cdef class Utility:
             
             # Fixed delivery loss deductions
             target = S - self.fixed_loss
-            f_loss_ded = (self.fixed_loss - self.fixed_loss_co) * self.delivered 
-            self.fixed_loss_co = 0
+            if self.M == 0:
+                if self.delivered == 1:
+                    f_loss_ded = self.fixed_loss - self.fixed_loss_co
+                    self.fixed_loss_co = 0
+                elif self.ch7 == 1:
+                    f_loss_ded = self.fixed_loss - self.delta_Ea
+                    self.fixed_loss_co = self.delta_Ea
+                else:
+                    f_loss_ded = 0
+                    self.fixed_loss_co = self.fixed_loss
             if self.M == 1:
-                self.fixed_loss_co = self.fixed_loss - self.delta_Ea
+                f_loss_ded = self.fixed_loss - self.fixed_loss_co
+                self.fixed_loss_co = self.delta_Ea
 
             # User inflow shares = lambda_i * I_t (unless HL=1)
-            lamI = allocate(self.N, self.N_low, I, self.HL, self.c_F, self.Lambda_high, self.A_bar, lamI)
+            lamI = self.allocate(I, lamI)
             
             # User evaporation loss deductions (socialised or proportional to account balance)
             self.l = storage_loss(self.N, L, self.s, w, self.l, self.c_F, self.ls) 
@@ -344,7 +404,7 @@ cdef class Utility:
                     for i in range(self.N):
                         s[i] = self.c_K[i] * target
                 elif self.sr == 1:                  # SWA
-                    lamI_Spill  = allocate(self.N, self.N_low, I - Spill, self.HL, self.c_F, self.Lambda_high, self.A_bar, lamI)
+                    lamI_Spill  = self.allocate(I - Spill, lamI)
                     s = update_accounts(self.N, self.s, w, self.l, self.x, self.acc_max, lamI_Spill, s) 
                     for i in range(self.N):
                         self.x[i] = -Spill * (s[i] / (self.K - self.fixed_loss))
@@ -354,7 +414,7 @@ cdef class Utility:
                         self.x[i] = -Spill * self.c_F[i] 
                     s = update_accounts(self.N, self.s, w, self.l, self.x, self.acc_max, lamI, s)
                 elif self.sr == 4:                  # CS-SWA
-                    lamI_Spill  = allocate(self.N, self.N_low, I - Spill, self.HL, self.c_F, self.Lambda_high, self.A_bar, lamI)
+                    lamI_Spill  = self.allocate(I - Spill, lamI)
                     s = update_accounts(self.N, self.s, w, self.l, self.x, self.acc_max, lamI_Spill, s) 
                     for i in range(self.N):
                         s_k[i] = c_max(s[i] - self.acc_max[i], 0)
@@ -433,8 +493,10 @@ cdef class Utility:
             print 'self.fixed_loss_co: ' + str(self.fixed_loss_co) 
             print ' ---------- '
             # User inflow shares = lambda_i * I_t (unless HL=1)
-            lamI = allocate(self.N, self.N_low, I, self.HL, self.c_F, self.Lambda_high, self.A_bar, lamI)
+            lamI = self.allocate(I, lamI)
             print 'lamI: ' + str(np.array(lamI)) 
+            print 'lamI: sum ' + str(np.sum(lamI))
+
             # User evaporation loss deductions (socialised or proportional to account balance)
             self.l = storage_loss(self.N, L, self.s, w, self.l, self.c_F, self.ls) 
             print 'loss: ' + str(np.array(self.l)) 
@@ -444,8 +506,10 @@ cdef class Utility:
                 self.l[i] += f_loss_ded * self.c_F[i]
             print 'loss: ' + str(np.array(self.l)) 
             print ' ---------- '
+            print 'x: ' + str(np.array(self.x))
+            print 'acc_max: ' + str(np.array(self.acc_max)) 
+            print 's: ' + str(np.array(self.s)) 
             s = update_accounts(self.N, self.s, w, self.l, self.x, self.acc_max, lamI, s)
-            
             print 's: ' + str(np.array(s)) 
             # Apply spill event rules
             if Spill > 0:
@@ -454,7 +518,7 @@ cdef class Utility:
                     for i in range(self.N):
                         s[i] = self.c_K[i] * target
                 elif self.sr == 1:                  # SWA
-                    lamI_Spill  = allocate(self.N, self.N_low, I - Spill, self.HL, self.c_F, self.Lambda_high, self.A_bar, lamI)
+                    lamI_Spill  = self.allocate(I - Spill, lamI)
                     s = update_accounts(self.N, self.s, w, self.l, self.x, self.acc_max, lamI_Spill, s) 
                     for i in range(self.N):
                         self.x[i] = -Spill * (s[i] / (self.K - self.fixed_loss))
@@ -464,7 +528,7 @@ cdef class Utility:
                         self.x[i] = -Spill * self.c_F[i] 
                     s = update_accounts(self.N, self.s, w, self.l, self.x, self.acc_max, lamI, s)
                 elif self.sr == 4:                  # CS-SWA
-                    lamI_Spill  = allocate(self.N, self.N_low, I - Spill, self.HL, self.c_F, self.Lambda_high, self.A_bar, lamI)
+                    lamI_Spill  = self.allocate(I - Spill, lamI)
                     s = update_accounts(self.N, self.s, w, self.l, self.x, self.acc_max, lamI_Spill, s) 
                     for i in range(self.N):
                         s_k[i] = c_max(s[i] - self.acc_max[i], 0)

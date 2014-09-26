@@ -312,8 +312,13 @@ class Para:
             self.ch7_param['F_bar'] = [2, 3] 
             self.ch7_param['delta_b'] = [0.3, 0.6]
             self.ch7_param['delta_Ea'] = [0, 0.1]
-            self.ch7_param['delta_Eb']= [0.1, 0.3]
+            self.ch7_param['delta_Eb'] = [0.1, 0.3]
             self.ch7_param['delta_R'] = [0, 0.2]
+            self.ch7_param['b_w'] = [0, 1]
+            self.ch7_param['b_value'] = [10000000, 20000000]
+            self.ch7_param['inflow_share'] = [0, 0.5]
+            self.ch7_param['capacity_share'] = [0, 0.5]
+            self.ch7_param['High'] = [1, 1]
 
             para_dist = [self.I_K_param, self.SD_I_param, self.rho_param, self.SA_K_param, self.evap_param, self.d_loss_param_a, self.d_loss_param_b,  self.t_cost_param, self.Lambda_high_param, [100, 100], [30, 70], [30, 70], self.theta_mu, self.theta_sig, self.q_bar_limits, self.rho_eps_param, self.sig_eta_param, self.prop_high, self.target_price, self.relative_risk_aversion, self.ch7_param]
                     
@@ -363,7 +368,8 @@ class Para:
             self.ch7_param      = para_dist[20]
             
     def set_property_rights(self, scenario='CS'):
-
+        
+        self.unbundled = False
         if scenario == 'CS':
             self.sr = 'CS'
             self.ls = 1
@@ -429,11 +435,22 @@ class Para:
             self.ls = 1
             self.HL = 1
             self.opt_lam = 1
+        elif scenario == 'CS-HL':
+            self.sr = 'CS'
+            self.ls = 1
+            self.HL = 1
+            self.opt_lam = 0
         elif scenario == 'CS-O':
             self.sr = 'CS'
             self.ls = 1
             self.HL = 0
             self.opt_lam = 1
+        elif scenario == 'CS-U':
+            self.sr = 'CS'
+            self.ls = 1
+            self.HL = 0
+            self.opt_lam = 1
+            self.unbundled = True
         
         if self.opt_lam == 1:
             if self.HL == 1:
@@ -441,7 +458,7 @@ class Para:
             else:
                 self.Lambda_high = self.prop * 1.5
         else:
-            self.Lambda_high = self.prop
+            self.Lambda_high = self.prop 
 
     def central_case(self, N=100, utility=False, printp=True, risk=0):
         
@@ -518,7 +535,7 @@ class Para:
         if self.opt_lam == 1:
             self.Lambda_high = self.prop * 1 #np.mean(self.Lambda_high_param)
         else:
-            self.Lambda_high = self.prop * 1.5
+            self.Lambda_high = self.prop * 2
         
         
         if utility:
@@ -812,16 +829,16 @@ class Para:
         self.iters = 1              # QV iterations per learning iteration 
 
         #Proportion of users to update
-        self.update_rate = [12] * 5 + [10] * 50 #+ [0.05] * 5
+        self.update_rate = [12] * 5 + [10] * 150 #+ [0.05] * 5
        
         #Proportion of sample size to replace each iteration (< 1 implies rolling batch)
         self.sample_rate = 0.1
 
         # Number of exploring agents per class
-        self.N_e = [5] * 4 + [4] * 4 + [3] * 4 + [2] * 50
+        self.N_e = [5] * 4 + [4] * 4 + [3] * 4 + [2] * 150
 
         # Exploration range
-        self.d = [0.25] * 4 + [0.2] * 4 + [0.15] * 4 + [0.085] * 50 
+        self.d = [0.25] * 4 + [0.2] * 4 + [0.15] * 4 + [0.085] * 150 
 
         # Total sample size, actual sim length = T1 / (2*N_e)
         self.T2 = 500000 

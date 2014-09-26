@@ -13,15 +13,25 @@ if __name__ == '__main__':
 
     para = Para(rebuild=True, charts=False)
     para.central_case(N=100, printp=False)
-    para.set_property_rights(scenario='CS')
+    para.set_property_rights(scenario='CS-U')
     para.solve_para()
 
-    mod = model.Model(para)
+    mod = model.Model(para, ch7=True)
+
+    #mod.plannerSDP()
+
+
+    #mod.users.init_policy(mod.sdp.W_f, mod.sdp.V_f, mod.storage, 4, para.linT, para.sg_radius2)
+
+    #mod.sim.test_sim(50, mod.users, mod.storage, mod.utility, mod.users.market_d)
+
+    #mod.chapter5()
+
 #stats, _, _ = mod.plannerSDP(plot=True)
 
 #w_f_low, v_f_low, w_f_high, v_f_high = mod.users.init_policy(mod.sdp.W_f, mod.sdp.V_f, mod.storage, 6, 4, para.s_radius2)
 
-    mod.chapter5()
+    #mod.chapter6()
 #multiQV(5, 0.2, 40, init=True)
 
 #SW = 0

@@ -1,3 +1,6 @@
+#!python
+#cython: boundscheck=False, wraparound=False, nonecheck=False, initializedcheck=False
+
 from __future__ import division
 import numpy as np
 import time
@@ -15,6 +18,7 @@ from libc.math cimport log as c_log
 from libc.math cimport exp as c_exp
 from libc.math cimport sin as c_sin
 from libc.math cimport cos as c_cos
+from libc.math cimport fabs as c_abs
 
 from libc.stdlib cimport srand as c_seed
 from libc.stdlib cimport rand
@@ -44,7 +48,7 @@ cdef inline double loss_12(F1, delta_a, delta_b, F_bar):
 
 cdef class Storage:
 
-    def __init__(self, para):
+    def __init__(self, para, ch7=False):
 
         self.K = para.K                     # Storage capacity
         
@@ -58,23 +62,7 @@ cdef class Storage:
         self.delta1a = para.delta1a         # Delivery losses
         self.delta1b = para.delta1b
         
-        self.omega_mu = para.ch7['omega_mu']        # Summer-Winter inflow split
-        self.omega_sig = para.ch7['omega_sig']
-        self.omega_ab = np.array(para.ch7_param['omega_ab'])
-
-        self.delta_a   = para.ch7['delta_a']                     # ch7 river flow parameters
-        self.delta_b  = para.ch7['delta_b'] 
-        self.delta_Ea = para.ch7['delta_Ea']
-        self.delta_Eb = para.ch7['delta_Eb']
-        self.delta_R = para.ch7['delta_R']
-        self.F_bar = np.zeros(2)
-        self.F_bar[0] = para.ch7['F_bar'] * (5/12)
-        self.F_bar[1] = para.ch7['F_bar'] * (7/12)
-
-        self.I = para.I_bar
-        self.C = para.I_bar
         self.I_bar = para.I_bar
-        
         self.Imax = self.K * 2      
         
         self.S = self.K                     # Initial storage level
@@ -83,6 +71,24 @@ cdef class Storage:
 
         self.pi = math.pi
         self.X = np.zeros(2)
+
+        if ch7:
+            self.omega_mu = para.ch7['omega_mu']        # Summer-Winter inflow split
+            self.omega_sig = para.ch7['omega_sig']
+            self.omega_ab = np.array(para.ch7_param['omega_ab'])
+
+            self.delta_a   = para.ch7['delta_a']                     # ch7 river flow parameters
+            self.delta_b  = para.ch7['delta_b'] 
+            self.delta_Ea = para.ch7['delta_Ea']
+            self.delta_Eb = para.ch7['delta_Eb']
+            self.delta_R = para.ch7['delta_R']
+            self.F_bar = np.zeros(2)
+            self.F_bar[0] = para.ch7['F_bar'] * (5/12)
+            self.F_bar[1] = para.ch7['F_bar'] * (7/12)
+
+            self.C = para.I_bar
+            self.I = self.C * self.omega_mu
+            self.I_tilde = self.C
 
     def seed(self, i):
         seed = int(time.time()/(i + 1))
@@ -109,7 +115,6 @@ cdef class Storage:
          self.OMEGA = np.zeros(T)
          self.OMEGA = truncnorm(self.omega_ab[0], self.omega_ab[1], loc=self.omega_mu, scale=self.omega_sig).rvs(size=T) 
 
-    @cython.initializedcheck(False) 
     cdef double update(self, double W, int t):
          "Draw I randomly and update storage level given W"
          
@@ -126,7 +131,6 @@ cdef class Storage:
 
          return self.S
 
-    @cython.initializedcheck(False) 
     cdef double storage_transition(self, double W):
 
          self.Loss = self.delta0 * self.alpha * (self.S)**(0.666666666666666)
@@ -136,44 +140,17 @@ cdef class Storage:
          self.S = c_max(c_min(self.S - W - self.Loss + self.I, self.K), 0)
     
     
-    @cython.initializedcheck(False) 
     cdef double release(self, double W):
         "Calculate storage release need to satisfy aggregate orders W"
 
         return c_max((1 - self.delta1b) * W - self.delta1a,0)
     
-    @cython.initializedcheck(False) 
-    cpdef double release_ch7(self, double sum_w, int M):
-        
-        cdef double W = 0
-
-        # Determine release required to satisfy user withdrawals
-        if sum_w > 0:
-            if M == 0:
-                W = sum_w + self.delta_a + self.delta_Ea
-                if W > self.F_bar[0]:
-                    W = (W - self.F_bar[0] * self.delta_b)*((1 - self.delta_b)**-1)
-            else:
-                W = sum_w + self.delta_a
-
-        self.max_E = sum_w
-
-        self.min_F2 = (W + self.Spill) - loss_12(W + self.Spill, self.delta_a, self.delta_b, self.F_bar[M]) - self.max_E
-
-        return W
     
     def loss12(self, F1, int M):
         """Python wrapper for inline function loss_12"""
 
         return loss_12(F1, self.delta_a, self.delta_b, self.F_bar[M])
 
-    @cython.initializedcheck(False) 
-    cpdef double extract_ch7(self, double E):
-        "ch7: Returns water available at demand node, given extraction E"
-
-        return c_max((1 - self.delta_Eb) * E - self.delta_Ea , 0)   
-    
-    @cython.initializedcheck(False) 
     cdef void river_flow(self, double W, double E, int M):
         "ch7: Compute river flows at each node, given releases W and extraction"
         
@@ -186,27 +163,36 @@ cdef class Storage:
         self.F3 = c_max(self.F2 - c_min(self.F2, self.delta_a) +  self.delta_R * E, 0)
 
     @cython.cdivision(True) 
-    @cython.initializedcheck(False) 
     cdef double update_ch7(self, double W, double E, int M, int t):
          
+         self.I_tilde = self.I 
+        
          if M == 0:
-            self.C = c_min(self.rho * self.C + self.EPS[t], self.I_bar * 4)
-            self.I = self.C * (1 - self.OMEGA[t])
+            self.C = self.C
+            self.I = self.C * self.OMEGA[t]
          else:
-            self.I = self.C * self.OMEGA[t] 
-         
+            self.C = c_min(self.rho * self.C + self.EPS[t], self.I_bar * 5)
+            self.I = self.C * (1 - self.OMEGA[t])
+
+         self.I_tilde += self.I
+         self.I_tilde *= self.I_bar**-1
+
          self.storage_transition(W)
-         
-         # Natural flows
-         self.river_flow(self.I, 0, M)
-         self.F1_tilde = self.F1
-         self.F2_tilde = self.F2
-         self.F3_tilde = self.F3
 
          # Actual flows
          self.river_flow(W, E, M)
 
          return self.S
+    
+    cdef void natural_flows(self, double W, double max_E, int M):
+        
+        self.min_F2 = c_max((W + self.Spill) - loss_12(W + self.Spill, self.delta_a, self.delta_b, self.F_bar[M]) - max_E, 0)
+
+        self.river_flow(self.I, 0, M)
+        self.F1_tilde = self.F1
+        self.F2_tilde = self.F2
+        self.F3_tilde = self.F3
+
 
     def update_ch7_test(self, W, E, M, t):
 

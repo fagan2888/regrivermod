@@ -19,6 +19,7 @@ from libc.math cimport log as c_log
 from libc.math cimport exp as c_exp
 from libc.math cimport sin as c_sin
 from libc.math cimport cos as c_cos
+from libc.math cimport fabs as c_abs
 
 from libc.stdlib cimport srand as c_seed
 from libc.stdlib cimport rand
@@ -128,6 +129,7 @@ cdef class Users:
         self.q = np.zeros(self.N)                   # User water consumption
         self.profit = np.zeros(self.N)              # User payoff
         self.e = np.ones(self.N)                    # Productivity shocks
+        self.trade = np.zeros(self.N)               # a - q
                 
         #--------------------------------------#
         # Delivery loss deductions
@@ -313,17 +315,20 @@ cdef class Users:
         #self.SW_f.plot(['x', 1], showdata=True)
         #pylab.show()
         
-    def set_shares(self, Lambda_high):
+    def set_shares(self, double Lambda_high, unbundled=False, Lambda_K_high=0):
 
-        low_c = 1 - Lambda_high
-        low_c  = low_c
 
-        self.c_F_low = low_c / <double> self.N_low                  # Low reliability inflow shares
-        self.c_K_low = low_c / <double> self.N_low                  # Low reliability capacity shares
-        self.c_F_high = (1 - low_c) / <double> self.N_high          # High reliability inflow shares
-        self.c_K_high = (1 - low_c) / <double> self.N_high          # High reliability capacity shares
+        self.c_F_low = (1 - Lambda_high) / <double> self.N_low                # Low reliability inflow shares
+        self.c_K_low = (1 - Lambda_high) / <double> self.N_low                # Low reliability capacity shares
+        self.c_F_high = Lambda_high / <double> self.N_high                  # High reliability inflow shares
+        self.c_K_high = Lambda_high / <double> self.N_high                  # High reliability capacity shares
         self.c_F = np.zeros(self.N)
         self.c_K = np.zeros(self.N)
+        
+        if unbundled:
+            self.c_K_low = (1- Lambda_K_high) / <double> self.N_low         # Low reliability capacity shares
+            self.c_K_high = Lambda_K_high / <double> self.N_high            # High reliability capacity shares
+
 
         for i in range(0, self.N_low):
             self.c_F[i] = self.c_F_low
@@ -334,11 +339,11 @@ cdef class Users:
             self.c_K[i] = self.c_K_high
 
         #Inflow share explorers
-        if self.share_explore:
-            self.c_F[self.share_e_l[0]] += self.share_adj / <double> self.N_low
-            self.c_F[self.share_e_h[0]] -= self.share_adj / <double> self.N_low
-            self.c_K[self.share_e_l[0]] += self.share_adj / <double> self.N_low
-            self.c_K[self.share_e_h[0]] -= self.share_adj / <double> self.N_low
+        #if self.share_explore:
+        #    self.c_F[self.share_e_l[0]] += self.share_adj / <double> self.N_low
+        #    self.c_F[self.share_e_h[0]] -= self.share_adj / <double> self.N_low
+        #    self.c_K[self.share_e_l[0]] += self.share_adj / <double> self.N_low
+        #    self.c_K[self.share_e_h[0]] -= self.share_adj / <double> self.N_low
 
 
     cdef double[:] withdraw(self, double S, double[:] s, double I):
@@ -393,6 +398,9 @@ cdef class Users:
         self.S_high = 0
         self.X_low = 0
         self.X_high = 0
+        self.tradeVOL = 0
+        self.trade_low = 0
+        self.trade_high = 0
 
         for i in range(0, self.N_low):
             self.W_low += self.w[i] 
@@ -409,6 +417,13 @@ cdef class Users:
         for i in range(self.N_low, self.N):
             self.X_high += x[i] 
     
+        for i in range(self.N):
+            self.tradeVOL += c_abs(self.trade[i])
+        
+        for i in range(0, self.N_low):
+            self.trade_low += self.trade[i] 
+        for i in range(self.N_low, self.N):
+            self.trade_high += self.trade[i] 
     
     cdef mv(self, double I):
 
@@ -463,9 +478,8 @@ cdef class Users:
             t_cost = self.t_cost
 
         I = c_max(c_min(I, 2), 0.5)
-
+        
         self.q = demand(P, t_cost, self.N, self.MV, self.d_cons, self.d_beta, self.a, self.q)
-
         if planner == 1:
             self.a[...] = self.q
 
@@ -478,21 +492,10 @@ cdef class Users:
         for i in range(self.N_low, self.N):
             self.U_high += self.profit[i] 
         SW = self.U_low + self.U_high 
-
-        if self.share_explore == 1:
-            self.low_gain += self.profit[self.share_e_l[0]]  - self.profit[self.share_e_l[1]]
-            self.high_gain += self.profit[self.share_e_h[0]] - self.profit[self.share_e_h[1]]
+        for i in range(self.N):
+            self.trade[i] = c_max(c_min(self.a[i], self.d_cons[i]), 0) - self.q[i]
 
         return SW
-    
-    def calc_trade(self):
-
-        cdef int i
-        self.trade = 0
-        for i in range(self.N):
-            self.trade = self.trade + abs(self.a[i] - self.q[i])
-    
-        return self.trade
     
     def set_explorers(self, N_e, d=0, testing=False, test_idx=0):
         
@@ -542,6 +545,21 @@ cdef class Users:
             self.d_beta[i] = self.L[i]*((2 * self.theta[i,2]* self.e[i])**-1) 
             self.d_cons[i] = c_max(self.L[i]*(self.theta[i,1] + self.theta[i,5] * I) * ((-2.0 * self.theta[i,2])**-1),0) 
 
+    cdef void allocate(self, double[:] a, double I):
+
+        cdef int i
+        
+        for i in range(self.N):
+            self.a[i] = a[i]
+
+        I = c_max(c_min(I, 2),0.5)
+        
+        # Update user demand parameters
+        self.demand_para(I)
+        
+        # User marginal value for water pre trade
+        self.mv(I)
+    
     cdef double clear_market(self, double I, Tilecode market_d, int planner):
 
         cdef int i
@@ -607,11 +625,11 @@ cdef class Users:
             EX1 = EX0
             iters += 1
 
-            if (abs(EX0) < tol and (EX0 + Q) > 0) or iters > 50:
+            if (c_abs(EX0) < tol and (EX0 + Q) > 0) or iters > 50:
                 break
 
 
-        if abs(EX0) > tol2 and Q > tol:         # Use bisection method
+        if c_abs(EX0) > tol2 and Q > tol:         # Use bisection method
             
             iters = 0
             if c_min(EX0, EX2) < 0 and c_max(EX0, EX2) > 0:
@@ -631,7 +649,7 @@ cdef class Users:
             
             EX2 = 2 * tol2
 
-            while abs(EX2) > tol2 and iters < 100:
+            while c_abs(EX2) > tol2 and iters < 100:
                 
                 P2 = (P1 + P0)* 0.5
                 EX2 = excess_demand(P2, Q, t_cost, self.N, self.MV, self.d_cons, self.d_beta, self.a)
@@ -648,7 +666,7 @@ cdef class Users:
                 
                 iters += 1
 
-            if abs(EX2) > tol2 and P0 > 0 and Q > tol:
+            if c_abs(EX2) > tol2 and P0 > 0 and Q > tol:
 
                 print '   Warning: Clearing price not found   '
                 print 'Excess demand: ' + str(EX2/Q)

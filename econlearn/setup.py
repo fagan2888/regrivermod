@@ -16,7 +16,7 @@ def makeExtension(extName):
         #libraries=cython_gsl.get_libraries(), #.append("m"),
         #library_dirs=[cython_gsl.get_library_dir()],
         include_dirs = [np.get_include(),"..", "../include"], #, cython_gsl.get_cython_include_dir()],
-        extra_compile_args = ["-ffast-math", "-march=native", "-fopenmp"], #, "-std=c++11"
+        extra_compile_args = ["-O3", "-ffast-math", "-march=native", "-fopenmp"], #, "-std=c++11"
         extra_link_args=['-fopenmp'],
         )
 

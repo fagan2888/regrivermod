@@ -55,6 +55,10 @@ cdef class Users:
     cdef public double S_high
     cdef public double X_low
     cdef public double X_high
+    cdef public double trade_low
+    cdef public double trade_high
+    cdef public double[:] trade
+    cdef public double tradeVOL
     cdef public double[:] a
     cdef public double[:] q
     cdef public double[:] profit
@@ -77,7 +81,6 @@ cdef class Users:
     cdef public int testing
     cdef public int test_explore
 
-    cdef public double trade
     cdef double c_pi
     cdef double[:, :] state_zero
     cdef double[:] two_zeros
@@ -110,3 +113,4 @@ cdef class Users:
 
     cdef void user_stats(self, double[:] s, double[:] x)
         
+    cdef void allocate(self, double[:] a, double I)
