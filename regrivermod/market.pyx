@@ -59,20 +59,40 @@ cdef inline double excess_demand(double P, double Q, double t_cost, int N, doubl
        
         # Environment
 
+        if q <= min_q or Q <= min_q:
+            q = 0
+        else:
+            if p_e > (P + t_cost):
+                q = c_max(d_c_e + d_b_e * (P + t_cost), 0)
+            elif p_e < P:
+                q = c_max(d_c_e + d_b_e * P, 0)
+            else:
+                q = c_max(c_min(a_e, d_c_e), 0)
+        
+
+        Qt += q
+        Qt = Qt - Q
+        
+        return Qt 
+
+cdef inline double e_demand(double P, double t_cost, double p_e, double d_c_e, double d_b_e, double min_q, double a_e) nogil:
+
+        "Calculate excess demand given P and Q"
+
+        cdef int i = 0
+        cdef double q = 0
+
         if p_e > (P + t_cost):
             q = c_max(d_c_e + d_b_e * (P + t_cost), 0)
         elif p_e < P:
             q = c_max(d_c_e + d_b_e * P, 0)
         else:
             q = c_max(c_min(a_e, d_c_e), 0)
-        
-        if q < min_q:
+
+        if q <= min_q:
             q = 0
-        
-        Qt += q
-        Qt = Qt - Q
-        
-        return Qt 
+
+        return q
 
 cdef class Market:
 
@@ -115,6 +135,8 @@ cdef class Market:
         self.d_c_e = env.d_c
         self.min_q = env.min_q
         self.a_e = env.a
+
+        self.Pmax = env.Pmax
     
     cpdef estimate_market_demand(self, Storage storage, Users users, Environment env, Utility utility, para):
 
@@ -138,9 +160,10 @@ cdef class Market:
         Qhigh = Q_grid[Qi.flatten()]
         I = I_grid[Ii.flatten()]
         P = np.zeros(points)
+        """
         cdef qtemp, itemp
-        qtemp = 100000
-        itemp = 1.5
+        qtemp = 0
+        itemp = 0.1
 
         w = qtemp *  ((<double> utility.N)**-1)
         for j in range(users.N):
@@ -158,9 +181,14 @@ cdef class Market:
         print 'd_b: ' + str(env.d_b)
         print 'min_F2: ' + str(storage.min_F2)
         print 'F3_tilde: ' + str(storage.F3_tilde)
+        print 'max_E: ' + str(utility.max_E)
+        print 'Spill: ' + str(storage.Spill)
+        print 'W: ' + str(W)
+        print 'W - max_E: ' + str(W - utility.max_E)
 
         env.plot_demand()
         """
+
         for i in range(points):
             w = Q[i] *  ((<double> utility.N)**-1)
             for j in range(users.N):
@@ -171,9 +199,9 @@ cdef class Market:
             users.allocate(utility.a, I[i]) 
             env.allocate(utility.a[utility.I_env], storage.min_F2, storage.F3_tilde)
             self.open_market(users, env)
-            P[i] = self.solve_price(utility.A, I[i], 1)
+            P[i] = self.solve_price(utility.A, I[i], 1, 0)
             users.consume(P[i], I[i], 0)
-            env.consume(P[i])
+            env.consume(P[i], 0)
             Qlow[i] = c_sum(users.N_low, users.q)
             Qhigh[i] = c_sum(users.N_high, users.q[users.N_low::])
             Qenv[i] = env.q
@@ -220,7 +248,7 @@ cdef class Market:
         pylab.title('Environmental demand')
         d_env.plot(['x', 1], showdata=True)
         pylab.show()
-        """
+
         """
         ##################      Estimate perfect market demand curve    ###############
 
@@ -250,7 +278,7 @@ cdef class Market:
         #pylab.show()
         """
 
-    cdef double solve_price(self, double Q, double I, int init):
+    cdef double solve_price(self, double Q, double I, int init, int plan):
         
         """
         Solve for exact market clearing price given W
@@ -265,15 +293,19 @@ cdef class Market:
             P_guess = 10
         else:
             P_guess = self.market_d.one_value(state)
-        
+
+        cdef double t_cost = self.t_cost
+        if plan == 1:
+            t_cost = 0
+
         cdef double P1 = P_guess
         cdef double tol = 0.01
         cdef double tol2 = 0.005 * Q
         cdef double P2 = P1*0.9
         cdef double P0 = 0
 
-        cdef double EX2 = excess_demand(P2, Q, self.t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e)
-        cdef double EX1 = excess_demand(P1, Q, self.t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e)
+        cdef double EX2 = excess_demand(P2, Q, t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e)
+        cdef double EX1 = excess_demand(P1, Q, t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e)
         cdef double EX0 = EX1
         cdef int iters = 0
 
@@ -286,7 +318,7 @@ cdef class Market:
                     P0 = P1 * (1.1)
             else:
                 P0 = c_max(P1 - (EX1 * (P1 - P2) * ((EX1 - EX2)**-1)), 0)
-            EX0 = excess_demand(P0, Q, self.t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e)
+            EX0 = excess_demand(P0, Q, t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e)
 
             if P0 == 0 and EX0 <= 0:
                 EX0 = 0
@@ -303,7 +335,7 @@ cdef class Market:
         if c_abs(EX0) > tol2 and Q > tol:         # Use bisection method
             
             iters = 0
-            if c_min(EX0, EX2) < 0 and c_max(EX0, EX2) > 0:
+            if c_min(EX0, EX2) < 0 < c_max(EX0, EX2):
                 P0 = c_min(P0, P2)
                 P1 = c_max(P0, P2)
             else:
@@ -322,18 +354,16 @@ cdef class Market:
 
             while c_abs(EX2) > tol2 and iters < 100:
                 
-                P2 = (P1 + P0)* 0.5
-                EX2 = excess_demand(P2, Q, self.t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e)
+                P2 = (P1 + P0)*0.5
+                EX2 = excess_demand(P2, Q, t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e)
                 if EX2 > 0:
                     P0 = P2
-                    P1 = P1
                 else:
-                    P0 = P0
                     P1 = P2
 
                 if P0 == P1:# or Q <= tol:
                     P0 = 0
-                    P1 = self.Pmax*(1+c_rand()*0.1)
+                    P1 = self.Pmax*(1-c_rand()*0.1)
                 
                 iters += 1
             
@@ -348,6 +378,9 @@ cdef class Market:
                 print 'P2: ' + str(P1)
                 print 'EX2: ' + str(EX2)
                 print 'EX0: ' + str(EX0)
+                print 'Pmax: ' + str(self.Pmax)
+                print 'q_e: ' + str(e_demand(P2, t_cost, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e))
+                print 'min q: ' + str(self.min_q)
                 raise NameError('SpotMarketFail')
             
         return P0

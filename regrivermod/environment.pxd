@@ -19,12 +19,15 @@ cdef class Environment:
     cdef public double DELTA 
     cdef public double t_cost
 
+    cdef public int turn_off
+
     cdef double[:] state_zero
-    
-    cdef double consume(self, double P)
-    
+    cdef public double Pmax
+
+    cdef double consume(self, double P, int planner)
+
     cdef allocate(self, double a, double min_F2, double F3_tilde)
 
-    cdef double payoff(self, double F1, double F3, double F1_tilde, double F3_tilde)
+    cdef double payoff(self, double F1, double F3, double F1_tilde, double F3_tilde, double P)
 
     cdef double withdraw(self, double S, double s, double I, int M)

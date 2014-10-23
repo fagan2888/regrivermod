@@ -8,7 +8,7 @@ from results.chartbuilder import *
 
 class Model:
 
-    def __init__(self, para, ch7=False):
+    def __init__(self, para, ch7=False, turn_off_env=False):
         
         pylab.ioff()
         
@@ -18,11 +18,11 @@ class Model:
 
         self.para = para
         self.storage = Storage(para, ch7)
-        self.users = Users(para)
-        self.sim = Simulation(para)
+        self.users = Users(para, ch7)
+        self.sim = Simulation(para, ch7)
          
         if ch7:
-            self.env = Environment(para)
+            self.env = Environment(para, turn_off=turn_off_env)
             self.market = Market(para, self.users)
             self.utility = Utility(self.users, self.storage, para, ch7, self.env)
             self.market.estimate_market_demand(self.storage, self.users, self.env, self.utility, self.para)
@@ -46,11 +46,11 @@ class Model:
         st = toc - tic
         print 'Solve time: ' + str(st)
         
-        self.sim.simulate(self.users, self.storage, self.utility, self.para.T0, self.para.CPU_CORES, planner=True, policy=True, polf=self.sdp.W_f, delta=0, stats=True, planner_explore=False, t_cost_off=True, seed=seed) 
+        #self.sim.simulate(self.users, self.storage, self.utility, self.para.T0, self.para.CPU_CORES, planner=True, policy=True, polf=self.sdp.W_f, delta=0, stats=True, planner_explore=False, t_cost_off=True, seed=seed)
 
-        self.utility.sr = SR
+        #self.utility.sr = SR
        
-        self.p_series = self.sim.series
+        #self.p_series = self.sim.series
 
         return [self.sim.stats, self.sdp, st]
 
@@ -65,10 +65,37 @@ class Model:
         self.utility.sr = SR
         
         self.series = self.sim.series
-        
+
         return [self.sim.stats['SW']['Mean'][0], self.sim.stats['S']['Mean'][0]]
 
-    def plannerQV(self, t_cost_off=True, T1=200000, T2=400000, stage1=True, stage2=True, d=0, seed=0, type='ASGD', simulate=True): 
+    def simulate_SOP(self, simT, Sbar, Lambda, seed=0):
+
+        self.para.central_case()
+        self.para.set_property_rights('RS-HL')
+        self.para.Lambda_high = Lambda
+
+        self.storage = Storage(self.para, False)
+        self.users = Users(self.para)
+        self.sim = Simulation(self.para)
+        self.utility = Utility(self.users, self.storage, self.para)
+
+        self.sim.ITER = 0
+        self.sim.simulate(self.users, self.storage, self.utility, simT, self.para.CPU_CORES, planner=True, policy=False, polf=0, delta=0, stats=True, planner_explore=False, t_cost_off=False, seed=seed, myopic=False, SOP=True, Sbar=Sbar)
+
+        SW = self.sim.stats['SW']['Mean'][0]
+        U_low = self.sim.stats['U_low']['Mean'][0]
+        U_high = self.sim.stats['U_high']['Mean'][0]
+        yield_low = self.sim.stats['A_low']['Mean'][0] / self.sim.stats['A_low']['Max'][0]
+        yield_high = self.sim.stats['A_high']['Mean'][0] / self.sim.stats['A_high']['Max'][0]
+        SD_low = self.sim.stats['A_low']['SD'][0] / self.sim.stats['A_low']['Mean'][0]
+        SD_high = self.sim.stats['A_high']['SD'][0] / self.sim.stats['A_high']['Mean'][0]
+        P_low = np.sum((self.sim.series['P'] * self.sim.series['A_low']) * (self.para.beta**np.arange(simT))) / self.sim.stats['A_low']['Max'][0]
+
+        P_high = np.sum((self.sim.series['P'] * self.sim.series['A_high']) * (self.para.beta**np.arange(simT))) / self.sim.stats['A_high']['Max'][0]
+
+        return [SW, U_low, U_high, yield_low, yield_high, SD_low, SD_high, P_low, P_high]
+
+    def plannerQV(self, t_cost_off=True, T1=200000, T2=400000, stage1=True, stage2=True, d=0, seed=0, type='ASGD', simulate=True):
         
         if type == 'A':
             Ta = [11, 11, 7]
@@ -92,19 +119,22 @@ class Model:
         # Feasibility constraints
         Alow = lambda X: 0                  # W > 0
         Ahigh = lambda X: X[0]              # W < S
-        
+
+        D = 2
+        xargs=['x', 1]
+
         if stage1:
 
             self.sim.simulate(self.users, self.storage, self.utility, T1, self.para.CPU_CORES, planner=True, policy=False, polf=self.sdp.W_f,
                     delta=0, stats=False, planner_explore=True, t_cost_off=t_cost_off)
-            
+
             if type=='RF':
-                self.qv = Qlearn.QVtree(2, self.para.s_points1, self.para.s_radius1, self.para, num_split=40, num_leaf=20, num_est=215)
+                self.qv = Qlearn.QVtree(D, self.para.s_points1, self.para.s_radius1, self.para, num_split=40, num_leaf=20, num_est=215)
             else:
-                self.qv = Qlearn.QVtile(2, Ta, La, 1, minsamp, self.para.sg_radius1, self.para, asgd=asgd, linT=8)
+                self.qv = Qlearn.QVtile(D, Ta, La, 1, minsamp, self.para.sg_radius1, self.para, asgd=asgd, linT=8)
             
             self.qv.iterate(self.sim.XA_t, self.sim.X_t1, self.sim.series['SW'], Alow, Ahigh, ITER=self.para.QV_ITER1, Ascaled=False,
-                    plot=True, xargs=['x', 1], eta=0.8, sg_points=self.para.sg_points1)
+                    plot=True, xargs=xargs, eta=0.8, sg_points=self.para.sg_points1, maxT=250000)
         
             XA = self.sim.XA_t
             X = self.sim.X_t1
@@ -112,10 +142,11 @@ class Model:
 
         if stage2:
             
-            self.qv.resetQ(2, Tb, Lb, 1, minsamp)
+            self.qv.resetQ(D, Tb, Lb, 1, minsamp)
 
             self.sim.simulate(self.users, self.storage, self.utility, T2, self.para.CPU_CORES, planner=True, policy=True, polf=self.qv.W_f, 
                     delta=d, stats=False, planner_explore=True, t_cost_off=t_cost_off)
+
             if not(stage1):
                 XA = self.sim.XA_t
                 X = self.sim.X_t1
@@ -126,7 +157,7 @@ class Model:
                 SW = np.hstack([SW, self.sim.series['SW']])
             
             self.qv.iterate(XA, X, SW, Alow, Ahigh, ITER=self.para.QV_ITER2, Ascaled=False,
-                    plot=False, xargs=['x', 1], eta=0.8, sg_points=self.para.sg_points1)
+                    plot=False, xargs=xargs, eta=0.8, sg_points=self.para.sg_points1, maxT=250000)
             
         toc = time()
         st = toc - tic    
@@ -138,6 +169,67 @@ class Model:
         self.utility.sr = SR
         
         return [self.sim.stats, self.qv, st]
+
+    def plannerQV_ch7(self, t_cost_off=True, T=200000, stage2=False, d=0, simulate=True):
+
+        tic = time()
+
+        Tiles = [6, 5, 4, 2]
+        L = 25
+        D = 3
+
+        # Feasibility constraints
+        Alow = lambda X: 0                  # W > 0
+        Ahigh = lambda X: X[0]              # W < S
+
+        self.utility.init_policy(self.sdp.W_f, self.storage, self.para)
+        self.utility.explore = 1
+        self.utility.d = 0
+
+        self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, T, self.para.CPU_CORES, planner=True)
+
+        self.qv = Qlearn.QVtile(D, Tiles, L, 1, 1, self.para.sg_radius1_ch7, self.para, asgd=True, linT=8)
+
+        self.qv.iterate(self.sim.XA, self.sim.X1, self.sim.U, Alow, Ahigh, ITER=self.para.QV_ITER1, Ascaled=False,
+                            plot=False, eta=0.8, sg_points=self.para.sg_points1_ch7, maxT=250000)
+
+        self.qv.W_f.plot(['x', 1, 0])
+        self.qv.W_f.plot(['x', 1, 1], showdata=False)
+        pylab.show()
+        self.utility.policy = self.qv.W_f
+
+        if stage2:
+
+            XA = self.sim.XA
+            X = self.sim.X1
+            SW = self.sim.U
+
+            self.qv.resetQ(D, Tiles, L, 1, 1)
+            self.utility.d = d
+            self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, T, self.para.CPU_CORES, planner=True)
+
+            XA = np.vstack([XA, self.sim.XA])
+            X = np.vstack([X, self.sim.X1])
+            SW = np.hstack([SW, self.sim.U])
+
+            self.qv.iterate(XA, X, SW, Alow, Ahigh, ITER=self.para.QV_ITER2, Ascaled=False,
+                            plot=False, eta=0.8, sg_points=self.para.sg_points1, maxT=250000)
+            self.qv.W_f.plot(['x', 1, 0])
+            self.qv.W_f.plot(['x', 1, 1], showdata=False)
+            pylab.show()
+
+            self.utility.policy = self.qv.W_f
+
+        toc = time()
+        st = toc - tic
+        print 'Solve time: ' + str(st)
+
+        if simulate:
+            self.utility.explore = 0
+            self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, self.para.T0, self.para.CPU_CORES, planner=True, stats=True)
+
+        return [self.sim.stats, self.qv, st]
+
 
     def multiQV(self, ITER, init=False, type='ASGD', eta=0.7, testing=False, test_idx=0, partial=False):
         
@@ -200,14 +292,16 @@ class Model:
         Ahigh = lambda X: X[0]          # W < S
         if stage1:
 
-            self.sim.simulate(self.users, self.storage, self.utility, T1, self.para.CPU_CORES, planner=True, policy=False, delta=0, stats=False, planner_explore=True, t_cost_off=t_cost_off)
+            self.sim.simulate(self.users, self.storage, self.utility, T1, self.para.CPU_CORES, planner=True, policy=False,
+                              delta=0, stats=False, planner_explore=True, t_cost_off=t_cost_off)
             
             self.qv = Qlearn.QVtree(2, self.para.s_points1, self.para.s_radius1, self.para)
             self.qv.iterate(self.sim.XA_t, self.sim.X_t1, self.sim.series['SW'], Alow, Ahigh, ITER=10, Ascaled=False, plot=True)
         
         if stage2:
             
-            self.sim.simulate(self.users, self.storage, self.utility, T2, self.para.CPU_CORES, planner=True, policy=True, polf=self.qv.W_f, delta=d, stats=False, planner_explore=True, t_cost_off=t_cost_off)
+            self.sim.simulate(self.users, self.storage, self.utility, T2, self.para.CPU_CORES, planner=True, policy=True,
+                              polf=self.qv.W_f, delta=d, stats=False, planner_explore=True, t_cost_off=t_cost_off)
 
             # Search range 
             Alow = lambda X, Ws: max(Ws - X[0]*d , 0)             # W > W* - d*S
@@ -220,7 +314,8 @@ class Model:
         print 'Solve time: ' + str(st)
         
         self.sim.ITER = 0
-        self.sim.simulate(self.users, self.storage, self.utility, simT, self.para.CPU_CORES, planner=True, policy=True, polf=self.qv.W_f, delta=0, stats=True, planner_explore=False, t_cost_off=t_cost_off, seed=seed)
+        self.sim.simulate(self.users, self.storage, self.utility, simT, self.para.CPU_CORES, planner=True, policy=True,
+                          polf=self.qv.W_f, delta=0, stats=True, planner_explore=False, t_cost_off=t_cost_off, seed=seed)
 
         return [self.sim.stats, self.qv, st]
 
@@ -270,7 +365,7 @@ class Model:
             self.utility.set_shares(Lambda[i], self.users)
             
             stats, qv, st = self.plannerQV(t_cost_off=False, stage1=True, stage2=True, T1=self.para.T1, T2=self.para.T1, d=self.para.policy_delta)
-            
+
             SW[i] = self.sim.stats['SW']['Mean'][self.sim.ITEROLD]
             if SW[i] > SW_max:
                 delta *= 0.8
@@ -285,18 +380,13 @@ class Model:
             print 'Best Lambda: ' + str(Lambda_max)
             print 'Best welfare: ' + str(SW_max)
 
-        if self.para.opt_lam:
-            data = [[Lambda, SW]]
-            chart = {'OUTFILE': home + out + 'Lambda' + str(self.para.HL) + img_ext,
-             'YLABEL': 'Mean welfare',
-             'XLABEL': 'High reliability user inflow share' }
-            build_chart(chart, data, chart_type='scatter')
+        #if self.para.opt_lam:
+            #data = [[Lambda, SW]]
+            #chart = {'OUTFILE': home + out + 'Lambda' + str(self.para.HL) + img_ext,
+            # 'YLABEL': 'Mean welfare',
+            # 'XLABEL': 'High reliability user inflow share' }
+            #build_chart(chart, data, chart_type='scatter')
         
-        self.sim.percentiles = True
-        self.sim.simulate(self.users, self.storage, self.utility, self.para.T0, self.para.CPU_CORES, planner=True, policy=True, polf=self.qv.W_f, delta=0, stats=True, planner_explore=False, t_cost_off=False)
-        self.sim.percentiles = False
-        
-
         #################           Solve storage right problem          #################
         if self.utility.sr >= 0:
 
@@ -451,7 +541,99 @@ class Model:
         stats = self.sim.stats
 
         return stats, Lambda_high, Lambda_K
-        
+
+    def chapter6_extra(self, points):
+
+        # Buld grid
+        Sbar_grid = np.linspace(0, self.para.K, points)
+        Lambda_grid = np.linspace(0.01, 0.99, points)
+        self.Lambda, self.Sbar = np.meshgrid(Lambda_grid, Sbar_grid)
+
+
+        #Result arrays
+        self.SW = np.zeros([points, points])
+        self.U_low = np.zeros([points, points])
+        self.U_high = np.zeros([points, points])
+        self.yield_low = np.zeros([points, points])
+        self.yield_high = np.zeros([points, points])
+        self.SD_low = np.zeros([points, points])
+        self.SD_high = np.zeros([points, points])
+        self.P_low = np.zeros([points, points])
+        self.P_high = np.zeros([points, points])
+
+        for i in range(points):
+            for j in range(points):
+                if (self.Lambda[i,j] * self.storage.K) < self.Sbar[i, j]:
+                    self.SW[i, j], self.U_low[i, j], self.U_high[i, j], self.yield_low[i, j], self.yield_high[i, j], self.SD_low[i, j], self.SD_high[i, j], self.P_low[i, j], self.P_high[i, j] = self.simulate_SOP(100000, self.Sbar[i, j], self.Lambda[i, j])
+                if np.isnan(self.yield_high[i,j]) or self.yield_high[i, j] == 0:
+                    self.yield_high[i,j] = 10
+                if np.isnan(self.yield_low[i,j]) or self.yield_low[i, j] == 0:
+                    self.yield_low[i,j] = np.nan
+
+        index = self.SW > 10000000000000
+        self.SW[index] = -10
+        maxSW = np.max(self.SW)
+        maxindex = np.where(self.SW == maxSW)
+        yh = self.yield_high[maxindex]
+
+        index1 = (self.yield_high > yh - 0.005)
+        index2 = (self.yield_high < yh + 0.005)
+        index3 = index1*index2
+
+        for i in range(points):
+            for j in range(points):
+                if self.yield_high[i,j] == 10:
+                    self.yield_high[i,j] = np.min(self.yield_high[i, :])
+
+
+        print 'Optimal Lambda: ' + str(self.Lambda[maxindex])
+        print 'Optimal Sbar: ' + str(self.Sbar[maxindex])
+        print 'Optimal yield high: ' + str(self.yield_high[maxindex])
+
+        from results.chartbuilder import chart_params
+        chart_params()
+        home = '/home/nealbob'
+        out = '/Dropbox/Thesis/IMG/chapter6/'
+
+        pylab.figure()
+        CS = pylab.contour(self.Lambda, self.Sbar, self.yield_high, [0.7, 0.8, 0.9, 0.98])
+        pylab.clabel(CS)
+        pylab.xlabel(r'$\Lambda_{high} K$')
+        pylab.ylabel(r'$\overline{S}$')
+        pylab.savefig(home + out + 'yield_high_c.pdf', bbox_inches='tight')
+        pylab.show()
+
+        pylab.figure()
+        CS = pylab.contour(self.Lambda, self.Sbar, self.yield_low, [0.9, 0.7, 0.5, 0.3])
+        pylab.clabel(CS)
+        pylab.xlabel(r'$\Lambda_{high} K$')
+        pylab.ylabel(r'$\overline{S}$')
+        pylab.savefig(home + out + 'yield_low_c.pdf', bbox_inches='tight')
+        pylab.show()
+
+        pylab.figure()
+        pylab.scatter(self.Lambda[index3], self.Sbar[index3])
+        pylab.xlabel(r'$\Lambda_{high} K$')
+        pylab.savefig(home + out + 'yield_low_s.pdf', bbox_inches='tight')
+        pylab.show()
+
+        pylab.figure()
+        pylab.plot(self.Lambda[index3], self.yield_low[index3], 'o', label='low')
+        pylab.plot(self.Lambda[index3], self.yield_high[index3], 'o', label='high')
+        pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=4, mode="expand", borderaxespad=0.)
+        pylab.xlabel(r'$\Lambda_{high} K$')
+        pylab.savefig(home + out + 'yield_s.pdf', bbox_inches='tight')
+        pylab.show()
+
+        pylab.figure()
+        pylab.plot(self.Lambda[index3], self.P_low[index3], 'o', label='low')
+        pylab.plot(self.Lambda[index3], self.P_high[index3], 'o', label='high')
+        pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=4, mode="expand", borderaxespad=0.)
+        pylab.xlabel(r'$\Lambda_{high} K$')
+        pylab.savefig(home + out + 'P_high_s.pdf', bbox_inches='tight')
+        pylab.show()
+
+
     def chapter5(self):
        
         big_tic = time()

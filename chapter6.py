@@ -5,35 +5,30 @@
 from __future__ import division
 import numpy as np
 from para import Para
-import model
+from model import Model
 from results import chapter6
 from results.chartbuilder import *
-
-para = Para(rebuild=True, charts=False)
-para.central_case(N=100, printp=False)
-para.set_property_rights(scenario='CS')
-para.solve_para()
 
 home = '/home/nealbob'
 folder = '/Dropbox/Model/results/chapter6/'
 out = '/Dropbox/Thesis/IMG/chapter6/'
 
-#==========================================
-# Central case (with/without trade)
-#==========================================
+para = Para()
 
 scenarios = ['RS-HL-O', 'RS-HL', 'RS-O', 'RS', 'CS', 'CS-O', 'CS-HL', 'CS-HL-O', 'CS-U']
-results = {'RS-HL-O': 0, 'RS-HL' : 0, 'RS-O' : 0, 'RS' : 0, 'CS' : 0, 'CS-O' : 0, 'CS-HL' : 0, 'CS-HL-O' : 0, 'CS-U' : 0} 
-Lambda = {'RS-HL-O': 0, 'RS-HL' : 0, 'RS-O' : 0, 'RS' : 0, 'CS' : 0, 'CS-O' : 0, 'CS-HL' : 0, 'CS-HL-O' : 0, 'CS-U' : 0}
-LambdaK = {'RS-HL-O': 0, 'RS-HL' : 0, 'RS-O' : 0, 'RS' : 0, 'CS' : 0, 'CS-O' : 0, 'CS-HL' : 0, 'CS-HL-O' : 0, 'CS-U' : 0}
+results = {scen: 0 for scen in scenarios}
+Lambda = {scen: 0 for scen in scenarios}
+LambdaK = {scen: 0 for scen in scenarios}
 
-para.central_case(N=100, printp=False)
+"""
+#==========================================
+# Central case (with trade)
+#==========================================
 
 for scen in scenarios:
     para.set_property_rights(scenario=scen)
-    #para.t_cost = 10000000000
-    
-    mod = model.Model(para)
+
+    mod = Model(para)
 
     results[scen], Lambda[scen], LambdaK[scen] = mod.chapter6()
         
@@ -41,12 +36,56 @@ for scen in scenarios:
 
 chapter6.tables(results, scenarios, Lambda, LambdaK, label='central')
 
+with open(home + folder + 'central_result.pkl', 'wb') as f:
+    pickle.dump(results, f)
+    f.close()
+
+
+#==========================================
+# No trade case
+#==========================================
+
+para.t_cost = 10000000000
+
+for scen in scenarios:
+    para.set_property_rights(scenario=scen)
+    mod = Model(para)
+
+    results[scen], Lambda[scen], LambdaK[scen] = mod.chapter6()
+
+    del mod
+
+chapter6.tables(results, scenarios, Lambda, LambdaK, label='notrade')
+
+with open(home + folder + 'notrade_result.pkl', 'wb') as f:
+    pickle.dump(results, f)
+    f.close()
+"""
+#==========================================
+# Risk aversion
+#==========================================
+
+para.central_case(utility=True, risk=3)
+
+for scen in scenarios:
+    para.set_property_rights(scenario=scen)
+    mod = Model(para)
+
+    results[scen], Lambda[scen], LambdaK[scen] = mod.chapter6()
+
+    del mod
+
+chapter6.tables(results, scenarios, Lambda, LambdaK, label='risk1', risk=True)
+
+with open(home + folder + 'risk1_result.pkl', 'wb') as f:
+    pickle.dump(results, f)
+    f.close()
+"""
 #==========================================
 # General case 
 #==========================================
 
 
-"""
 for i in range(1):
     #try:
     for scen in scenarios:

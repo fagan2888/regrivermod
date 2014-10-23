@@ -21,6 +21,6 @@ cdef class Market:
 
     cdef void open_market(self, Users users, Environment env)
 
-    cdef double solve_price(self, double Q, double I, int init)
+    cdef double solve_price(self, double Q, double I, int init, int plan)
 
     cpdef estimate_market_demand(self, Storage storage, Users users, Environment env, Utility utility, para)

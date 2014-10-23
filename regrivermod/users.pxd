@@ -16,6 +16,7 @@ cdef class Users:
     cdef public double c_K_high 
     cdef public double[:] c_F
     cdef public double[:] c_K
+    cdef public double Q
     
     cdef public double delta                        
     cdef public double K

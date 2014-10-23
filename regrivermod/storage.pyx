@@ -77,18 +77,22 @@ cdef class Storage:
             self.omega_sig = para.ch7['omega_sig']
             self.omega_ab = np.array(para.ch7_param['omega_ab'])
 
-            self.delta_a   = para.ch7['delta_a']                     # ch7 river flow parameters
-            self.delta_b  = para.ch7['delta_b'] 
+            self.delta_b  = para.ch7['delta_b']
             self.delta_Ea = para.ch7['delta_Ea']
             self.delta_Eb = para.ch7['delta_Eb']
             self.delta_R = para.ch7['delta_R']
             self.F_bar = np.zeros(2)
-            self.F_bar[0] = para.ch7['F_bar'] * (5/12)
-            self.F_bar[1] = para.ch7['F_bar'] * (7/12)
+            self.F_bar[0] = para.ch7['F_bar']# * (5/12)
+            self.F_bar[1] = para.ch7['F_bar']# * (7/12)
+
+            self.delta_a = np.zeros(2)
+            self.delta_a[0] = para.ch7['delta_a'] * para.ch7['omegadelta']
+            self.delta_a[1] = para.ch7['delta_a'] * (1 - para.ch7['omegadelta'])
+            self.omega_delta = para.ch7['omegadelta']
 
             self.C = para.I_bar
-            self.I = self.C * self.omega_mu
-            self.I_tilde = self.C
+            self.I = self.C * (1 - self.omega_mu)
+            self.I_tilde = self.C * self.I_bar**-1
 
     def seed(self, i):
         seed = int(time.time()/(i + 1))
@@ -120,7 +124,7 @@ cdef class Storage:
          
          self.I = c_min(self.rho * self.I + self.EPS[t], self.K * 2)
 
-         self.storage_transition(W)        
+         self.storage_transition(W, 0)
 
          return self.S
 
@@ -131,10 +135,13 @@ cdef class Storage:
 
          return self.S
 
-    cdef double storage_transition(self, double W):
+    cdef double storage_transition(self, double W, int M):
 
-         self.Loss = self.delta0 * self.alpha * (self.S)**(0.666666666666666)
-        
+         if M == 0:
+             self.Loss = (1 - self.omega_delta)*(self.delta0 * self.alpha * (self.S)**(0.666666666666666))
+         else:
+             self.Loss = self.omega_delta*(self.delta0 * self.alpha * (self.S)**(0.666666666666666))
+
          self.Spill = c_max(self.I - (self.K - (self.S - W - self.Loss)), 0)
         
          self.S = c_max(c_min(self.S - W - self.Loss + self.I, self.K), 0)
@@ -144,23 +151,26 @@ cdef class Storage:
         "Calculate storage release need to satisfy aggregate orders W"
 
         return c_max((1 - self.delta1b) * W - self.delta1a,0)
-    
-    
+
+
     def loss12(self, F1, int M):
         """Python wrapper for inline function loss_12"""
 
-        return loss_12(F1, self.delta_a, self.delta_b, self.F_bar[M])
+        return loss_12(F1, self.delta_a[M], self.delta_b, self.F_bar[M])
 
-    cdef void river_flow(self, double W, double E, int M):
+    cdef void river_flow(self, double W, double E, int M, int natural):
         "ch7: Compute river flows at each node, given releases W and extraction"
-        
-        self.F1 = W + self.Spill
 
-        self.loss_12 = loss_12(self.F1, self.delta_a, self.delta_b, self.F_bar[M])
+        if natural:
+            self.F1 = self.I
+        else:
+            self.F1 = W + self.Spill
+
+        self.loss_12 = loss_12(self.F1, self.delta_a[M], self.delta_b, self.F_bar[M])
 
         self.F2 = c_max(self.F1 - self.loss_12 - E, 0)
 
-        self.F3 = c_max(self.F2 - c_min(self.F2, self.delta_a) +  self.delta_R * E, 0)
+        self.F3 = c_max(self.F2 - c_min(self.F2, self.delta_a[M]) +  self.delta_R * E, 0)
 
     @cython.cdivision(True) 
     cdef double update_ch7(self, double W, double E, int M, int t):
@@ -177,18 +187,18 @@ cdef class Storage:
          self.I_tilde += self.I
          self.I_tilde *= self.I_bar**-1
 
-         self.storage_transition(W)
+         self.storage_transition(W, M)
 
          # Actual flows
-         self.river_flow(W, E, M)
+         self.river_flow(W, E, M, 0)
 
          return self.S
     
     cdef void natural_flows(self, double W, double max_E, int M):
         
-        self.min_F2 = c_max((W + self.Spill) - loss_12(W + self.Spill, self.delta_a, self.delta_b, self.F_bar[M]) - max_E, 0)
+        self.min_F2 = c_max((W + self.Spill) - loss_12(W + self.Spill, self.delta_a[M], self.delta_b, self.F_bar[M]) - max_E, 0)
 
-        self.river_flow(self.I, 0, M)
+        self.river_flow(0, 0, M, 1)
         self.F1_tilde = self.F1
         self.F2_tilde = self.F2
         self.F3_tilde = self.F3

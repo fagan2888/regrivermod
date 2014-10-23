@@ -12,337 +12,12 @@ class Para:
 
     "Class for generating model parameters"
 
-    def __init__(self, charts = False, rebuild=False):
+    def __init__(self, charts=False, rebuild=False):
 
         self.opt_lam = 0
 
         if rebuild:
-            home = '/home/nealbob'
-            #home = '/users/MAC'
-            folder = '/Dropbox/Thesis/STATS/chapter3/'
-            folder2 = '/Dropbox/Thesis/STATS/chapter2/'
-            folder7 = '/Dropbox/Thesis/STATS/chapter7/'
-            out = '/Dropbox/Thesis/IMG/chapter3/'
-            out7 = '/Dropbox/Thesis/IMG/chapter7/'
-            img_ext = '.pdf'
-            
-            MDB_dams = pandas.read_csv(home + folder + 'MDB_dams.csv')
-            AUS_RIVERS = pandas.read_csv(home + folder + 'AUS_RIVERS.csv')
-            OMEGA = pandas.read_csv(home + folder7 + 'omega.csv') 
-            
-            #MDB_table = pandas.read_csv(home + folder + 'MDB_table.csv')
-            #open(home + folder + "MDB_table.tex", "w").write(MDB_table.to_latex(index=False, float_format=lambda x: '%10.1f' % x ))
-
-            #################       WATER SUPPLY        ################
-
-            #---------------#       K - capacity
-            
-            K = MDB_dams['K']
-            sample = (K > 50000)
-            K = K[sample] / 1000
-
-            bins = np.linspace(min(K), max(K), 18)
-            data = [K]
-            
-            chart = {'OUTFILE' : (home + out + 'K' + img_ext),
-              'XLABEL' : 'Storage capacity (GL)',
-              'XMIN' : min(K),
-              'XMAX' : max(K),
-              'BINS' : bins}
-
-            if charts:
-                self.build_chart(chart, data, chart_type='hist')
-            
-            #---------------#       I_over_K - mean inflow over storage capacity    
-            
-            K = MDB_dams['K']
-            E_I = MDB_dams['mean_I']
-            sample = (K > 50000)
-            I_over_K = E_I[sample] / K[sample]
-            
-            I_K_param = np.zeros(2)
-            I_K_param[0] = np.percentile(I_over_K, 10)
-            I_K_param[1] = np.percentile(I_over_K, 83)
-
-
-            x = np.linspace(0.2, 5, 500)
-            y = uniform.pdf(x, loc=I_K_param[0], scale=(I_K_param[1]-I_K_param[0]))
-            
-            bins = np.linspace(min(I_over_K), 4, 18)
-            bins[17] = 15
-            data = [I_over_K, x, y]
-            data2 = [I_over_K]
-
-            chart = {'OUTFILE' : (home + out + 'I_over_K' + img_ext),
-              'XLABEL' : 'Mean annual inflow over storage capacity',
-              'XMIN' : 0,
-              'XMAX' : 4,
-              'BINS' : bins}
-            
-            chart2 = {'OUTFILE' : (home + out + 'I_over_K_2' + img_ext),
-              'XLABEL' : 'Mean annual inflow over storage capacity',
-              'XMIN' : 0,
-              'XMAX' : 4,
-              'BINS' : bins}
-
-            if charts:
-                self.build_chart(chart, data, chart_type='hist')
-                self.build_chart(chart2, data2, chart_type='hist')
-
-            #---------------#       SD_over_I - SD of inflow over mean inflow  
-            sample = AUS_RIVERS['MAR'] < 700
-            SD_over_I = AUS_RIVERS['Cv'][sample] 
-            
-            bins = np.linspace(min(SD_over_I), max(SD_over_I), 13)
-            x = np.linspace(min(SD_over_I), max(SD_over_I), 500)
-            y = uniform.pdf(x, loc=0.43, scale=(1-0.4))
-            
-            data = [SD_over_I, x, y]
-            data2 = [SD_over_I]
-            
-            chart = {'OUTFILE' : (home + out + 'SD_over_I' + img_ext),
-              'XLABEL' : 'Standard deviation of annual inflow over mean',
-              'XMIN' : 0,
-              'XMAX' : max(SD_over_I), 
-              'BINS' : bins}
-
-            chart2 = {'OUTFILE' : (home + out + 'SD_over_I_2' + img_ext),
-              'XLABEL' : 'Standard deviation of annual inflow over mean',
-              'XMIN' : 0,
-              'XMAX' : max(SD_over_I), 
-              'BINS' : bins}
-
-            if charts:
-                self.build_chart(chart, data, chart_type='hist')
-                self.build_chart(chart2, data2, chart_type='hist')
-        
-            #---------------#       SA_over_K - surface area over capacity
-            
-            SA = MDB_dams['sa']
-            sample = (K > 50000)
-            SA_over_K = SA[sample] / K[sample]
-            bins = np.linspace(min(SA_over_K), max(SA_over_K), 28)
-            SA_K_param = np.zeros(2)
-            SA_K_param[0] = np.percentile(SA_over_K, 10) 
-            SA_K_param[1] = np.percentile(SA_over_K, 81.5) 
-            x = np.linspace(min(SA_over_K), max(SA_over_K), 500)
-            y = uniform.pdf(x, loc=SA_K_param[0], scale=(SA_K_param[1] - SA_K_param[0]))
-
-            data = [SA_over_K, x, y]
-            data2 = [SA_over_K]
-            
-            chart = {'OUTFILE' : (home + out + 'SA_over_K' + img_ext),
-              'XLABEL' : 'Storage surface area over storage capacity',
-              'XMIN' : min(SA_over_K),
-              'XMAX' : max(SA_over_K), 
-              'BINS' : bins}
-            
-            chart2 = {'OUTFILE' : (home + out + 'SA_over_K_2' + img_ext),
-              'XLABEL' : 'Storage surface area over storage capacity',
-              'XMIN' : min(SA_over_K),
-              'XMAX' : max(SA_over_K), 
-              'BINS' : bins}
-            
-            if charts:
-                self.build_chart(chart, data, chart_type='hist')
-                self.build_chart(chart2, data2, chart_type='hist')
-        
-            #---------------#       evap - net evaporation rate
-            
-            evap = 0.75 * (MDB_dams['net_evap'] / 1000)
-            folder = '/Dropbox/Thesis/STATS/chapter3/'
-            evap = evap[sample]
-            folder = '/Dropbox/Thesis/STATS/chapter3/'
-            sample2 = evap > 0
-            evap = evap[sample2]
-
-            bins = np.linspace(min(evap), max(evap), 18)
-
-            evap_param = np.zeros(2)
-            evap_param[0] = np.percentile(evap, 15) 
-            evap_param[1] = np.percentile(evap, 85) 
-
-            x = np.linspace(min(evap), max(evap), 500)
-            y = uniform.pdf(x, loc=evap_param[0], scale=(evap_param[1]-evap_param[0]))
-            data = [evap, x, y]
-            data2 = [evap]
-            
-            chart = {'OUTFILE' : (home + out + 'evap' + img_ext),
-              'XLABEL' : 'Average annual evaporation rate (meters)',
-              'XMIN' : min(evap),
-              'XMAX' : max(evap), 
-              'BINS' : bins}
-            
-            chart2 = {'OUTFILE' : (home + out + 'evap_2' + img_ext),
-              'XLABEL' : 'Average annual evaporation rate (meters)',
-              'XMIN' : min(evap),
-              'XMAX' : max(evap), 
-              'BINS' : bins}
-
-            if charts:
-                self.build_chart(chart, data, chart_type='hist')
-                self.build_chart(chart2, data2, chart_type='hist')
-       
-            #---------------#      d_loss - delivery losses in irrigation areas
-
-            d_loss = np.zeros([5, 2])
-            
-            Murray = pandas.read_csv(home + folder2 + 'Murray_loss.csv')
-            y = Murray['Loss'] 
-            N = len(y)
-            X = np.vstack([Murray['Pumped'], np.ones(N)]).T
-            d_loss[0,:] = np.linalg.lstsq(X, y)[0]
-            d_loss[0,1] = d_loss[0,1] / np.mean(Murray['Pumped'])
-
-            Shep = pandas.read_csv(home + folder2 + 'Shep_loss.csv')
-            y = Shep['Loss'] 
-            N = len(y)
-            X = np.vstack([Shep['Pumped'], np.ones(N)]).T
-            d_loss[1,:] = np.linalg.lstsq(X, y)[0]
-            d_loss[1,1] = d_loss[1,1] / (np.mean(Shep['Pumped']))
-            
-            Jemm = pandas.read_csv(home + folder2 + 'Jemm_loss.csv')
-            y = Jemm['Loss'] 
-            N = len(y)
-            X = np.vstack([Jemm['Pumped'], np.ones(N)]).T
-            d_loss[2,:] = np.linalg.lstsq(X, y)[0]
-            d_loss[2,1] = d_loss[2,1] / (np.mean(Jemm['Pumped']))
-        
-            Coll = pandas.read_csv(home + folder2 + 'Coll_loss.csv')
-            y = Coll['Loss'] 
-            N = len(y)
-            X = np.vstack([Coll['Pumped'], np.ones(N)]).T
-            d_loss[3,:] = np.linalg.lstsq(X, y)[0]
-            d_loss[3,1] = d_loss[3,1] / (np.mean(Coll['Pumped']))
-            
-            MIA = pandas.read_csv(home + folder2 + 'MIA_loss.csv')
-            y = MIA['Loss'] 
-            N = len(y)
-            X = np.vstack([MIA['Pumped'], np.ones(N)]).T
-            d_loss[4,:] = np.linalg.lstsq(X, y)[0]
-            d_loss[4,1] = d_loss[4,1] / (np.mean(MIA['Pumped']))
-
-            #---------------#   Inflow autocorrelation
-
-            rho_param = [0.2, 0.3]
-
-            #################       WATER DEMAND         ################
-            
-            
-            #---------------#      Theta parameters (yield functions)
-
-            theta_mu = np.zeros([6, 2])
-            theta_mu[:,0] = np.array([154.7, 236.7, -35.8, 20.7, 14.9, -48.5])
-            #theta_mu[:,1] = np.array([-1785.4, 2545.3, -157.2, 1924.3, -537.5, -118.9])
-            theta_mu[:,1] = np.array([-1773.8, 2135.0, -133.3, 1597.1, -520.9, -100.8]) 
-
-            #clow = (41.5+14.9+231.7)*0.1
-            #chigh = (-76.5+2153.9-537.5)*0.1
-
-            theta_sig = np.zeros([6, 2])
-            #theta_sig[:,0] = np.array([0, 51.1, 16.8, 96.8, 38.8, 17.3])
-            #theta_sig[:,1] = np.array([0, 306.2, 22.3, 2370.1, 952.2, 151.4])
-            theta_sig[:,0] = np.array([0, 51.1, 16.8, 0, 0, 17.3])
-            theta_sig[:,1] = np.array([0, 306.2, 22.3, 0, 0, 151.4])
-            
-            q_bar_limits = np.zeros([2,2])
-            q_bar_limits[:, 0] = np.array([0.5, 6.5])
-            q_bar_limits[:, 1] = np.array([5, 14])
-
-            w_ha = np.linspace(0,3,100)
-            profit_ha = theta_mu[0,0] + theta_mu[1,0]*w_ha + theta_mu[2,0] * w_ha**2 + theta_mu[3,0]*1 + theta_mu[4,0]*1**2 + theta_mu[5,0]*1*w_ha
-            
-            data = [[w_ha, profit_ha]]
-            chart = {'OUTFILE' : (home + out + 'low_yield' + img_ext),
-              'XLABEL' : 'Water use per unit land (ML / HA)',
-              'XMIN' : min(w_ha),
-              'XMAX' : max(w_ha),
-              'YMIN' : 0,
-              'YMAX' : max(profit_ha)*1.05,
-              'YLABEL' : 'Profit per unit land (\$ / HA)'}
-            if charts:
-                self.build_chart(chart, data, chart_type='plot')
-            
-            w_ha = np.linspace(0,9,100)
-            profit_ha = theta_mu[0,1] + theta_mu[1,1]*w_ha + theta_mu[2,1] * w_ha**2 + theta_mu[3,1]*1 + theta_mu[4,1]*1**2 + theta_mu[5,1]*1*w_ha
-
-            data = [[w_ha, profit_ha]]
-            chart = {'OUTFILE' : (home + out + 'high_yield' + img_ext),
-              'XLABEL' : 'Water use per unit land (ML / HA)',
-              'XMIN' : min(w_ha),
-              'XMAX' : max(w_ha),
-              'YMIN' : min(profit_ha)*1.5,
-              'YMAX' : max(profit_ha)*1.05,
-              'YLABEL' : 'Profit per unit land (\$ / HA)'}
-            if charts: 
-                self.build_chart(chart, data, chart_type='plot')
-            
-
-            #---------------#       Epsilon parameters (yield functions)
-
-            rho_eps_param = np.array([0.3, 0.5])
-            sig_eta_param = np.array([0.1, 0.2])
-        
-            #################       Final Parameters       ################
-
-            self.I_K_param = I_K_param
-            self.SD_I_param = np.array([0.4, 1])
-            self.rho_param = [0.2, 0.3]
-            self.SA_K_param = SA_K_param
-            self.evap_param = evap_param
-            self.d_loss_param_a = np.array([0, 0.15])
-            self.d_loss_param_b = np.array([0.15, 0.30])
-            self.theta_mu = theta_mu
-            self.theta_sig = theta_sig / 3
-            self.q_bar_limits = q_bar_limits
-            self.rho_eps_param = np.array([0.3, 0.5])
-            self.sig_eta_param = np.array([0.1, 0.2])
-            self.prop_high = np.array([0.05, 0.35])
-            self.target_price =  10 #np.array([50,200])
-            self.t_cost_param = np.array([10, 100])
-            self.Lambda_high_param = np.array([1, 2])
-            self.relative_risk_aversion = np.array([0, 3])
-            
-            #### Summer-Winter model - chapter 7
-            self.ch7_param = {}
-            self.ch7_param['omega_mu'] = [0.7, 0.85]
-            self.ch7_param['omega_sig'] = [0.04, 0.12]
-            self.ch7_param['omega_ab'] = [0.5, 0.95]
-            self.ch7_param['delta_a']= [0.02, 0.06]
-            self.ch7_param['F_bar'] = [2, 3] 
-            self.ch7_param['delta_b'] = [0.3, 0.6]
-            self.ch7_param['delta_Ea'] = [0, 0.1]
-            self.ch7_param['delta_Eb'] = [0.1, 0.3]
-            self.ch7_param['delta_R'] = [0, 0.2]
-            self.ch7_param['b_w'] = [0, 1]
-            self.ch7_param['b_value'] = [10000000, 20000000]
-            self.ch7_param['inflow_share'] = [0, 0.5]
-            self.ch7_param['capacity_share'] = [0, 0.5]
-            self.ch7_param['High'] = [1, 1]
-
-            para_dist = [self.I_K_param, self.SD_I_param, self.rho_param, self.SA_K_param, self.evap_param, self.d_loss_param_a, self.d_loss_param_b,  self.t_cost_param, self.Lambda_high_param, [100, 100], [30, 70], [30, 70], self.theta_mu, self.theta_sig, self.q_bar_limits, self.rho_eps_param, self.sig_eta_param, self.prop_high, self.target_price, self.relative_risk_aversion, self.ch7_param]
-                    
-            with open('para_dist.pkl', 'wb') as f:
-                pickle.dump(para_dist, f)
-                f.close()
-
-            rows = ['$E[I_t]/K$', '$c_v$', '$\rho_I$' ,'$\alpha K^{2/3} / K $' ,  '$\delta_0$', '$\delta_{1a}$', '$\delta_{1b}$', '$\tau$', '$\Lambda_{high}$', '$n$', '$n_low$', '$n_high$', ]
-            cols = ['Min', 'Central case', 'Max']
-            n_rows = 12
-            data = []
-            for i in range(n_rows):
-                record = {}
-                record['Min'] = para_dist[i][0]
-                record['Central case'] = np.mean(para_dist[i])
-                record['Max'] = para_dist[i][1]
-                data.append(record)
-            tab = pandas.DataFrame(data)
-            tab.index = rows
-            tab_text = tab.to_latex(float_format =  '{:,.2f}'.format, columns=['Min', 'Central case', 'Max' ], index=True)
-            with open(home + folder + "para_table.txt", "w") as f:
-                f.write(tab_text)
-                f.close()
-
+            self.build_para(charts=charts)
         else:
             with open('para_dist.pkl', 'rU') as f:
                 para_dist = pickle.load(f)
@@ -366,7 +41,341 @@ class Para:
             self.target_price   = para_dist[18]
             self.relative_risk_aversion = para_dist[19] 
             self.ch7_param      = para_dist[20]
-            
+
+        self.central_case()
+
+        self.solve_para()
+
+        self.set_property_rights()
+
+    def build_para(self, charts=False):
+
+        home = '/home/nealbob'
+        folder = '/Dropbox/Thesis/STATS/chapter3/'
+        folder2 = '/Dropbox/Thesis/STATS/chapter2/'
+        folder7 = '/Dropbox/Thesis/STATS/chapter7/'
+        out = '/Dropbox/Thesis/IMG/chapter3/'
+        out7 = '/Dropbox/Thesis/IMG/chapter7/'
+        img_ext = '.pdf'
+
+        MDB_dams = pandas.read_csv(home + folder + 'MDB_dams.csv')
+        AUS_RIVERS = pandas.read_csv(home + folder + 'AUS_RIVERS.csv')
+        OMEGA = pandas.read_csv(home + folder7 + 'omega.csv')
+
+        #MDB_table = pandas.read_csv(home + folder + 'MDB_table.csv')
+        #open(home + folder + "MDB_table.tex", "w").write(MDB_table.to_latex(index=False, float_format=lambda x: '%10.1f' % x ))
+
+        #################       WATER SUPPLY        ################
+
+        #---------------#       K - capacity
+
+        K = MDB_dams['K']
+        sample = (K > 50000)
+        K = K[sample] / 1000
+
+        bins = np.linspace(min(K), max(K), 18)
+        data = [K]
+
+        chart = {'OUTFILE' : (home + out + 'K' + img_ext),
+                 'XLABEL' : 'Storage capacity (GL)',
+                 'XMIN' : min(K),
+                 'XMAX' : max(K),
+                 'BINS' : bins}
+
+        if charts:
+            self.build_chart(chart, data, chart_type='hist')
+
+        #---------------#       I_over_K - mean inflow over storage capacity
+
+        K = MDB_dams['K']
+        E_I = MDB_dams['mean_I']
+        sample = (K > 50000)
+        I_over_K = E_I[sample] / K[sample]
+
+        I_K_param = np.zeros(2)
+        I_K_param[0] = np.percentile(I_over_K, 10)
+        I_K_param[1] = np.percentile(I_over_K, 83)
+
+
+        x = np.linspace(0.2, 5, 500)
+        y = uniform.pdf(x, loc=I_K_param[0], scale=(I_K_param[1]-I_K_param[0]))
+
+        bins = np.linspace(min(I_over_K), 4, 18)
+        bins[17] = 15
+        data = [I_over_K, x, y]
+        data2 = [I_over_K]
+
+        chart = {'OUTFILE' : (home + out + 'I_over_K' + img_ext),
+                 'XLABEL' : 'Mean annual inflow over storage capacity',
+                 'XMIN' : 0,
+                 'XMAX' : 4,
+                 'BINS' : bins}
+
+        chart2 = {'OUTFILE' : (home + out + 'I_over_K_2' + img_ext),
+                  'XLABEL' : 'Mean annual inflow over storage capacity',
+                  'XMIN' : 0,
+                  'XMAX' : 4,
+                  'BINS' : bins}
+
+        if charts:
+            self.build_chart(chart, data, chart_type='hist')
+            self.build_chart(chart2, data2, chart_type='hist')
+
+        #---------------#       SD_over_I - SD of inflow over mean inflow
+        sample = AUS_RIVERS['MAR'] < 700
+        SD_over_I = AUS_RIVERS['Cv'][sample]
+
+        bins = np.linspace(min(SD_over_I), max(SD_over_I), 13)
+        x = np.linspace(min(SD_over_I), max(SD_over_I), 500)
+        y = uniform.pdf(x, loc=0.43, scale=(1-0.4))
+
+        data = [SD_over_I, x, y]
+        data2 = [SD_over_I]
+
+        chart = {'OUTFILE' : (home + out + 'SD_over_I' + img_ext),
+                 'XLABEL' : 'Standard deviation of annual inflow over mean',
+                 'XMIN' : 0,
+                 'XMAX' : max(SD_over_I),
+                 'BINS' : bins}
+
+        chart2 = {'OUTFILE' : (home + out + 'SD_over_I_2' + img_ext),
+                  'XLABEL' : 'Standard deviation of annual inflow over mean',
+                  'XMIN' : 0,
+                  'XMAX' : max(SD_over_I),
+                  'BINS' : bins}
+
+        if charts:
+            self.build_chart(chart, data, chart_type='hist')
+            self.build_chart(chart2, data2, chart_type='hist')
+
+        #---------------#       SA_over_K - surface area over capacity
+
+        SA = MDB_dams['sa']
+        sample = (K > 50000)
+        SA_over_K = SA[sample] / K[sample]
+        bins = np.linspace(min(SA_over_K), max(SA_over_K), 28)
+        SA_K_param = np.zeros(2)
+        SA_K_param[0] = np.percentile(SA_over_K, 10)
+        SA_K_param[1] = np.percentile(SA_over_K, 81.5)
+        x = np.linspace(min(SA_over_K), max(SA_over_K), 500)
+        y = uniform.pdf(x, loc=SA_K_param[0], scale=(SA_K_param[1] - SA_K_param[0]))
+
+        data = [SA_over_K, x, y]
+        data2 = [SA_over_K]
+
+        chart = {'OUTFILE' : (home + out + 'SA_over_K' + img_ext),
+                 'XLABEL' : 'Storage surface area over storage capacity',
+                 'XMIN' : min(SA_over_K),
+                 'XMAX' : max(SA_over_K),
+                 'BINS' : bins}
+
+        chart2 = {'OUTFILE' : (home + out + 'SA_over_K_2' + img_ext),
+                  'XLABEL' : 'Storage surface area over storage capacity',
+                  'XMIN' : min(SA_over_K),
+                  'XMAX' : max(SA_over_K),
+                  'BINS' : bins}
+
+        if charts:
+            self.build_chart(chart, data, chart_type='hist')
+            self.build_chart(chart2, data2, chart_type='hist')
+
+        #---------------#       evap - net evaporation rate
+
+        evap = 0.75 * (MDB_dams['net_evap'] / 1000)
+        folder = '/Dropbox/Thesis/STATS/chapter3/'
+        evap = evap[sample]
+        folder = '/Dropbox/Thesis/STATS/chapter3/'
+        sample2 = evap > 0
+        evap = evap[sample2]
+
+        bins = np.linspace(min(evap), max(evap), 18)
+
+        evap_param = np.zeros(2)
+        evap_param[0] = np.percentile(evap, 15)
+        evap_param[1] = np.percentile(evap, 85)
+
+        x = np.linspace(min(evap), max(evap), 500)
+        y = uniform.pdf(x, loc=evap_param[0], scale=(evap_param[1]-evap_param[0]))
+        data = [evap, x, y]
+        data2 = [evap]
+
+        chart = {'OUTFILE' : (home + out + 'evap' + img_ext),
+                 'XLABEL' : 'Average annual evaporation rate (meters)',
+                 'XMIN' : min(evap),
+                 'XMAX' : max(evap),
+                 'BINS' : bins}
+
+        chart2 = {'OUTFILE' : (home + out + 'evap_2' + img_ext),
+                  'XLABEL' : 'Average annual evaporation rate (meters)',
+                  'XMIN' : min(evap),
+                  'XMAX' : max(evap),
+                  'BINS' : bins}
+
+        if charts:
+            self.build_chart(chart, data, chart_type='hist')
+            self.build_chart(chart2, data2, chart_type='hist')
+
+        #---------------#      d_loss - delivery losses in irrigation areas
+
+        d_loss = np.zeros([5, 2])
+
+        Murray = pandas.read_csv(home + folder2 + 'Murray_loss.csv')
+        y = Murray['Loss']
+        N = len(y)
+        X = np.vstack([Murray['Pumped'], np.ones(N)]).T
+        d_loss[0,:] = np.linalg.lstsq(X, y)[0]
+        d_loss[0,1] = d_loss[0,1] / np.mean(Murray['Pumped'])
+
+        Shep = pandas.read_csv(home + folder2 + 'Shep_loss.csv')
+        y = Shep['Loss']
+        N = len(y)
+        X = np.vstack([Shep['Pumped'], np.ones(N)]).T
+        d_loss[1,:] = np.linalg.lstsq(X, y)[0]
+        d_loss[1,1] = d_loss[1,1] / (np.mean(Shep['Pumped']))
+
+        Jemm = pandas.read_csv(home + folder2 + 'Jemm_loss.csv')
+        y = Jemm['Loss']
+        N = len(y)
+        X = np.vstack([Jemm['Pumped'], np.ones(N)]).T
+        d_loss[2,:] = np.linalg.lstsq(X, y)[0]
+        d_loss[2,1] = d_loss[2,1] / (np.mean(Jemm['Pumped']))
+
+        Coll = pandas.read_csv(home + folder2 + 'Coll_loss.csv')
+        y = Coll['Loss']
+        N = len(y)
+        X = np.vstack([Coll['Pumped'], np.ones(N)]).T
+        d_loss[3,:] = np.linalg.lstsq(X, y)[0]
+        d_loss[3,1] = d_loss[3,1] / (np.mean(Coll['Pumped']))
+
+        MIA = pandas.read_csv(home + folder2 + 'MIA_loss.csv')
+        y = MIA['Loss']
+        N = len(y)
+        X = np.vstack([MIA['Pumped'], np.ones(N)]).T
+        d_loss[4,:] = np.linalg.lstsq(X, y)[0]
+        d_loss[4,1] = d_loss[4,1] / (np.mean(MIA['Pumped']))
+
+        #---------------#   Inflow autocorrelation
+
+        rho_param = [0.2, 0.3]
+
+        #################       WATER DEMAND         ################
+
+
+        #---------------#      Theta parameters (yield functions)
+
+        theta_mu = np.zeros([6, 2])
+        theta_mu[:,0] = np.array([154.7, 236.7, -35.8, 20.7, 14.9, -48.5])
+        #theta_mu[:,1] = np.array([-1785.4, 2545.3, -157.2, 1924.3, -537.5, -118.9])
+        theta_mu[:,1] = np.array([-1773.8, 2135.0, -133.3, 1597.1, -520.9, -100.8])
+
+        #clow = (41.5+14.9+231.7)*0.1
+        #chigh = (-76.5+2153.9-537.5)*0.1
+
+        theta_sig = np.zeros([6, 2])
+        #theta_sig[:,0] = np.array([0, 51.1, 16.8, 96.8, 38.8, 17.3])
+        #theta_sig[:,1] = np.array([0, 306.2, 22.3, 2370.1, 952.2, 151.4])
+        theta_sig[:,0] = np.array([0, 51.1, 16.8, 0, 0, 17.3])
+        theta_sig[:,1] = np.array([0, 306.2, 22.3, 0, 0, 151.4])
+
+        q_bar_limits = np.zeros([2,2])
+        q_bar_limits[:, 0] = np.array([0.5, 6.5])
+        q_bar_limits[:, 1] = np.array([5, 14])
+
+        w_ha = np.linspace(0,3,100)
+        profit_ha = theta_mu[0,0] + theta_mu[1,0]*w_ha + theta_mu[2,0] * w_ha**2 + theta_mu[3,0]*1 + theta_mu[4,0]*1**2 + theta_mu[5,0]*1*w_ha
+
+        data = [[w_ha, profit_ha]]
+        chart = {'OUTFILE' : (home + out + 'low_yield' + img_ext),
+                 'XLABEL' : 'Water use per unit land (ML / HA)',
+                 'XMIN' : min(w_ha),
+                 'XMAX' : max(w_ha),
+                 'YMIN' : 0,
+                 'YMAX' : max(profit_ha)*1.05,
+                 'YLABEL' : 'Profit per unit land (\$ / HA)'}
+        if charts:
+            self.build_chart(chart, data, chart_type='plot')
+
+        w_ha = np.linspace(0,9,100)
+        profit_ha = theta_mu[0,1] + theta_mu[1,1]*w_ha + theta_mu[2,1] * w_ha**2 + theta_mu[3,1]*1 + theta_mu[4,1]*1**2 + theta_mu[5,1]*1*w_ha
+
+        data = [[w_ha, profit_ha]]
+        chart = {'OUTFILE' : (home + out + 'high_yield' + img_ext),
+                 'XLABEL' : 'Water use per unit land (ML / HA)',
+                 'XMIN' : min(w_ha),
+                 'XMAX' : max(w_ha),
+                 'YMIN' : min(profit_ha)*1.5,
+                 'YMAX' : max(profit_ha)*1.05,
+                 'YLABEL' : 'Profit per unit land (\$ / HA)'}
+        if charts:
+            self.build_chart(chart, data, chart_type='plot')
+
+
+        #---------------#       Epsilon parameters (yield functions)
+
+        rho_eps_param = np.array([0.3, 0.5])
+        sig_eta_param = np.array([0.1, 0.2])
+
+        #################       Final Parameters       ################
+
+        self.I_K_param = I_K_param
+        self.SD_I_param = np.array([0.4, 1])
+        self.rho_param = [0.2, 0.3]
+        self.SA_K_param = SA_K_param
+        self.evap_param = evap_param
+        self.d_loss_param_a = np.array([0, 0.15])
+        self.d_loss_param_b = np.array([0.15, 0.30])
+        self.theta_mu = theta_mu
+        self.theta_sig = theta_sig / 3
+        self.q_bar_limits = q_bar_limits
+        self.rho_eps_param = np.array([0.3, 0.5])
+        self.sig_eta_param = np.array([0.1, 0.2])
+        self.prop_high = np.array([0.05, 0.35])
+        self.target_price =  10 #np.array([50,200])
+        self.t_cost_param = np.array([10, 100])
+        self.Lambda_high_param = np.array([1, 2])
+        self.relative_risk_aversion = np.array([0, 3])
+
+        #### Summer-Winter model - chapter 7
+        self.ch7_param = {}
+        self.ch7_param['omega_mu'] = [0.55, 0.75]
+        self.ch7_param['omega_sig'] = [0.09, 0.12]
+        self.ch7_param['omega_ab'] = [0.3, 0.90]
+        self.ch7_param['delta_a'] = [0.02, 0.06]
+        self.ch7_param['omegadelta'] = [0.22, 0.36]
+        self.ch7_param['F_bar'] = [1, 1]
+        self.ch7_param['delta_b'] = [0.3, 0.6]
+        self.ch7_param['delta_Ea'] = [0, 0.1]
+        self.ch7_param['delta_Eb'] = [0.1, 0.3]
+        self.ch7_param['delta_R'] = [0, 0.2]
+        self.ch7_param['b_w'] = [0, 0.5]
+        self.ch7_param['b_value'] = [0, 0.001]
+        self.ch7_param['inflow_share'] = [0, 0.5]
+        self.ch7_param['capacity_share'] = [0, 0.5]
+        self.ch7_param['High'] = [1, 1]
+
+        para_dist = [self.I_K_param, self.SD_I_param, self.rho_param, self.SA_K_param, self.evap_param, self.d_loss_param_a, self.d_loss_param_b,  self.t_cost_param, self.Lambda_high_param, [100, 100], [30, 70], [30, 70], self.theta_mu, self.theta_sig, self.q_bar_limits, self.rho_eps_param, self.sig_eta_param, self.prop_high, self.target_price, self.relative_risk_aversion, self.ch7_param]
+
+        with open('para_dist.pkl', 'wb') as f:
+            pickle.dump(para_dist, f)
+            f.close()
+
+        rows = ['$E[I_t]/K$', '$c_v$', '$\rho_I$' ,'$\alpha K^{2/3} / K $' ,  '$\delta_0$', '$\delta_{1a}$', '$\delta_{1b}$', '$\tau$', '$\Lambda_{high}$', '$n$', '$n_low$', '$n_high$', ]
+        cols = ['Min', 'Central case', 'Max']
+        n_rows = 12
+        data = []
+        for i in range(n_rows):
+            record = {}
+            record['Min'] = para_dist[i][0]
+            record['Central case'] = np.mean(para_dist[i])
+            record['Max'] = para_dist[i][1]
+            data.append(record)
+        tab = pandas.DataFrame(data)
+        tab.index = rows
+        tab_text = tab.to_latex(float_format =  '{:,.2f}'.format, columns=['Min', 'Central case', 'Max' ], index=True)
+        with open(home + folder + "para_table.txt", "w") as f:
+            f.write(tab_text)
+            f.close()
+
     def set_property_rights(self, scenario='CS'):
         
         self.unbundled = False
@@ -458,7 +467,7 @@ class Para:
             else:
                 self.Lambda_high = self.prop * 1.5
         else:
-            self.Lambda_high = self.prop 
+            self.Lambda_high = self.prop
 
     def central_case(self, N=100, utility=False, printp=True, risk=0):
         
@@ -497,7 +506,8 @@ class Para:
         
         self.ch7['delta_Ea'] = self.ch7['delta_Ea'] * self.I_bar
         self.ch7['delta_a'] = self.ch7['delta_a'] * self.I_bar
-        self.ch7['F_bar'] = self.ch7['F_bar'] * self.I_bar
+        self.ch7['F_bar'] = self.ch7['F_bar'] * self.K
+        self.ch7['b_value'] = self.ch7['b_value'] * self.I_bar
         
         ##################################################
 
@@ -546,9 +556,9 @@ class Para:
             high_land = self.L * self.high_size
             profit_bar_high = low_land * (self.theta[0, 0] + self.theta[1, 0]*q_bar_low + self.theta[2, 0]*(q_bar_low**2)+ self.theta[3, 0] + self.theta[4, 0] + self.theta[5, 0]*q_bar_low)
             profit_bar_low = high_land * (self.theta[0, 1] + self.theta[1, 1]*q_bar_high + self.theta[2, 1]*(q_bar_high**2)+ self.theta[3, 1] + self.theta[4, 1] + self.theta[5, 1]*q_bar_high)
-            
-            self.risk_aversion_low = risk / profit_bar_high
-            self.risk_aversion_high = risk / profit_bar_low
+            profit_bar = (profit_bar_low + profit_bar_high) / 2
+            self.risk_aversion_low = risk / profit_bar
+            self.risk_aversion_high = risk / profit_bar
         else: 
             self.utility = 0 
             self.risk_aversion_low = 0
@@ -651,6 +661,7 @@ class Para:
         self.ch7['delta_Ea'] = self.ch7['delta_Ea'] * self.I_bar
         self.ch7['delta_a'] = self.ch7['delta_a'] * self.I_bar
         self.ch7['F_bar'] = self.ch7['F_bar'] * self.I_bar
+        self.ch7['b_value'] = self.ch7['b_value'] * self.I_bar
         ##################################################
         
         self.alpha = (SA_K*self.K) / (self.K**(2.0/3))
@@ -708,12 +719,15 @@ class Para:
         low_land = self.L
         high_land = self.L * self.high_size
         profit_bar_high = low_land * (self.theta[0, 0] + self.theta[1, 0]*q_bar_low + self.theta[2, 0]*(q_bar_low**2)+ self.theta[3, 0] + self.theta[4, 0] + self.theta[5, 0]*q_bar_low) 
-        profit_bar_low = high_land * (self.theta[0, 1] + self.theta[1, 1]*q_bar_high + self.theta[2, 1]*(q_bar_high**2)+ self.theta[3, 1] + self.theta[4, 1] + self.theta[5, 1]*q_bar_high) 
-        
-        self.utility = 1    
+        profit_bar_low = high_land * (self.theta[0, 1] + self.theta[1, 1]*q_bar_high + self.theta[2, 1]*(q_bar_high**2)+ self.theta[3, 1] + self.theta[4, 1] + self.theta[5, 1]*q_bar_high)
+        profit_bar = (profit_bar_low + profit_bar_high) / 2
+
+        self.risk_aversion_low = risk / profit_bar
+        self.risk_aversion_high = risk / profit_bar
+        self.utility = 1
         risk = uniform.rvs(loc=self.relative_risk_aversion[0], scale=self.relative_risk_aversion[1] - self.relative_risk_aversion[0])
-        self.risk_aversion_low = risk / profit_bar_high
-        self.risk_aversion_high = risk / profit_bar_low
+        self.risk_aversion_low = risk / profit_bar
+        self.risk_aversion_high = risk / profit_bar
 
         self.t_cost = (np.random.rand() * (self.t_cost_param[1]-self.t_cost_param[0]) + self.t_cost_param[0]) 
         
@@ -772,23 +786,23 @@ class Para:
         pylab.show()
     
     def solve_para(self):
-        
+
         """
-        
+
                 Specify model solution parameters, sample sizes, iterations, exploration etc.
-        
+
         """
 
         self.CPU_CORES = 4 #mp.cpu_count()
 
         # Evaluation simulation size (for generating model results)
-        self.T0 = 500000   
-        
+        self.T0 = 500000
+
         #======================================================
         #       Planner SDP parameters
         #======================================================
-       
-        # SDP Tolerance level 
+
+        # SDP Tolerance level
         self.SDP_TOL = 0.0012
 
         # Max SDP Policy evaluations per policy improvement
@@ -796,7 +810,7 @@ class Para:
 
         # SDP GRID points per dimension, S_t, I_t and I_t+1
         self.SDP_GRID = 33
-        
+
         #======================================================
         #       Planner QV learning parameters
         #======================================================
@@ -808,6 +822,9 @@ class Para:
         self.sg_radius1 = 0.02
         self.sg_points1 = 425
 
+        self.sg_points1_ch7 = 800
+        self.sg_radius1_ch7 = 0.025
+
         # Stage 2 search range
         self.policy_delta = 0.16
 
@@ -817,7 +834,7 @@ class Para:
         #======================================================
         #       Optimal share search parameters
         #======================================================
-        
+
         self.opt_lam_ITER = 12
 
         #======================================================
@@ -826,11 +843,11 @@ class Para:
 
         self.ITER1 = 40             # Initialization stage QV iterations
         self.ITER2 = 25             # Main learning iterations
-        self.iters = 1              # QV iterations per learning iteration 
+        self.iters = 1              # QV iterations per learning iteration
 
         #Proportion of users to update
         self.update_rate = [12] * 5 + [10] * 150 #+ [0.05] * 5
-       
+
         #Proportion of sample size to replace each iteration (< 1 implies rolling batch)
         self.sample_rate = 0.1
 
@@ -838,10 +855,10 @@ class Para:
         self.N_e = [5] * 4 + [4] * 4 + [3] * 4 + [2] * 150
 
         # Exploration range
-        self.d = [0.25] * 4 + [0.2] * 4 + [0.15] * 4 + [0.085] * 150 
+        self.d = [0.25] * 4 + [0.2] * 4 + [0.15] * 4 + [0.085] * 150
 
         # Total sample size, actual sim length = T1 / (2*N_e)
-        self.T2 = 500000 
+        self.T2 = 500000
 
         # State sample grid parameters
         self.sg_radius2 = 0.045
@@ -895,7 +912,7 @@ class Para:
 
 
     def fit_lognorm(self, x, scale = True):
-        
+
         
         if scale:
             minx = min(x)

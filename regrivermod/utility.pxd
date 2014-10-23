@@ -1,4 +1,5 @@
 from regrivermod.storage cimport Storage
+from econlearn.tilecode cimport Tilecode
 
 cdef class Utility:
 
@@ -19,17 +20,30 @@ cdef class Utility:
     cdef public double fixed_loss_co
     cdef public double loss
     cdef public int delivered
+    cdef public double target
+    cdef public double[:] ss
+    cdef public int it
 
     cdef double delta1a
+    cdef double[:] delta_a
     cdef double delta_Ea
     cdef double delta1b
 
     cdef int M, ch7
 
+    cdef double c_pi
+
     cdef double[:] temp
     cdef double[:] temp2
     cdef double[:] temp3
     cdef double[:] temp4
+    cdef double[:] temp5
+    cdef public double oldS
+
+    cdef public Tilecode policy
+    cdef public double[:] state_zero
+    cdef public int explore
+    cdef public double d
 
     cdef double release(self, double[:] w, double S)
         
@@ -42,4 +56,6 @@ cdef class Utility:
     cdef double[:] allocate(self, double A, double[:] a) nogil
 
     cdef double extract(self, double qe)
+
+    cdef double withdraw_ch7(self, double S, double I, int M)
 

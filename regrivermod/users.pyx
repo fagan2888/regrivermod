@@ -7,7 +7,6 @@ import pylab
 import time
 import math
 import random
-
 cimport numpy as np
 cimport cython
 from econlearn.tilecode cimport Tilecode, Function_Group
@@ -20,7 +19,6 @@ from libc.math cimport exp as c_exp
 from libc.math cimport sin as c_sin
 from libc.math cimport cos as c_cos
 from libc.math cimport fabs as c_abs
-
 from libc.stdlib cimport srand as c_seed
 from libc.stdlib cimport rand
 from libc.stdlib cimport RAND_MAX
@@ -99,7 +97,7 @@ cdef class Users:
     includes all consumptive users (high and low reliability)
     """
     
-    def __init__(self, para):
+    def __init__(self, para, ch7=False):
 
         cdef int i, j
 
@@ -140,12 +138,18 @@ cdef class Users:
         #--------------------------------------#
         # Inflow and capacity shares
         #--------------------------------------#
-        low_c = 1 - para.Lambda_high 
-        
+
+        high_c = para.Lambda_high
+        low_c = (1 - para.Lambda_high)
+        if ch7:
+            high_c *= (1 - para.ch7['inflow_share'])
+            low_c *= (1 - para.ch7['inflow_share'])
+
         self.c_F_low = low_c / <double> self.N_low                  # Low reliability inflow shares
         self.c_K_low = low_c / <double> self.N_low                  # Low reliability capacity shares
-        self.c_F_high = (1 - low_c) / <double> self.N_high          # High reliability inflow shares
-        self.c_K_high = (1 - low_c) / <double> self.N_high          # High reliability capacity shares
+        self.c_F_high = high_c / <double> self.N_high          # High reliability inflow shares
+        self.c_K_high = high_c / <double> self.N_high          # High reliability capacity shares
+
         self.K = para.K
         self.c_F = np.zeros(self.N)
         self.c_K = np.zeros(self.N)
@@ -242,7 +246,7 @@ cdef class Users:
 
         GRID = 40
         points = GRID * GRID
-
+        a = np.zeros(self.N)
         maxQ = para.K * (1 - para.delta1b) - para.delta1a
         maxI = (para.K * 2) / para.I_bar
         Q_grid = np.linspace(0, maxQ, GRID)
@@ -256,10 +260,8 @@ cdef class Users:
         P = np.zeros(points)
 
         for i in range(points):
-            atemp = Q[i] / self.N
-            self.a = np.ones(self.N) * atemp
-            self.demand_para(I[i])
-            self.mv(I[i])
+            a = np.ones(self.N) * (Q[i] / (<double> self.N))
+            self.allocate(a, I[i])
             P[i] = self.solve_price(Q[i], para.price, self.Pmax, self.t_cost)
 
         self.market_d = Tilecode(2, [23, 23], 30, offset='optimal', lin_spline=True, linT=6, cores=para.CPU_CORES)
@@ -276,10 +278,8 @@ cdef class Users:
         P_perf = np.zeros(points)
 
         for i in range(points):
-            atemp = Q[i] / <double> self.N
-            self.a = np.ones(self.N) * atemp
-            self.demand_para(I[i])
-            self.mv(I[i])
+            a = np.ones(self.N) * (Q[i] / (<double>self.N))
+            self.allocate(a, I[i])
             P_perf[i] = self.solve_price(Q[i], para.price, self.Pmax, 0)
 
         self.perf_market = Tilecode(2, [23, 23], 20, offset='optimal', lin_spline=True, linT=6, cores=para.CPU_CORES)
@@ -300,15 +300,12 @@ cdef class Users:
 
         ###################      Construct the planners payoff function     ##################
 
-        # Build grids 
         Q, I, SW = self.build_SW(para, self.perf_market, 65)
         points = len(Q)
 
-        # Now estimate continuous approximation
         self.SW_f = Tilecode(2, [35, 35], 20, offset='optimal', lin_spline=True, linT=2, cores=para.CPU_CORES)
-        self.SW_f.fit(np.array([Q, I]).T, SW, sgd=True, eta=0.2, scale=0, n_iters=2)
+        self.SW_f.fit(np.array([Q, I]).T, SW, sgd=True, eta=0.2, scale=0, n_iters=4)
 
-        # Plot fitted vs actual
         #pylab.figure()
         #pylab.clf()
         #pylab.title('Social welfare function (planners payoff)')
@@ -322,9 +319,12 @@ cdef class Users:
         self.c_K_low = (1 - Lambda_high) / <double> self.N_low                # Low reliability capacity shares
         self.c_F_high = Lambda_high / <double> self.N_high                  # High reliability inflow shares
         self.c_K_high = Lambda_high / <double> self.N_high                  # High reliability capacity shares
+
+
         self.c_F = np.zeros(self.N)
         self.c_K = np.zeros(self.N)
-        
+
+
         if unbundled:
             self.c_K_low = (1- Lambda_K_high) / <double> self.N_low         # Low reliability capacity shares
             self.c_K_high = Lambda_K_high / <double> self.N_high            # High reliability capacity shares
@@ -338,13 +338,31 @@ cdef class Users:
             self.c_F[i] = self.c_F_high
             self.c_K[i] = self.c_K_high
 
-        #Inflow share explorers
-        #if self.share_explore:
-        #    self.c_F[self.share_e_l[0]] += self.share_adj / <double> self.N_low
-        #    self.c_F[self.share_e_h[0]] -= self.share_adj / <double> self.N_low
-        #    self.c_K[self.share_e_l[0]] += self.share_adj / <double> self.N_low
-        #    self.c_K[self.share_e_h[0]] -= self.share_adj / <double> self.N_low
 
+    def set_shares_ch7(self, double Lambda_high, double env_I, double env_K, unbundled=False, Lambda_K_high=0):
+
+
+        self.c_F_low = (1 - env_I) * (1 - Lambda_high) / <double> self.N_low                # Low reliability inflow shares
+        self.c_K_low = (1 - env_K) * (1 - Lambda_high) / <double> self.N_low                # Low reliability capacity shares
+        self.c_F_high = (1 - env_I) * Lambda_high / <double> self.N_high                  # High reliability inflow shares
+        self.c_K_high = (1 - env_K) * Lambda_high / <double> self.N_high                  # High reliability capacity shares
+
+        self.c_F = np.zeros(self.N)
+        self.c_K = np.zeros(self.N)
+
+
+        if unbundled:
+            self.c_K_low = (1- Lambda_K_high) / <double> self.N_low         # Low reliability capacity shares
+            self.c_K_high = Lambda_K_high / <double> self.N_high            # High reliability capacity shares
+
+
+        for i in range(0, self.N_low):
+            self.c_F[i] = self.c_F_low
+            self.c_K[i] = self.c_K_low
+
+        for i in range(self.N_low, self.N):
+            self.c_F[i] = self.c_F_high
+            self.c_K[i] = self.c_K_high
 
     cdef double[:] withdraw(self, double S, double[:] s, double I):
         "User policy function, returns user withdrawal w, given current state: S, s, e and I"
@@ -552,7 +570,7 @@ cdef class Users:
         for i in range(self.N):
             self.a[i] = a[i]
 
-        I = c_max(c_min(I, 2),0.5)
+        I = c_max(c_min(I, 2), 0.5)
         
         # Update user demand parameters
         self.demand_para(I)
@@ -569,14 +587,6 @@ cdef class Users:
         cdef double P = 0
         cdef double t_cost = 0
 
-        I = c_max(c_min(I, 2),0.5)
-        
-        # Update user demand parameters
-        self.demand_para(I)
-        
-        # User marginal value for water pre trade
-        self.mv(I)
-        
         state[0] = Q
         state[1] = I
         P_guess = market_d.one_value(state)
@@ -586,7 +596,9 @@ cdef class Users:
             t_cost = self.t_cost
 
         P = self.solve_price(Q, P_guess, self.Pmax, t_cost)
-
+        
+        self.Q = Q
+        
         return c_max(P, 0)
 
     cdef double solve_price(self, double Q, double P_guess, double Pmax, double t_cost):
@@ -741,6 +753,7 @@ cdef class Users:
         cdef double[:] Q = Q_grid[Qi.flatten()]
         cdef double[:] I = I_grid[Ii.flatten()]
         cdef double[:] SW = np.zeros(points)
+        cdef double[:] a = np.zeros(self.N)
         cdef double P, P0
         P0 = para.price
         cdef int i, j
@@ -749,7 +762,8 @@ cdef class Users:
 
         for i in range(points):
             for j in range(self.N):
-                self.a[j] = Q[i] * (1/ <double> self.N)
+                a[j] = Q[i] * (1/ <double> self.N)
+            self.allocate(a, I[i])
             P = self.clear_market(I[i], perf_market,  1)
             self.consume(P, I[i], 1)
             SW[i] += c_sum(self.N, self.profit)

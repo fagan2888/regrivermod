@@ -69,7 +69,7 @@ cdef class SDP:
     cdef public double[:,:,:] state_p_eval   
     cdef public double[:,:,:] statetemp   
     cdef public double[:,:] Xi
-    cdef public double[:,:] UX_eval   
+    cdef public double[:,:] UX_eval
     cdef public double[:,:] UXtemp
     
     cdef double GRID_1              # GRID^-1
