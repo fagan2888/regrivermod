@@ -347,8 +347,9 @@ class Para:
         self.ch7_param['delta_Ea'] = [0, 0.1]
         self.ch7_param['delta_Eb'] = [0.1, 0.3]
         self.ch7_param['delta_R'] = [0, 0.2]
-        self.ch7_param['b_w'] = [0, 0.5]
-        self.ch7_param['b_value'] = [0, 0.001]
+        self.ch7_param['b_1'] = [0, 0.6]
+        self.ch7_param['b_value'] = [25, 325]
+        self.ch7_param['Bhat_alpha'] = [0.1, 0.5]
         self.ch7_param['inflow_share'] = [0, 0.5]
         self.ch7_param['capacity_share'] = [0, 0.5]
         self.ch7_param['High'] = [1, 1]
@@ -822,8 +823,8 @@ class Para:
         self.sg_radius1 = 0.02
         self.sg_points1 = 425
 
-        self.sg_points1_ch7 = 800
-        self.sg_radius1_ch7 = 0.025
+        self.sg_points1_ch7 = 1500
+        self.sg_radius1_ch7 = 0.045
 
         # Stage 2 search range
         self.policy_delta = 0.16
@@ -862,6 +863,8 @@ class Para:
 
         # State sample grid parameters
         self.sg_radius2 = 0.045
+        self.sg_radius2_ch7 = 0.045
+        
         self.sg_samp2 = 0.4
         self.sg_prop2 = 0.85 #[0.80]*5 + [0.85]*5 + [0.9]*5 + [0.95]*5
 

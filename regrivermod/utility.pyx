@@ -151,6 +151,7 @@ cdef class Utility:
             self.c_F[self.N - 1] = env.Lambda_I
             self.c_K[self.N - 1] = env.Lambda_K
             self.fixed_loss = (storage.delta_a[0] + storage.delta_Ea) / ( 1 - storage.delta_Eb)
+            self.delta_R = storage.delta_R
         else:
             self.c_F = users.c_F                        # User inflow shares
             self.c_K = users.c_K                        # User capacity shares
@@ -203,7 +204,9 @@ cdef class Utility:
         self.Lambda_high = para.Lambda_high
         self.M = 0
 
-        self.state_zero = np.zeros(3)
+        self.state_zero = np.zeros(4)
+        self.three_zeros = np.zeros(3)
+        self.N_zeros = np.zeros(self.N)
         self.explore = 0
 
     cdef double[:] allocate(self, double A, double[:] a) nogil:
@@ -279,43 +282,49 @@ cdef class Utility:
 
         return W
 
-    def init_policy(self, Tilecode W_f, Storage storage, para):
+    def init_policy(self, Storage storage, para):
 
-        cdef int i, N = 100000
+        cdef int i, N = 200000
         cdef double[:] state = np.zeros(2)
         cdef double I, S
-        cdef double[:,:] X = np.zeros([N, 3])
+        cdef double[:,:] X = np.zeros([N, 4])
         cdef double[:] W = np.zeros(N)
 
         for i in range(N):
 
             X[i, 0] = c_rand() * storage.K
             X[i, 1] = c_rand() * storage.Imax  * (storage.I_bar**-1)
+            X[i, 2] = c_rand()
             if c_rand() < 0.5:
-                X[i, 2] = 0
+                X[i, 3] = 0
             else:
-                X[i, 2] = 1
+                X[i, 3] = 1
 
-            state[0] = X[i, 0]
-            state[1] = X[i, 1]
+            W[i] = X[i, 0]
 
-            W[i] = c_min(c_max(W_f.one_value(state), 0), X[i, 0])
-
-        self.policy = Tilecode(3, [10, 10, 2], 13, mem_max=1, lin_spline=True, linT=para.linT, cores=para.CPU_CORES)
+        self.policy = Tilecode(4, [10, 10, 10, 2], 13, mem_max=1, lin_spline=True, linT=para.linT, cores=para.CPU_CORES)
 
         self.policy.fit(X, W)
 
-    cdef double withdraw_ch7(self, double S, double I, int M):
+    cdef double withdraw_ch7(self, double S, double I, double Bhat, int M, int envoff):
 
-        cdef double[:] state = self.state_zero
+        cdef double[:] state 
         cdef double U, V, Z, W, A
-
-        state[0] = S
-        state[1] = I
-        state[2] = M
+        
+        if envoff == 1:
+            state = self.three_zeros
+            state[0] = S
+            state[1] = I
+            state[2] = M
+        else:
+            state = self.state_zero
+            state[0] = S
+            state[1] = I
+            state[2] = Bhat
+            state[3] = M
 
         W = c_max(c_min(self.policy.one_value(state), S), 0)
-
+        
         if self.explore == 1:
             if self.d == 0:
                 W = c_rand() * S
@@ -327,48 +336,81 @@ cdef class Utility:
 
         self.A = c_max((W - self.fixed_loss) * (1 - self.delta1b), 0)
 
-        self.max_E = c_max(W - self.delta_a[M], 0)
+        if M == 0:
+            self.max_E = (W - self.delta_a[0])
+            self.max_R = self.max_E  * self.delta_R
+        else:
+            self.max_R = 0
+            self.max_E = 0
 
         self.a = self.allocate(self.A, self.a)
 
         return W
 
-    cdef double deliver_ch7(self, double[:] users_w, double env_w, Storage storage,  int M):
+    cdef double make_allocations(self, double[:] users_w, double env_w):
+        
+        for i in range(self.N - 1):
+            self.w[i] = users_w[i]
+        
+        self.w[self.I_env] = env_w
+        
+        # User allocations (adjusted for delivery losses)
+        for i in range(self.N):
+            self.a[i] = self.w[i] * (1 - self.delta1b)
+
+        self.A = c_sum(self.N, self.a)
+
+    cdef double record_trades(self, Users users, Environment env, Storage storage):
+        """
+        Finalise the spot market in winter (return unsold allocations back to users)
+        """
+        cdef double We = 0
+        cdef double W = c_sum(self.N, self.w)
+        cdef double[:] wshare = self.N_zeros 
+        
+        We = env.q / (1 - storage.delta_Eb)
+
+        for i in range(self.N - 1):
+            wshare[i] = self.w[i] * W**-1
+            self.w[i] = c_max(We - env.w, 0) * wshare[i]
+            self.a[i] = users.w[i] * (1 - storage.delta_Eb)
+
+        return We
+
+    
+    cdef double deliver_ch7(self, Storage storage,  int M, double We):
 
         cdef double W = 0
         cdef int i = 0
          
-        for i in range(self.N - 1):
-            self.w[i] = users_w[i]
-            W += users_w[i]
+        self.M = M
+        
+        W = c_sum(self.N, self.w)
+
+        if M == 1:
+            W = We 
 
         if W > 0:
             self.delivered = 1
         else:
             self.delivered = 0
         
-        self.w[self.I_env] = env_w
-        W += env_w
-        
-        self.max_E = storage.delta_Ea * self.delivered + W
-        
-        # User allocations (adjusted for delivery losses)
-        for i in range(self.N):
-            self.a[i] = self.w[i] * (1 - storage.delta_Eb)
-
-        self.A = c_sum(self.N, self.a)
-
-        self.M = M
+        if M == 0:
+            self.max_E = storage.delta_Ea * self.delivered + W
+            self.max_R = self.max_E * self.delta_R
+        else:
+            self.max_R = 0
+            self.max_E = 0
 
         # Physical withdrawals to satisfy orders
-        if self.delivered == 1 and M == 0:
+        if storage.S < self.fixed_loss:
+            W = 0
+        elif self.delivered == 1 and M == 0:
             W += self.fixed_loss
         elif self.delivered == 0 and M == 0:
             W += storage.delta_a[0]
-        elif M == 1 and storage.S > self.fixed_loss:
-            W = W + storage.delta_a[1]
-        elif storage.S < self.fixed_loss:
-            W = 0
+        elif M == 1:
+            W = W + 2 * storage.delta_a[1]
         
         return W
     

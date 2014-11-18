@@ -8,32 +8,35 @@ from para import Para
 import model
 import time
 from econlearn.samplegrid import test
+import pylab
 
 if __name__ == '__main__': 
 
     para = Para(rebuild=True)
-
-    #para.set_property_rights(scenario='RS')
-    #mod1 = model.Model(para)
-    #mod1.plannerSDP()
-
-    #sr1 = mod1.sim.series
-    #del mod1
-    #para.t_cost = 100000000000
     para.set_property_rights(scenario='RS')
+    
     para.ch7['inflow_share'] = 0
     para.ch7['capacity_share'] = 0
+    
     mod = model.Model(para, ch7=True, turn_off_env=True)
+    #mod.plannerQV_ch7(T=125000, stage2=True, d=0.2, simulate=True, envoff=True)
+    #print mod.sim.ITEROLD 
+    #stats_envoff = mod.sim.stats
+    #series_envoff = mod.sim.series
+    
+    #del mod
+    #mod = model.Model(para, ch7=True, turn_off_env=False)
+    #mod.plannerQV_ch7(T=125000, stage2=True, d=0.2, simulate=True, envoff=False)
+    #print mod.sim.ITEROLD 
+    #stats = mod.sim.stats
+    #series = mod.sim.series
+    #del mod
 
-    mod.plannerSDP(plot=True)
     #mod.users.init_policy(mod.sdp.W_f, mod.sdp.V_f, mod.storage, para.CPU_CORES, para.linT, para.sg_radius2)
     #mod.env.init_policy(mod.sdp.W_f, mod.sdp.V_f, mod.sdp.W_f, mod.sdp.V_f, mod.storage, para.linT, para.CPU_CORES, para.sg_radius2)
-    #mod.utility.init_policy(mod.sdp.W_f, mod.storage, para)
-    #mod.utility.explore = 1
-    #mod.utility.d = 0
     #mod.sim.simulate_ch7(mod.users, mod.storage, mod.utility, mod.market, mod.env, 10000, 1, planner=True)
-    mod.plannerQV_ch7(T=100000, stage2=True, d=0.15, simulate=True)
-
+    
+    """
     f1_win_dev = np.minimum(abs((mod.sim.series['F1_tilde'][:,1] - mod.sim.series['F1'][:,1]) / mod.sim.series['F1_tilde'][:,1]), 1)
     f3_win_dev = np.minimum(abs((mod.sim.series['F3_tilde'][:,1] - mod.sim.series['F3'][:,1]) / mod.sim.series['F3_tilde'][:,1]), 1)
     f1_sum_dev = np.minimum(abs((mod.sim.series['F1_tilde'][:,0] - mod.sim.series['F1'][:,0]) / mod.sim.series['F1_tilde'][:,0]), 1)
@@ -58,6 +61,7 @@ if __name__ == '__main__':
             t += 1
 
     B = 1 - Bhat**2
+    """
 
     #res, lam, lamk = mod.chapter6()
     #mod.chapter6_extra(65)

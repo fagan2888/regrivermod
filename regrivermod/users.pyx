@@ -72,17 +72,23 @@ cdef inline double excess_demand(double P, double Qbar, double t_cost, int N, do
 
         return Qtemp 
 
-cdef double[:] payoff(int N, double P, double t_cost, double[:] q, double[:]  a, double[:] e, double I, double[:,:] theta, double[:] L, double[:] pi, double[:] risk, int utility):
+cdef double[:] payoff(int N, double P, double t_cost, double[:] q, double[:]  a, double[:] e, double I, double[:,:] theta, double[:] L, double[:] pi, double[:] risk, int utility, int nat):
     "Calculate all user payoffs"
 
     cdef int i
     cdef double qmax = 0
+    cdef double utemp
 
-    for i in range(N):
-        if q[i] > a[i]:    # Water buyer
-            pi[i] = L[i] * e[i] * ( theta[i, 0] + theta[i, 3] * I + theta[i, 4] * I**2 + (theta[i, 1] + theta[i, 5] * I) * (q[i] / L[i]) + theta[i, 2] * (q[i] / L[i])**2)   + (a[i] - q[i]) * (P + t_cost)
-        else:              # Water seller or non-trader
-            pi[i] =  L[i] * e[i] * (  theta[i, 0] + theta[i, 3] * I + theta[i, 4] * I**2 + (theta[i, 1] + theta[i, 5] * I) * (q[i] / L[i]) + theta[i, 2] * (q[i] / L[i])**2 )  + (a[i] - q[i]) * P
+    if nat == 1:
+        for i in range(N):
+            pi[i] = L[i] * e[i] * (  theta[i, 0] + theta[i, 3] * I + theta[i, 4] * I**2  )
+    else:
+        for i in range(N):
+            utemp = L[i] * e[i] * (  theta[i, 0] + theta[i, 3] * I + theta[i, 4] * I**2 + (theta[i, 1] + theta[i, 5] * I) * (q[i] / L[i]) + theta[i, 2] * (q[i] / L[i])**2 )
+            if q[i] > a[i]:    # Water buyer
+                pi[i] = utemp + (a[i] - q[i]) * (P + t_cost)
+            else:              # Water seller or non-trader
+                pi[i] = utemp + (a[i] - q[i]) * P
     
     if utility == 1:
         for i in range(N):
@@ -240,7 +246,10 @@ cdef class Users:
         self.N_ints = np.zeros(self.N, dtype='int32')                            
         self.state_planner_zero = np.zeros([self.N, 2])         # Aggregate state [S, I]
         self.state_zero = np.zeros([self.N, 4])                 # N User states [S, s, e, I]
+        self.state_zero_ch7 = np.zeros([self.N, 5])             # N User states [S, s, e, I, M]
         self.state_single_zero = np.zeros(4)                    # Single user state [S, s, e, I]
+
+        self.nat = 0                                            # Natural flow scenario ch7
 
         ##################      Estimate market demand curve    ###############
 
@@ -404,6 +413,27 @@ cdef class Users:
                 self.explore(s)
         
         return self.w
+    
+    cdef double[:] withdraw_ch7(self, double S, double[:] s, double I, int M):
+        "User policy function, returns user withdrawal w, given current state: S, s, e, I and M"
+        
+        cdef int i
+        cdef double[:, :] state = self.state_zero_ch7
+
+        for i in range(self.N):
+            state[i, 0] = S
+            state[i, 1] = s[i]
+            state[i, 2] = self.e[i]
+            state[i, 3] = I
+            state[i, 4] = M
+
+        # Optimal policy
+        self.w = self.policy.get_values(state, self.w)
+        
+        if self.exploring == 1:
+            self.explore(s)
+        
+        return self.w
    
     cdef void user_stats(self, double[:] s, double[:] x):
         "User policy function, returns user withdrawal w, given current state: S, s, e and I"
@@ -412,6 +442,10 @@ cdef class Users:
         
         self.W_low = 0
         self.W_high = 0
+        self.A_low = 0
+        self.A_high = 0
+        self.Q_low = 0
+        self.Q_high = 0
         self.S_low = 0
         self.S_high = 0
         self.X_low = 0
@@ -419,29 +453,27 @@ cdef class Users:
         self.tradeVOL = 0
         self.trade_low = 0
         self.trade_high = 0
+        cdef double tradeadj = 0
 
         for i in range(0, self.N_low):
             self.W_low += self.w[i] 
+            self.A_low += self.a[i] 
+            self.Q_low += self.q[i] 
+            self.S_low += s[i] 
+            self.X_low += x[i] 
+            self.trade_low += self.trade[i]
+       
+
         for i in range(self.N_low, self.N):
             self.W_high += self.w[i] 
-        
-        for i in range(0, self.N_low):
-            self.S_low += s[i] 
-        for i in range(self.N_low, self.N):
+            self.A_high += self.a[i] 
+            self.Q_high += self.q[i] 
             self.S_high += s[i] 
-        
-        for i in range(0, self.N_low):
-            self.X_low += x[i] 
-        for i in range(self.N_low, self.N):
             self.X_high += x[i] 
-    
+            self.trade_high += self.trade[i]
+        
         for i in range(self.N):
             self.tradeVOL += c_abs(self.trade[i])
-        
-        for i in range(0, self.N_low):
-            self.trade_low += self.trade[i] 
-        for i in range(self.N_low, self.N):
-            self.trade_high += self.trade[i] 
     
     cdef mv(self, double I):
 
@@ -489,6 +521,9 @@ cdef class Users:
         cdef int i = 0
         cdef double t_cost = 0
         cdef double low_gain, high_gain
+        cdef double temp = 0
+        cdef double temp2
+        cdef double[:] maxsell = self.N_zeros
 
         if planner == 1:
             t_cost = 0
@@ -501,7 +536,7 @@ cdef class Users:
         if planner == 1:
             self.a[...] = self.q
 
-        self.profit = payoff(self.N, P, t_cost, self.q, self.a, self.e, I, self.theta, self.L, self.profit, self.risk, self.utility)
+        self.profit = payoff(self.N, P, t_cost, self.q, self.a, self.e, I, self.theta, self.L, self.profit, self.risk, self.utility, self.nat)
 
         self.U_low = 0
         self.U_high = 0
@@ -510,8 +545,21 @@ cdef class Users:
         for i in range(self.N_low, self.N):
             self.U_high += self.profit[i] 
         SW = self.U_low + self.U_high 
-        for i in range(self.N):
-            self.trade[i] = c_max(c_min(self.a[i], self.d_cons[i]), 0) - self.q[i]
+        
+        if P == 0:
+            for i in range(self.N):
+                self.trade[i] = 0
+                self.trade[i] = c_min(self.a[i] - self.q[i], 0)  # Water buy
+                maxsell[i] = c_max(self.a[i] - self.q[i],0)      # Max water sell (some not bought)
+            temp = c_sum(self.N, maxsell)
+            temp2 = c_sum(self.N, self.trade)
+            for i in range(self.N):
+                if maxsell[i] > 0:
+                    self.trade[i] = -1 * (maxsell[i]*temp**-1)*temp2
+        else:
+            for i in range(self.N):
+                self.trade[i] = 0
+                self.trade[i] = self.a[i] - self.q[i]
 
         return SW
     
@@ -578,6 +626,26 @@ cdef class Users:
         # User marginal value for water pre trade
         self.mv(I)
     
+    cdef double take_sale_cash(self, double[:] a, double P):
+        
+        cdef double SW = 0
+        cdef int i = 0
+
+        for i in range(self.N):
+            self.a[i] = a[i]
+            self.q[i] = 0
+            self.profit[i] = self.a[i] * P 
+
+        self.U_low = 0
+        self.U_high = 0
+        for i in range(0, self.N_low):
+            self.U_low += self.profit[i] 
+        for i in range(self.N_low, self.N):
+            self.U_high += self.profit[i] 
+        SW = self.U_low + self.U_high 
+        
+        return SW
+
     cdef double clear_market(self, double I, Tilecode market_d, int planner):
 
         cdef int i
@@ -770,7 +838,7 @@ cdef class Users:
 
         return [np.array(Q), np.array(I), np.array(SW)]
 
-    def init_policy(self, Tilecode W_f, Tilecode V_f, Storage storage, linT, CORES, radius):
+    def init_policy(self, Tilecode W_f, Tilecode V_f, Storage storage, Utility utility, linT, CORES, radius):
         
         cdef int i, N = 100000    
         cdef double wplanner = 0
@@ -828,6 +896,95 @@ cdef class Users:
         L = int(130 / Twv)
         w_f_high = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
         v_f_high = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
+        w_f_high.fit(X, w)
+        v_f_high.fit(X, v)
+        
+        self.policy = Function_Group(self.N, self.N_low, w_f_low, w_f_high)
+        
+        return [[w_f_low, w_f_high], [v_f_low,  v_f_high]]
+
+    def init_policy_ch7(self, Tilecode W_f, Tilecode V_f, Storage storage, Utility utility, linT, CORES, radius):
+        
+        cdef int i, N = 200000    
+        cdef double wplanner = 0
+        cdef double[:] state = np.zeros(4)
+        cdef double s, I, e, S, M
+        cdef double[:,:] X = np.zeros([N, 5])
+        cdef double[:] w = np.zeros(N)
+        cdef double[:] v = np.zeros(N)
+        cdef double wp, vp = 0
+        cdef double fl
+        
+        for i in range(N):
+            
+            X[i, 0] = c_rand() * storage.K
+            X[i, 1] = c_rand() * self.c_F_low * (storage.K - utility.fixed_loss)
+            X[i, 2] = c_rand() * 2
+            X[i, 3] = c_rand() * storage.Imax / storage.I_bar
+            if i < (N*0.50):
+                X[i, 4] = 0
+            else:
+                X[i, 4] = 1
+
+            state[0] = X[i, 1] * (self.c_F_low**-1) + utility.fixed_loss
+            state[1] = X[i, 3]    
+            state[2] = 1.0
+            state[3] = X[i, 4]
+            
+            wp = W_f.one_value(state)
+            vp = V_f.one_value(state)
+            
+            if X[i, 4] == 0:
+                fl = utility.fixed_loss
+            else:
+                fl = storage.delta_a[1] * 2
+
+            w[i] = c_max(c_min((wp - fl) * self.c_F_low, X[i, 1]), 0)
+            v[i] = vp * self.c_F_low
+        
+        
+        Twv = int((1 / radius) / 2)
+        T = [Twv for t in range(5)]
+        T[4] = 2
+        L = int(130 / Twv)
+        w_f_low = Tilecode(5, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
+        v_f_low = Tilecode(5, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
+        w_f_low.fit(X, w)
+        v_f_low.fit(X, v)
+        
+        for i in range(N):
+            
+            X[i, 0] = c_rand() * storage.K
+            X[i, 1] = c_rand() * self.c_F_high * (storage.K - utility.fixed_loss)
+            X[i, 2] = c_rand() * 2
+            X[i, 3] = c_rand() * storage.Imax / storage.I_bar
+            if i < (N*0.50):
+                X[i, 4] = 0
+            else:
+                X[i, 4] = 1
+            
+            state[0] = X[i, 1] * (self.c_F_high**-1) + utility.fixed_loss
+            state[1] = X[i, 3]    
+            state[2] = 1.0
+            state[3] = X[i, 4]
+
+            wp = W_f.one_value(state)
+            vp = V_f.one_value(state)
+            
+            if X[i, 4] == 0:
+                fl = utility.fixed_loss
+            else:
+                fl = storage.delta_a[1] * 2
+            
+            w[i] = c_max(c_min((wp - fl) * self.c_F_high, X[i, 1]), 0)
+            v[i] = vp * self.c_F_high
+        
+        Twv = int((1 / radius) / 2)
+        T = [Twv for t in range(5)]
+        T[4] = 2
+        L = int(130 / Twv)
+        w_f_high = Tilecode(5, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
+        v_f_high = Tilecode(5, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
         w_f_high.fit(X, w)
         v_f_high.fit(X, v)
         

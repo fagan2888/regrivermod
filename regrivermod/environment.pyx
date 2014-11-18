@@ -1,5 +1,5 @@
 #!python
-#cython: boundscheck=False, wraparound=False, nonecheck=False, cdivision=True, initializedcheck=False
+#cython: cdivision=True, boundscheck=False, wraparound=False, nonecheck=False, initializedcheck=False
 
 from __future__ import division
 import numpy as np
@@ -49,36 +49,60 @@ cdef class Environment:
         self.u = 0                          # Payoff
         self.p = 0                          # Marginal value of water (at allocation a)
 
-        b_w = para.ch7['b_w']                      # Objective function parameters
-        b_value = para.ch7['b_value']
-        self.b1 = b_w * b_value
-        self.b3 = (1 - b_w) * b_value
+        self.b1 = para.ch7['b_1']                      # Objective function parameters
+        self.b_value = para.ch7['b_value']
+        self.Bhat_alpha = para.ch7['Bhat_alpha']
+        self.b3 = (1- self.b1)
 
         self.Lambda_I = para.ch7['inflow_share']       # Inflow shares
         self.Lambda_K = para.ch7['capacity_share']
         
         self.delta_R = para.ch7['delta_R']         
         self.delta_Eb = para.ch7['delta_Eb']         
-        self.delta_a = para.ch7['delta_a']
- 
-        self.DELTA = (1 - self.delta_R) / (1 - self.delta_Eb)
+        self.delta_a = np.zeros(2)
+        self.delta_a[0] = para.ch7['delta_a'] * para.ch7['omegadelta']
+        self.delta_a[1] = para.ch7['delta_a'] * (1 - para.ch7['omegadelta'])
+        self.DELTA0 = (1 - self.delta_R) / (1 - self.delta_Eb)
+        self.DELTA1 = 1 / (1 - self.delta_Eb)
         self.pi = math.pi
         
         self.d = 0
         self.explore = 1
-        self.state_zero = np.zeros(3)
+        self.state_zero = np.zeros(5)
 
         self.t_cost = para.t_cost
-        self.min_F2 = 0
         self.d_b = 0
         self.d_c = 0
         self.min_q = 0
+        self.Bhat = 0.5
+        self.Pmax = 0
+        self.t = 0
+        self.e_sig = 0.25
 
         if turn_off:
             self.turn_off = 1
         else:
             self.turn_off = 0
 
+    def seed(self, i):
+        seed = int(time.time()/(i + 1))
+        c_seed(seed)
+        np.random.seed(seed)
+    
+    def precompute_e_shocks(self, T, seed=0):
+        
+        "Draw a random series for eps_I of length t "
+        
+        T = T * 2
+        
+        if seed == 0:
+            np.random.seed()
+        else:
+            np.random.seed(seed)
+
+        self.e = np.zeros(T)
+        self.e = truncnorm(-0.5*(self.e_sig**-1), 0.5*(self.e_sig**-1), loc=0.5, scale=self.e_sig).rvs(size=T) 
+    
     cdef double consume(self, double P, int planner):
 
         # Effective demand
@@ -92,8 +116,7 @@ cdef class Environment:
             t_cost = self.t_cost
 
         if self.p > (P + t_cost):
-            F3 = self.d_c + self.d_b * (P + t_cost)
-            q = c_max((F3 - self.min_F2 + self.delta_a) * (self.DELTA**-1), 0)
+            q = c_max(self.d_c + self.d_b * (P + t_cost), 0)
         elif self.p <= P:
             q = c_max(self.d_c + self.d_b * P, 0)
         else:
@@ -109,47 +132,93 @@ cdef class Environment:
 
         return q
     
-    cdef allocate(self, double a, double min_F2, double F3_tilde):
-
-        self.min_F2 = min_F2 #F1 - L(F1) - max E 
+    cdef allocate(self, double a, double Z, double max_R, double F1_tilde, double F3_tilde, double Pr, int M):
 
         cdef double F3 = 0
+        cdef double b1hat, bhat3
+        cdef double F1_marg = 0
+        cdef double F3_marg = 0
 
         self.a = a
-        self.min_q = c_max((self.delta_a - min_F2) / self.DELTA , 0)
-        self.d_c = (F3_tilde - min_F2 + self.delta_a)*(self.DELTA**-1)
-        self.d_b = -0.5 * (F3_tilde**2) * (self.b3**-1) * (self.DELTA**-2)
+        self.Bhat *= Pr
 
         if self.turn_off == 1:
             self.d_c = 0
             self.d_b = 0
-
-        # Inverse demand
-        F3 = c_max(min_F2 + self.DELTA * a - self.delta_a, 0)
-        if 0 < F3 < F3_tilde:
-            self.p = (2 * self.b3 / F3_tilde) * (1 - F3 / F3_tilde) * self.DELTA
         else:
-            self.p = 0
+            if M == 0:
+                if F3_tilde > 0:
+                    b3hat = (2 * self.b3 * self.b_value * self.Bhat) / F3_tilde
+                    self.min_q = c_max((self.delta_a[M] - Z) / self.DELTA0 , 0)
+                    
+                    # Demand coefficients
+                    self.d_c = (F3_tilde - Z - max_R + self.delta_a[M])*(self.DELTA0**-1)
+                    self.d_b = -1* (b3hat**-1) * (self.DELTA0**-2) * F3_tilde
+                
+                    # Inverse demand
+                    F3 = c_max(Z + self.DELTA0 * a - self.delta_a[0], 0) + max_R
+                    self.p = b3hat * self.DELTA0 * (1 - F3 / F3_tilde) 
+                
+                    self.Pmax = (self.min_q - self.d_c)*self.d_b**-1
+                else:
+                    self.d_c = 0
+                    self.d_b = 0
+                    self.p = 0
+                    self.Pmax = 0
 
-        self.Pmax = 2 * self.b3 / F3_tilde * self.DELTA
+            elif M == 1:
+                if F1_tilde > 0 and F3_tilde > 0:
+                    b1hat = (2 * self.b1 * self.b_value * self.Bhat) / F1_tilde
+                    b3hat = (2 * self.b3 * self.b_value * self.Bhat) / F3_tilde
+                
+                    # Demand coefficients
+                    self.d_c =  (self.DELTA1**-1) * ((b1hat + b3hat - 2*self.delta_a[M]*b1hat*(F1_tilde**-1)) / ((b1hat*F1_tilde**-1) + b3hat*(F3_tilde**-1)) - Z)
+                    self.d_b = -1 / ((self.DELTA1**2) * (b1hat*F1_tilde**-1 + b3hat*F3_tilde**-1) ) 
+
+                    # Inverse demand
+                    F1 = Z + self.DELTA1 * a + 2 * self.delta_a[1] 
+                    F3 = F1 - 2 * self.delta_a[1]
+                   
+                    F1_marg = (1 - F1 / F1_tilde)
+                    F3_marg = (1 - F3 / F3_tilde)
+                
+                    self.p = c_max(b1hat * self.DELTA1 * F1_marg + b3hat * self.DELTA1 * F3_marg, 0)
+
+                    self.Pmax = (self.min_q - self.d_c)*self.d_b**-1
+                else:
+                    self.d_c = 0
+                    self.d_b = 0
+                    self.min_q = 0
+                    self.p = 0
+
+
     
     @cython.cdivision(True)
     cdef double payoff(self, double F1, double F3, double F1_tilde, double F3_tilde, double P):
 
-        cdef double u1 = 0
-        cdef double u3 = 0
+        cdef double u = 0
+        cdef double deltaF1
+        cdef double deltaF3
 
-        if self.turn_off == 1:
-            self.u = 0
-        else:
-            if F1_tilde  > 0:
-                u1 = -1 * (self.b1 * ((F1_tilde - F1)/F1_tilde)**2)
-            if F3_tilde  > 0:
-                u3 = -1 * (self.b3 * ((F3_tilde - F3)/F3_tilde)**2)
+        if F1_tilde  > 0:
+            deltaF1 = c_min(((F1_tilde - F1)/F1_tilde)**2, 1)
+        elif F1 > 0:
+            deltaF1 = 1
+        if F3_tilde > 0:
+            deltaF3 = c_min(((F3_tilde - F3)/F3_tilde)**2, 1)
+        elif F3 > 0:
+            deltaF3 = 1
+
+        self.u  = self.b_value  * self.Bhat * (1 - (self.b1 * deltaF1 + self.b3 * deltaF3))
+        
+        if self.turn_off == 0:
             if self.q > self.a:     # Water buyer
-                self.u = u1 + u3 + (self.a - self.q) * (P + self.t_cost)
+                self.u += (self.a - self.q) * (P + self.t_cost)
             else:                   # Water seller or non-trader
-                self.u = u1 + u3 + (self.a - self.q) * P
+                self.u += (self.a - self.q) * P
+        
+        self.Bhat = self.e[self.t]  #self.Bhat_alpha * (self.b1 * deltaF1 + self.b3 * deltaF3) + (1- self.Bhat_alpha) * self.Bhat
+        self.t += 1
 
         return self.u
     
@@ -161,14 +230,13 @@ cdef class Environment:
         state[0] = S
         state[1] = s
         state[2] = I
+        state[3] = self.Bhat
+        state[4] = M
 
         if self.turn_off == 1:
             self.w = 0
         else:
-            if M == 0:
-                self.w = c_max(c_min(self.policy0.one_value(state), s), 0)
-            else:
-                self.w = c_max(c_min(self.policy1.one_value(state), s), 0)
+            self.w = c_max(c_min(self.policy.one_value(state), s), 0)
 
             if self.explore == 1:
                 U = c_rand()
@@ -178,67 +246,64 @@ cdef class Environment:
 
     def plot_demand(self, ):
 
-        P = np.linspace(0, 3000, 600)
+        P = np.linspace(0, self.Pmax*1.1, 600)
         Q = np.zeros(600)
         for i in range(600):
-            Q[i] = self.consume(P[i], 0)
-        print str(np.array(Q))
-        print str(np.array(P))
+            Q[i] = self.consume(P[i], 1)
+        print 'Pmax: ' + str(self.Pmax)
         import pylab
         pylab.plot(Q, P)
         pylab.show()
 
-    def set_policy(self, Tilecode policy0, Tilecode policy1, double d, int explore):
+    def set_policy(self, Tilecode policy, double d, int explore):
 
-        self.policy0 = policy0
-        self.policy1 = policy1
+        self.policy = policy
         self.explore = explore
         self.d = d
 
-    def init_policy(self, Tilecode W_f0, Tilecode V_f0, Tilecode W_f1, Tilecode V_f1, Storage storage, linT, CORES, radius):
+    def init_policy(self, Tilecode W_f, Tilecode V_f, Storage storage, Utility utility, linT, CORES, radius):
 
-        cdef int i, N = 100000    
-        cdef double[:] state = np.zeros(2)
-        cdef double s, I, S
-        cdef double[:,:] X = np.zeros([N, 3])
-        cdef double[:] w0 = np.zeros(N)
-        cdef double[:] v0 = np.zeros(N)
-        cdef double[:] w1 = np.zeros(N)
-        cdef double[:] v1 = np.zeros(N)
+        cdef int i, N = 200000    
+        cdef double[:] state = np.zeros(4)
+        cdef double[:,:] X = np.zeros([N, 5])
+        cdef double[:] w = np.zeros(N)
+        cdef double[:] v = np.zeros(N)
         cdef double wp, vp = 0
-        cdef double fl = storage.delta_a[0] + storage.delta_Ea
+        cdef double fl = 0
 
         for i in range(N):
             
             X[i, 0] = c_rand() * storage.K
-            X[i, 1] = c_rand() * self.Lambda_K * (storage.K - fl)
+            X[i, 1] = c_rand() * self.Lambda_K * (storage.K - utility.fixed_loss)
             X[i, 2] = c_rand() * storage.Imax  * (storage.I_bar**-1)
+            X[i, 3] = c_rand() * 2
+            if i < (N*0.50):
+                X[i, 4] = 0
+            else:
+                X[i, 4] = 1
             
-            state[0] = X[i, 1] * (self.Lambda_I**-1) + fl
-            state[1] = X[i, 2]    
+            state[0] = X[i, 1] * (self.Lambda_I**-1) + utility.fixed_loss
+            state[1] = X[i, 2]   
+            state[2] = X[i, 3] 
+            state[3] = X[i, 4]    
             
-            wp0 = W_f0.one_value(state)
-            vp0 = V_f0.one_value(state)
+            wp = W_f.one_value(state)
+            vp = V_f.one_value(state)
+          
+            if X[i, 4] == 0:
+                fl = utility.fixed_loss
+            else:
+                fl = storage.delta_a[1] * 2
             
-            state[0] = X[i, 1] * (self.Lambda_I**-1) + storage.delta_a[1]
-            
-            wp1 = W_f1.one_value(state)
-            vp1 = V_f1.one_value(state)
-            
-            w0[i] = c_max(c_min((wp0 - fl) * self.Lambda_I, X[i, 1]), 0)
-            w1[i] = c_max(c_min((wp1 - storage.delta_a[1]) * self.Lambda_I, X[i, 1]), 0)
-            v0[i] = vp0 * self.Lambda_I
-            v1[i] = vp1 * self.Lambda_I
+            w[i] = c_max(c_min((wp - fl) * self.Lambda_I, X[i, 1]), 0)
+            v[i] = vp * self.Lambda_I
         
         Twv = int((1 / radius) / 2)
-        T = [Twv for t in range(4)]
+        T = [Twv for t in range(5)]
+        T[4] = 2
         L = int(130 / Twv)
-        self.policy0 = Tilecode(3, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
-        self.policy1 = Tilecode(3, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
-        self.value0 = Tilecode(3, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
-        self.value1 = Tilecode(3, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
+        self.policy = Tilecode(5, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
+        self.value = Tilecode(5, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
         
-        self.policy0.fit(X, w0)
-        self.value0.fit(X, v0)
-        self.policy1.fit(X, w1)
-        self.value1.fit(X, v1)
+        self.policy.fit(X, w)
+        self.value.fit(X, v)

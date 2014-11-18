@@ -41,10 +41,10 @@ cdef inline double c_sum(int N, double[:] x):
 
 cdef inline double loss_12(F1, delta_a, delta_b, F_bar):
 
-    if F1 < F_bar:
-        return c_min(F1, delta_a)
-    else:
-        return delta_a + delta_b * (F1 - F_bar)
+    #if F1 < F_bar:
+    return c_min(F1, delta_a)
+    #else:
+    #    return delta_a + delta_b * (F1 - F_bar)
 
 cdef class Storage:
 
@@ -76,23 +76,34 @@ cdef class Storage:
             self.omega_mu = para.ch7['omega_mu']        # Summer-Winter inflow split
             self.omega_sig = para.ch7['omega_sig']
             self.omega_ab = np.array(para.ch7_param['omega_ab'])
+            self.omega_ab[0] = (self.omega_ab[0] - self.omega_mu ) / self.omega_sig
+            self.omega_ab[1] = (self.omega_ab[1] - self.omega_mu ) / self.omega_sig
 
             self.delta_b  = para.ch7['delta_b']
             self.delta_Ea = para.ch7['delta_Ea']
             self.delta_Eb = para.ch7['delta_Eb']
             self.delta_R = para.ch7['delta_R']
             self.F_bar = np.zeros(2)
-            self.F_bar[0] = para.ch7['F_bar']# * (5/12)
-            self.F_bar[1] = para.ch7['F_bar']# * (7/12)
+            self.F_bar[0] = para.ch7['F_bar']
+            self.F_bar[1] = para.ch7['F_bar']
 
             self.delta_a = np.zeros(2)
             self.delta_a[0] = para.ch7['delta_a'] * para.ch7['omegadelta']
             self.delta_a[1] = para.ch7['delta_a'] * (1 - para.ch7['omegadelta'])
             self.omega_delta = para.ch7['omegadelta']
-
+            
             self.C = para.I_bar
             self.I = self.C * (1 - self.omega_mu)
-            self.I_tilde = self.C * self.I_bar**-1
+            
+            self.I_bar_ch7 = np.zeros(2)
+            self.I_bar_ch7[0] = para.I_bar * (1 - self.omega_mu)
+            self.I_bar_ch7[1] = para.I_bar * (self.omega_mu)
+
+            self.I_tilde = self.I * self.I_bar_ch7[0]**-1
+                       
+            self.estimate_cdf(10000, para)
+            self.one_zero = np.zeros(1)
+            self.Pr = 0
 
     def seed(self, i):
         seed = int(time.time()/(i + 1))
@@ -173,30 +184,54 @@ cdef class Storage:
         self.F3 = c_max(self.F2 - c_min(self.F2, self.delta_a[M]) +  self.delta_R * E, 0)
 
     @cython.cdivision(True) 
-    cdef double update_ch7(self, double W, double E, int M, int t):
-         
-         self.I_tilde = self.I 
+    cdef void estimate_cdf(self, int T, para):
+
+        cdef double[:, :] I0 = np.zeros([T, 1])
+        cdef double[:, :] I1 = np.zeros([T, 1])
         
-         if M == 0:
+        self.precompute_I_shocks(T)
+        self.precompute_I_split(T)
+
+        for t in range(1, T):
+
+           I0[t, 0] = self.C * self.OMEGA[t]
+           self.C = c_min(self.rho * self.C + self.EPS[t], self.K * 3)
+           I1[t, 0] = self.C * (1 - self.OMEGA[t])
+
+        I0 = np.sort(I0, axis=0)
+        I1 = np.sort(I1, axis=0)
+        Pr = np.array(range(T)) * ((<double> T)**-1)
+        self.I0_cdf = Tilecode(1, [15], 20, offset='uniform', cores=para.CPU_CORES)
+        self.I0_cdf.fit(I0, Pr)
+        self.I1_cdf = Tilecode(1, [15], 20, offset='uniform', cores=para.CPU_CORES)
+        self.I1_cdf.fit(I1, Pr)
+    
+    @cython.cdivision(True) 
+    cdef double update_ch7(self, double W, double E, int M, int t):
+        
+        cdef double[:] I = self.one_zero
+
+        if M == 0:
             self.C = self.C
             self.I = self.C * self.OMEGA[t]
-         else:
-            self.C = c_min(self.rho * self.C + self.EPS[t], self.I_bar * 5)
+            I[0] = self.I 
+            self.Pr = self.I0_cdf.one_value(I) 
+        else:
+            self.C = c_min(self.rho * self.C + self.EPS[t], self.K * 3)
             self.I = self.C * (1 - self.OMEGA[t])
+            I[0] = self.I 
+            self.Pr = self.I1_cdf.one_value(I)
 
-         self.I_tilde += self.I
-         self.I_tilde *= self.I_bar**-1
+        self.I_tilde = self.I * self.I_bar_ch7[M]**-1
 
-         self.storage_transition(W, M)
+        self.storage_transition(W, M)
 
-         # Actual flows
-         self.river_flow(W, E, M, 0)
+        # Actual flows
+        self.river_flow(W, E, M, 0)
 
-         return self.S
+        return self.S
     
-    cdef void natural_flows(self, double W, double max_E, int M):
-        
-        self.min_F2 = c_max((W + self.Spill) - loss_12(W + self.Spill, self.delta_a[M], self.delta_b, self.F_bar[M]) - max_E, 0)
+    cdef void natural_flows(self, int M):
 
         self.river_flow(0, 0, M, 1)
         self.F1_tilde = self.F1

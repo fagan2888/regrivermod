@@ -59,7 +59,7 @@ cdef inline double excess_demand(double P, double Q, double t_cost, int N, doubl
        
         # Environment
 
-        if q <= min_q or Q <= min_q:
+        if Q <= min_q:
             q = 0
         else:
             if p_e > (P + t_cost):
@@ -69,6 +69,8 @@ cdef inline double excess_demand(double P, double Q, double t_cost, int N, doubl
             else:
                 q = c_max(c_min(a_e, d_c_e), 0)
         
+        if q <= min_q:
+            q = 0
 
         Qt += q
         Qt = Qt - Q
@@ -108,27 +110,37 @@ cdef class Market:
         self.d_cons = np.zeros(self.N)
         self.p = np.zeros([self.N])                                
         self.a = np.zeros([self.N]) 
-        self.Pmax = users.theta[self.N-1,1] * 2                      
+        self.users_Pmax = users.theta[self.N-1,1] * 2                      
+        self.Pmax = self.users_Pmax
         self.t_cost = para.t_cost		                           
-        
-                            #Environment
+       
+        self.nat = 0
+
+        #Environment
         self.min_q = 0
         self.d_b_e = 0
         self.d_c_e = 0
         self.p_e = 0
         self.a_e = 0
 
-        self.twozeros = np.zeros(2)
+        self.threezeros = np.zeros(3)
 
-    cdef void open_market(self, Users users, Environment env):
+    cdef void open_market(self, Users users, Environment env, int M):
         
         cdef int i
 
-        for i in range(self.N):
-            self.p[i] = users.MV[i]
-            self.d_beta[i] = users.d_beta[i]
-            self.d_cons[i] = users.d_cons[i]
-            self.a[i] = users.a[i]
+        if self.nat == 1:
+            for i in range(self.N):
+                self.p[i] = 0
+                self.d_beta[i] = 0
+                self.d_cons[i] = 0
+                self.a[i] = 0
+        else:
+            for i in range(self.N):
+                self.p[i] = users.MV[i]
+                self.d_beta[i] = users.d_beta[i]
+                self.d_cons[i] = users.d_cons[i]
+                self.a[i] = users.a[i]
 
         self.p_e = env.p
         self.d_b_e = env.d_b
@@ -136,117 +148,51 @@ cdef class Market:
         self.min_q = env.min_q
         self.a_e = env.a
 
-        self.Pmax = env.Pmax
-    
-    cpdef estimate_market_demand(self, Storage storage, Users users, Environment env, Utility utility, para):
+        self.Pmax = c_max(env.Pmax, users.Pmax)
+        self.ePmax = env.Pmax
 
-        cdef int i, j, points
-        cdef double[:] uw = np.zeros(users.N)
-        cdef double W, w, maxE
-        cdef double[:] P, Q, I, Qenv, Qlow, Qhigh
+        if M == 1:
+            for i in range(self.N):
+                self.p[i] = 0
+                self.d_beta[i] = 0
+                self.d_cons[i] = 0
+
+    def estimate_market_demand(self, double[:] P, double[:] Q, double[:] Qlow, double[:] Qhigh, double[:]  Qenv, double[:] B, double[:] I, para):
 
         ##################      Estimate market demand curve    ###############
-    
-        GRID = 40
-        points = GRID * GRID
-        maxQ = para.K * (1 - storage.delta_Eb) - utility.fixed_loss
-        maxI = 4
-        Q_grid = np.linspace(0, maxQ, GRID)
-        I_grid = np.linspace(0, maxI, GRID)
-        [Qi, Ii] = np.mgrid[0:GRID, 0:GRID]
-        Q = Q_grid[Qi.flatten()]
-        Qenv = Q_grid[Qi.flatten()]
-        Qlow = Q_grid[Qi.flatten()]
-        Qhigh = Q_grid[Qi.flatten()]
-        I = I_grid[Ii.flatten()]
-        P = np.zeros(points)
-        """
-        cdef qtemp, itemp
-        qtemp = 0
-        itemp = 0.1
+   
+        self.market_d = Tilecode(3, [12, 12, 12], 30, offset='optimal', lin_spline=True, linT=6, cores=para.CPU_CORES)
+        self.market_d.fit(np.array([Q, I, B]).T, P)
 
-        w = qtemp *  ((<double> utility.N)**-1)
-        for j in range(users.N):
-            uw[j] = w
-        W = utility.deliver_ch7(uw, w, storage, 0)
-        storage.I = itemp * (1 - storage.omega_mu) * storage.I_bar
-        storage.natural_flows(W, utility.max_E, 0)
-        users.allocate(utility.a, itemp)
-        env.allocate(utility.a[utility.I_env], storage.min_F2, storage.F3_tilde)
-
-        print 'b3: ' + str(env.b3)
-        print 'p: ' + str(env.p)
-        print 'a: ' + str(env.a)
-        print 'd_c: ' + str(env.d_c)
-        print 'd_b: ' + str(env.d_b)
-        print 'min_F2: ' + str(storage.min_F2)
-        print 'F3_tilde: ' + str(storage.F3_tilde)
-        print 'max_E: ' + str(utility.max_E)
-        print 'Spill: ' + str(storage.Spill)
-        print 'W: ' + str(W)
-        print 'W - max_E: ' + str(W - utility.max_E)
-
-        env.plot_demand()
-        """
-
-        for i in range(points):
-            w = Q[i] *  ((<double> utility.N)**-1)
-            for j in range(users.N):
-                uw[j] = w
-            W = utility.deliver_ch7(uw, w, storage, 0)
-            storage.I = I[i] * (1 - storage.omega_mu) * storage.I_bar
-            storage.natural_flows(W, utility.max_E, 0)
-            users.allocate(utility.a, I[i]) 
-            env.allocate(utility.a[utility.I_env], storage.min_F2, storage.F3_tilde)
-            self.open_market(users, env)
-            P[i] = self.solve_price(utility.A, I[i], 1, 0)
-            users.consume(P[i], I[i], 0)
-            env.consume(P[i], 0)
-            Qlow[i] = c_sum(users.N_low, users.q)
-            Qhigh[i] = c_sum(users.N_high, users.q[users.N_low::])
-            Qenv[i] = env.q
-
-            if P[i] > 50000:
-                print Q[i]
-                print I[i]
-                print P[i]
-                print '-----'
-                print Qlow[i]
-                print Qhigh[i]
-                print Qenv[i]
-        
-        self.market_d = Tilecode(2, [23, 23], 30, offset='optimal', lin_spline=True, linT=6, cores=para.CPU_CORES)
-        self.market_d.fit(np.array([Q, I]).T, P)
-
-        d_low = Tilecode(2, [23, 23], 30, offset='optimal', lin_spline=True, linT=6, cores=para.CPU_CORES)
-        d_high = Tilecode(2, [23, 23], 30, offset='optimal', lin_spline=True, linT=6, cores=para.CPU_CORES)
-        d_env = Tilecode(2, [23, 23], 30, offset='optimal', lin_spline=True, linT=6, cores=para.CPU_CORES)
-        d_low.fit(np.array([Qlow, I]).T, P)
-        d_high.fit(np.array([Qhigh, I]).T, P)
-        d_env.fit(np.array([Qenv, I]).T, P)
+        self.d_low = Tilecode(3, [10, 10, 10], 30, offset='optimal', lin_spline=True, linT=4, cores=para.CPU_CORES)
+        self.d_high = Tilecode(3, [10, 10, 10], 30, offset='optimal', lin_spline=True, linT=4, cores=para.CPU_CORES)
+        self.d_env = Tilecode(3, [10, 10, 10], 30, offset='optimal', lin_spline=True, linT=4, cores=para.CPU_CORES)
+        self.d_low.fit(np.array([Qlow, I, B]).T, P)
+        self.d_high.fit(np.array([Qhigh, I, B]).T, P)
+        self.d_env.fit(np.array([Qenv, I, B]).T, P)
 
         pylab.figure()
         pylab.clf()
         pylab.title('Effective market demand curve')
-        self.market_d.plot(['x', 1], showdata=True)
+        self.market_d.plot(['x', 1, 0.5], showdata=True)
         pylab.show()
 
         pylab.figure()
         pylab.clf()
         pylab.title('Low user demand')
-        d_low.plot(['x', 1], showdata=True)
+        self.d_low.plot(['x', 1, 0.5], showdata=True)
         pylab.show()
 
         pylab.figure()
         pylab.clf()
         pylab.title('High user demand')
-        d_high.plot(['x', 1], showdata=True)
+        self.d_high.plot(['x', 1, 0.5], showdata=True)
         pylab.show()
 
         pylab.figure()
         pylab.clf()
         pylab.title('Environmental demand')
-        d_env.plot(['x', 1], showdata=True)
+        self.d_env.plot(['x', 1, 0.5], showdata=True)
         pylab.show()
 
         """
@@ -278,21 +224,32 @@ cdef class Market:
         #pylab.show()
         """
 
-    cdef double solve_price(self, double Q, double I, int init, int plan):
+    cdef double solve_price(self, double Q, double I, double Bhat, int init, int plan):
         
         """
         Solve for exact market clearing price given W
 
         """
-        cdef double[:] state = self.twozeros  
+        cdef double[:] state = self.threezeros  
         cdef double P_guess 
         
         state[0] = Q
         state[1] = I
+        state[2] = Bhat
+
         if init == 1:
             P_guess = 10
         else:
             P_guess = self.market_d.one_value(state)
+        
+        
+        cdef double qetemp = e_demand(self.ePmax-0.01, 0, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e)
+        cdef double EXtemp = excess_demand(self.ePmax-0.01, Q, 0, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e)
+
+        if EXtemp > 0:          # Environment exits the market
+            'Env has left the building'
+            self.d_c_e = 0
+            self.d_b_e = 0
 
         cdef double t_cost = self.t_cost
         if plan == 1:
@@ -317,7 +274,7 @@ cdef class Market:
                 elif EX1 > 0:
                     P0 = P1 * (1.1)
             else:
-                P0 = c_max(P1 - (EX1 * (P1 - P2) * ((EX1 - EX2)**-1)), 0)
+                P0 = c_min(c_max(P1 - (EX1 * (P1 - P2) * ((EX1 - EX2)**-1)), 0), self.Pmax)
             EX0 = excess_demand(P0, Q, t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e)
 
             if P0 == 0 and EX0 <= 0:
@@ -366,22 +323,29 @@ cdef class Market:
                     P1 = self.Pmax*(1-c_rand()*0.1)
                 
                 iters += 1
-            
-            if c_abs(EX2) > tol2 and P0 > 0 and Q > tol and P0 > 5000:
+             
+            if c_abs(EX2) > tol2 and P0 > 0 and Q > tol:
                 print '   Warning: Clearing price not found   '
+                
                 print 'Excess demand: ' + str(EX2)
                 print 'iters: ' + str(iters)
                 print 'Q: ' + str(Q)
                 print 'P_guess: ' + str(P_guess)
                 print 'P0: ' + str(P0)
-                print 'P1: ' + str(P1)
-                print 'P2: ' + str(P1)
-                print 'EX2: ' + str(EX2)
-                print 'EX0: ' + str(EX0)
+                #print 'P1: ' + str(P1)
+                #print 'P2: ' + str(P1)
+                #print 'EX2: ' + str(EX2)
+                #print 'EX0: ' + str(EX0)
                 print 'Pmax: ' + str(self.Pmax)
-                print 'q_e: ' + str(e_demand(P2, t_cost, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e))
+                print 'q_e: ' + str(e_demand(P0, t_cost, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e))
                 print 'min q: ' + str(self.min_q)
-                raise NameError('SpotMarketFail')
-            
+                print 'd_c_e: ' + str(self.d_c_e)
+                print 'd_b_e: ' + str(self.d_b_e)
+                print 'ePmax: ' + str(self.ePmax)
+                print 'EXtemp: ' + str(EXtemp)
+                print 'qetemp: ' + str(qetemp)
+                #raise NameError('SpotMarketFail')
+        
+        self.EX =  excess_demand(P0, Q, t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e)
         return P0
     

@@ -24,6 +24,8 @@ cdef extern from "fast_floattoint.h" nogil:
 
 cdef class Tilecode:
 
+    cdef public double countsuminv
+
     cdef public int N, D, L, n, XSN
     cdef public int[:] T, lin_T
     cdef public double Linv
@@ -100,6 +102,8 @@ cdef class Tilecode:
     
     cpdef partial_fit(self, double[:] Y, int copy)
     
+    cpdef double one_value_pdf(self, double[:] X)
+
 cdef class Function_Group:
 
     cdef public int N, D, L, N_low         # Here N is number of users

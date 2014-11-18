@@ -64,11 +64,12 @@ class RetryQueue(Queue):
     def get(self, block=True, timeout=None):
         return retry_on_eintr(Queue.get, self, block, timeout)
 
-def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, Market market, Environment env, que, multi=True, planner=False):
+def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, Market market, Environment env, int init, int stats, int nat, que, multi=True, planner=False):
 
     users.seed(job)
     utility.seed(job)
     storage.seed(job)
+    env.seed(job)
 
     # Representative user explorers
     cdef int[:] I_e_l = users.I_e_l
@@ -79,12 +80,18 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
 
     cdef double[:,:] W_sim = np.zeros([T, 2])
     cdef double[:,:] Q_sim = np.zeros([T, 2])
+    cdef double[:,:] Q_low_sim = np.zeros([T, 2])
+    cdef double[:,:] Q_high_sim = np.zeros([T, 2])
+    cdef double[:,:] Q_env_sim = np.zeros([T, 2])
+    cdef double[:,:] A_sim = np.zeros([T, 2])
     cdef double[:,:] SW_sim = np.zeros([T, 2])
     cdef double[:,:] S_sim = np.zeros([T, 2])
     cdef double[:,:] I_sim = np.zeros([T, 2])
     cdef double[:,:] Z_sim = np.zeros([T, 2])
     cdef double[:,:] P_sim = np.zeros([T, 2])
     cdef double[:,:] E_sim = np.zeros([T, 2])
+    cdef double[:,:] Bhat_sim = np.zeros([T, 2])
+    cdef double[:,:] B_sim = np.zeros([T, 2])
     cdef double[:,:] F1_tilde = np.zeros([T, 2])
     cdef double[:,:] F3_tilde = np.zeros([T, 2])
     cdef double[:,:] F1 = np.zeros([T, 2])
@@ -110,15 +117,15 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
     if planner:
         plan = 1
         # Planner samples
-        XA = np.zeros([T*2, 4])
-        X1 = np.zeros([T*2, 3])
+        XA = np.zeros([T*2, 5])
+        X1 = np.zeros([T*2, 4])
         U = np.zeros([T*2])
     else:
         # Consumptive user samples
-        XA_l = np.zeros([N_e_l, T, 5])
-        X1_l = np.zeros([N_e_l, T, 4])
-        XA_h = np.zeros([N_e_h, T, 5])
-        X1_h = np.zeros([N_e_h, T, 4])
+        XA_l = np.zeros([N_e_l, T, 6])
+        X1_l = np.zeros([N_e_l, T, 5])
+        XA_h = np.zeros([N_e_h, T, 6])
+        X1_h = np.zeros([N_e_h, T, 5])
         u_t_l = np.zeros([N_e_l, T])
         u_t_h = np.zeros([N_e_h, T])
 
@@ -134,127 +141,195 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
 
     storage.precompute_I_shocks(T)
     storage.precompute_I_split(T)
+    env.precompute_e_shocks(T)
 
     # Run simulation
     for t in range(T):
-
+        
         # ================================================
         #       M = 0, Summer
         # ================================================
 
-        # Initial state
+        ###### Initial state ######
+
         S_sim[t, 0] = storage.S
         I_sim[t, 0] = storage.I
         Z_sim[t, 0] = storage.Spill
-
-        ### Withdrawals ###
-
-        if plan == 1:
-            W_sim[t, 0] = utility.withdraw_ch7(storage.S, storage.I_tilde, 0)
-        else:
-            # Users make withdrawals
-            users.withdraw(storage.S, utility.s, storage.I_tilde)
-            env.withdraw(storage.S, utility.s[utility.I_env], storage.I_tilde, 0)
-            # Determine releases and user allocations
-            W_sim[t, 0] = utility.deliver_ch7(users.w, env.w, storage, 0)
-
-        Q_sim[t, 0] = utility.A
-
-        # Planner state and action
-        if plan == 1:
-            XA[itrs, 0] = W_sim[t, 0]
-            XA[itrs, 1] = storage.S
-            XA[itrs, 2] = storage.I_tilde
-            XA[itrs, 3] = 0
-
-        # Calculate natural and worst case river flows (zero and max extraction)
-        storage.natural_flows(W_sim[t,0], utility.max_E, 0)
-
+        
+        storage.natural_flows(0)
         F1_tilde[t, 0] = storage.F1_tilde
         F3_tilde[t, 0] = storage.F3_tilde
 
+        Bhat_sim[t, 0] = env.Bhat
+        
+        ###### Withdrawals and Allocations ######
+
+        if plan == 1:
+            W_sim[t, 0] = utility.withdraw_ch7(storage.S, storage.I_tilde, env.Bhat, 0, env.turn_off)
+            
+            # Planner state and action
+            XA[itrs, 0] = W_sim[t, 0]
+            XA[itrs, 1] = storage.S
+            XA[itrs, 2] = storage.I_tilde
+            XA[itrs, 3] = env.Bhat
+            XA[itrs, 4] = 0
+        else:
+            # Users make withdrawals
+            users.withdraw_ch7(storage.S, utility.s, storage.I_tilde, 0)
+            env.withdraw(storage.S, utility.s[utility.I_env], storage.I_tilde, 0)
+            utility.make_allocations(users.w, env.w)
+        
         # Inform users of allocations
         users.allocate(utility.a, storage.I_tilde)
-        env.allocate(utility.a[utility.I_env], storage.min_F2, storage.F3_tilde)
+        env.allocate(utility.a[utility.I_env], storage.Spill, utility.max_R, storage.F1_tilde, storage.F3_tilde, storage.Pr, 0)
 
-        # Open the spot market
-        market.open_market(users, env)
-        P_sim[t, 0] = market.solve_price(utility.A, storage.I_tilde, 0, plan)
+        if plan == 0:
+            # Determine releases
+            W_sim[t, 0] = utility.deliver_ch7(storage, 0, 0)
+        
+        A_sim[t, 0] = utility.A
+
+        ###### Clear spot market ######
+        
+        market.open_market(users, env, 0)
+        P_sim[t, 0] = market.solve_price(utility.A, storage.I_tilde, env.Bhat, init, plan)
+        
+        ###### Compute payoffs ######
 
         # Extract and consume water
         qe = env.consume(P_sim[t, 0], plan)
         E_sim[t, 0] = utility.extract(qe)
         Profit_sim[t, 0] = users.consume(P_sim[t, 0], storage.I_tilde, plan)
+        Q_sim[t, 0] = c_sum(users.N, users.q)
+        
+        if stats == 1:
+            users.user_stats(utility.s, utility.x)
+            Q_low_sim[t, 0] = users.Q_low
+            Q_high_sim[t, 0] = users.Q_high
+            Q_env_sim[t, 0] = qe
 
         # Calculate actual river flows
         storage.river_flow(W_sim[t,0], E_sim[t, 0], 0, 0)
-
         F1[t, 0] = storage.F1
         F3[t, 0] = storage.F3
 
         # Env payoff
-        SW_sim[t, 0] = Profit_sim[t, 0] + env.payoff(storage.F1, storage.F3, storage.F1_tilde, storage.F3_tilde, P_sim[t,0])
+        B_sim[t, 0] = env.payoff(storage.F1, storage.F3, storage.F1_tilde, storage.F3_tilde, P_sim[t,0])
+        SW_sim[t, 0] = Profit_sim[t, 0] + B_sim[t, 0]
+        
+        """ 
+        print '-------     Test output     ------'
+        print 'Time: ' + str(t)
+        print 'M = 0, Summer'
+        print 'Storage: ' + str(S_sim[t, 0])
+        print 'Inflow: ' + str(I_sim[t, 0])
+        print 'Spill: ' + str(Z_sim[t, 0])
+        #print 'User accounts: ' + str(np.array(utility.s))
+        print 'User account sum: ' + str(np.sum(utility.s))
+        print 'Natural flows, F1: ' + str(storage.F1_tilde)
+        print 'Natural flows, F3: ' + str(storage.F3_tilde)
+        print 'Bhat: ' + str(Bhat_sim[t,0])
+        print 'Withdrawals: ' + str(W_sim[t, 0])
+        #print 'User allocations: ' + str(np.array(users.a))
+        print 'Env allocations: ' + str(env.a)
+        print 'Allocations: ' + str(A_sim[t, 0])
+        print 'Price: ' + str(P_sim[t, 0])
+        print 'Excess demand: ' + str(env.EX)
+        print 'Water use: ' + str(Q_sim[t, 0])
+        print 'Environmental use: ' + str(qe)
+        print 'Extraction: ' + str(E_sim[t, 0])
+        print 'User consumption: ' + str(np.array(users.q))
+        print 'User consumption sum:' + str(np.sum(users.q))
+        print 'River flows, F1: ' + str(storage.F1)
+        print 'River flows, F2: ' + str(storage.F2)
+        print 'River flows, F3: ' + str(storage.F3)
+        print 'User Welfare: ' + str(Profit_sim[t, 0])
+        print 'Social Welfare: ' + str(SW_sim[t, 0])
+        print 'Env Welfare: ' + str(env.u)
 
-        ### State transition ###
+       """ 
+
+        ###### State transition ######
+
+        # New inflows
         storage.update_ch7(W_sim[t, 0], E_sim[t, 0], 0, t)
+        
+        # New productivity shocks
+        users.update()
 
         if plan == 0:
             # User accounts are updated
             utility.update(storage.S, storage.I, storage.Loss, storage.Spill, utility.w, 0)
-
-        # New productivity shocks
-        users.update()
-
-        # Planner state transition
-        if plan == 1:
+        else:
+            # Planner state transition
             X1[itrs, 0] = storage.S
             X1[itrs, 1] = storage.I_tilde
-            X1[itrs, 2] = 1
-            U[itrs] = SW_sim[t, 0]
+            X1[itrs, 2] = env.Bhat
+            X1[itrs, 3] = 1
+            #Planner payoff
+            if env.turn_off == 1:
+                U[itrs] = Profit_sim[t, 0]
+            else:
+                U[itrs] = SW_sim[t, 0]
             itrs += 1
 
         # ================================================
         #       M = 1, Winter
         # ================================================
 
-        # Initial state
+        ###### Initial state ######
+
         S_sim[t, 1] = storage.S
         I_sim[t, 1] = storage.I
         Z_sim[t, 1] = storage.Spill
-
-        # Irrigation season is over
-        users.w[...] = 0
-        users.a[...] = 0
-        users.q[...] = 0
-        users.profit[...] = 0
-
-        if plan == 1:
-            W_sim[t, 1] = utility.withdraw_ch7(storage.S, storage.I_tilde, 1)
-        else:
-            env.withdraw(storage.S, utility.s[utility.I_env], storage.I_tilde, 1)
-            W_sim[t, 1] = utility.deliver_ch7(users.w, env.w, storage, 1)
-
-        Q_sim[t, 1] = utility.A
-
-        # Planner state and action
-        if plan == 1:
-            XA[itrs, 0] = W_sim[t, 1]
-            XA[itrs, 1] = S_sim[t, 1]
-            XA[itrs, 2] = storage.I_tilde
-            XA[itrs, 3] = 1
-
-        # Calculate natural and worst case river flows (zero and max extraction)
-        storage.natural_flows(W_sim[t, 1], utility.max_E, 1)
-
+        
+        storage.natural_flows(1)
         F1_tilde[t, 1] = storage.F1_tilde
         F3_tilde[t, 1] = storage.F3_tilde
 
-        # Inform users of allocations
-        env.allocate(utility.a[utility.I_env], storage.min_F2, storage.F3_tilde)
+        Bhat_sim[t, 1] = env.Bhat
 
-        # Extract and consume water
-        qe = env.a
+        ###### Withdrawals and Allocations ######
+        
+        if plan == 1:
+            W_sim[t, 1] = utility.withdraw_ch7(storage.S, storage.I_tilde, env.Bhat, 1, env.turn_off)
+            
+            # Planner state and action
+            XA[itrs, 0] = W_sim[t, 1]
+            XA[itrs, 1] = S_sim[t, 1]
+            XA[itrs, 2] = storage.I_tilde
+            XA[itrs, 3] = env.Bhat
+            XA[itrs, 4] = 1
+        else:
+            users.withdraw_ch7(storage.S, utility.s, storage.I_tilde, 1)
+            env.withdraw(storage.S, utility.s[utility.I_env], storage.I_tilde, 1)
+            utility.make_allocations(users.w, env.w)
+        
+        A_sim[t, 1] = utility.A       
+        
+        # Inform users of allocations
+        env.allocate(utility.a[utility.I_env], storage.Spill, 0, storage.F1_tilde, storage.F3_tilde, storage.Pr, 1)
+        users.allocate(utility.a, storage.I_tilde)
+
+        ###### Clear spot market ######
+        
+        if plan == 0:
+            # Open the spot market
+            market.open_market(users, env, 1)
+            P_sim[t, 1] = market.solve_price(utility.A, storage.I_tilde, env.Bhat, init, plan)
+            
+        ###### Compute payoffs ######
+            
+            # Extract and consume water
+            qe = env.consume(P_sim[t, 1], plan)
+            We = utility.record_trades(users, env, storage)
+            SW_sim[t,1] = users.take_sale_cash(utility.a, P_sim[t, 1])
+            
+            W_sim[t, 1] = utility.deliver_ch7(storage, 1, We)
+            
+        Q_sim[t, 1] = 0
         E_sim[t, 1] = 0
+        Q_env_sim[t, 1] = c_max(W_sim[t, 1] - 2 * storage.delta_a[1], 0)* (1 - storage.delta1b)
 
         # Calculate actual river flows
         storage.river_flow(W_sim[t,1], E_sim[t, 1], 1, 0)
@@ -262,26 +337,60 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
         F3[t, 1] = storage.F3
 
         # Env payoff
-        SW_sim[t, 1] = env.payoff(storage.F1, storage.F3, storage.F1_tilde, storage.F3_tilde, 0)
+        B_sim[t, 1] = env.payoff(storage.F1, storage.F3, storage.F1_tilde, storage.F3_tilde, P_sim[t, 1])
+        SW_sim[t, 1] += B_sim[t, 1]
+        
+        """ 
+        print '-------     Test output     ------'
+        print 'Time: ' + str(t)
+        print 'M = 1, Winter'
+        print 'Storage: ' + str(S_sim[t, 1])
+        print 'Inflow: ' + str(I_sim[t, 1])
+        print 'Spill: ' + str(Z_sim[t, 1])
+        #print 'User accounts: ' + str(np.array(utility.s))
+        print 'User account sum: ' + str(np.sum(utility.s))
+        print 'Natural flows, F1: ' + str(storage.F1_tilde)
+        print 'Natural flows, F3: ' + str(storage.F3_tilde)
+        print 'Bhat: ' + str(Bhat_sim[t,1])
+        print 'Withdrawals: ' + str(W_sim[t, 1])
+        #print 'User allocations: ' + str(np.array(users.a))
+        print 'Env allocations: ' + str(env.a)
+        print 'Allocations: ' + str(A_sim[t, 1])
+        print 'Price: ' + str(P_sim[t, 1])
+        print 'Excess demand: ' + str(env.EX)
+        print 'Water use: ' + str(Q_sim[t, 1])
+        print 'Environmental use: ' + str(qe)
+        print 'Extraction: ' + str(E_sim[t, 1])
+        print 'User consumption: ' + str(np.array(users.q))
+        print 'User consumption sum:' + str(np.sum(users.q))
+        print 'River flows, F1: ' + str(storage.F1)
+        print 'River flows, F2: ' + str(storage.F2)
+        print 'River flows, F3: ' + str(storage.F3)
+        print 'User Welfare: ' + str(Profit_sim[t, 1])
+        print 'Social Welfare: ' + str(SW_sim[t, 1])
+        print 'Env Welfare: ' + str(env.u)
+        """
 
-        ### State transition ###
+        ###### State transition ######
+
         storage.update_ch7(W_sim[t, 1], E_sim[t, 1], 1, t)
 
         if plan == 0:
             # User accounts are updated
             utility.update(storage.S, storage.I, storage.Loss, storage.Spill, utility.w, 1)
-
-        # New productivity shocks
-        users.update()
-
-        #Planner state transition
-        if plan == 1:
+        else:
+            #Planner state transition
             X1[itrs, 0] = storage.S
             X1[itrs, 1] = storage.I_tilde
-            X1[itrs, 2] = 0
-            U[itrs] = SW_sim[t, 1]
+            X1[itrs, 2] = env.Bhat
+            X1[itrs, 3] = 0
+            #Planner payoff
+            if env.turn_off == 1:
+                U[itrs] = Profit_sim[t, 1]
+            else:
+                U[itrs] = SW_sim[t, 1]
             itrs += 1
-
+    
     data = {'W': np.asarray(W_sim),
             'SW': np.asarray(SW_sim),
             'Profit' : np.asarray(Profit_sim),
@@ -291,13 +400,21 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
             'P' : np.asarray(P_sim),
             'E' : np.asarray(E_sim),
             'Q' : np.asarray(Q_sim),
+            'A' : np.asarray(A_sim),
             'F1' : np.asarray(F1),
             'F3' : np.asarray(F3),
             'F1_tilde' : np.asarray(F1_tilde),
             'F3_tilde' : np.asarray(F3_tilde),
             'XA' : np.asarray(XA),
             'X1' : np.asarray(X1),
-            'U' : np.asarray(U)}
+            'U' : np.asarray(U), 
+            'B' : np.asarray(B_sim)}
+    
+    if stats == 1:
+        data['Q_low'] = np.asarray(Q_low_sim)
+        data['Q_high'] = np.asarray(Q_high_sim)
+        data['Q_env'] = np.asarray(Q_env_sim)
+        data['Bhat'] = np.asarray(Bhat_sim)
 
     if multi:
         que.put(data)
@@ -356,6 +473,12 @@ def run_sim(int job, int T, int stats, Users users, Storage storage, Utility uti
     cdef double[:] trade_sim = np.zeros(T)
     cdef double[:] W_low_sim = np.zeros(T)
     cdef double[:] W_high_sim = np.zeros(T)
+    cdef double[:] Q_low_sim = np.zeros(T)
+    cdef double[:] Q_high_sim = np.zeros(T)
+    cdef double[:] A_low_sim = np.zeros(T)
+    cdef double[:] trade_high_sim = np.zeros(T)
+    cdef double[:] trade_low_sim = np.zeros(T)
+    cdef double[:] A_high_sim = np.zeros(T)
     cdef double[:] P_sim = np.zeros(T)
     cdef double S1
     cdef double I1
@@ -420,10 +543,16 @@ def run_sim(int job, int T, int stats, Users users, Storage storage, Utility uti
             U_high_sim[t] = users.U_high
             W_low_sim[t] = users.W_low
             W_high_sim[t] = users.W_high
+            A_low_sim[t] = users.A_low
+            A_high_sim[t] = users.A_high
+            Q_low_sim[t] = users.Q_low
+            Q_high_sim[t] = users.Q_high
             S_low_sim[t] = users.S_low
             S_high_sim[t] = users.S_high
             X_low_sim[t] = users.X_low
             X_high_sim[t] = users.X_high
+            trade_low_sim[t] = users.trade_low
+            trade_high_sim[t] = users.trade_high
             trade_sim[t] = users.tradeVOL
         
         if users.testing == 1:
@@ -461,7 +590,7 @@ def run_sim(int job, int T, int stats, Users users, Storage storage, Utility uti
             #########################################################################
 
     if stats == 1:
-        data = {'W': np.asarray(W_sim), 'SW': np.asarray(SW_sim), 'S': np.asarray(S_sim), 'I': np.asarray(I_sim),  'Z': np.asarray(Z_sim), 'U_low' : np.asarray(U_low_sim) , 'U_high' : np.asarray(U_high_sim), 'W_low' : np.asarray(W_low_sim) , 'W_high' : np.asarray(W_high_sim), 'S_low' : np.asarray(S_low_sim) , 'S_high' : np.asarray(S_high_sim), 'X_low' : np.asarray(X_low_sim) , 'X_high' : np.asarray(X_high_sim), 'P' : np.asarray(P_sim),  'Q' : np.asarray(Q_sim), 'trade' : np.asarray(trade_sim)}
+        data = {'W': np.asarray(W_sim), 'SW': np.asarray(SW_sim), 'S': np.asarray(S_sim), 'I': np.asarray(I_sim),  'Z': np.asarray(Z_sim), 'U_low' : np.asarray(U_low_sim) , 'U_high' : np.asarray(U_high_sim), 'W_low' : np.asarray(W_low_sim) , 'W_high' : np.asarray(W_high_sim), 'S_low' : np.asarray(S_low_sim) , 'S_high' : np.asarray(S_high_sim), 'X_low' : np.asarray(X_low_sim) , 'X_high' : np.asarray(X_high_sim), 'P' : np.asarray(P_sim),  'Q' : np.asarray(Q_sim), 'trade' : np.asarray(trade_sim), 'A_low' : np.asarray(A_low_sim) , 'A_high' : np.asarray(A_high_sim), 'Q_low' : np.asarray(Q_low_sim) , 'Q_high' : np.asarray(Q_high_sim), 'trade_low' : np.asarray(trade_low_sim) , 'trade_high' : np.asarray(trade_high_sim)}
     else:
         if record_state == 1:
             data = {'XA_l': np.asarray(XA_l), 'X1_l' : np.asarray(X1_l), 'u_t_l' : np.asarray(u_t_l), 'XA_h': np.asarray(XA_h), 'X1_h' : np.asarray(X1_h), 'u_t_h' : np.asarray(u_t_h), 'W': np.asarray(W_sim), 'SW': np.asarray(SW_sim), 'S': np.asarray(S_sim), 'I': np.asarray(I_sim),  'Z': np.asarray(Z_sim), 'P' : np.asarray(P_sim), 'Q' : np.asarray(Q_sim)}
@@ -643,8 +772,8 @@ class Simulation:
         self.stats = {}
         names  = ['Mean', 'SD', '25th', '75th', '2.5th', '97.5th', 'Min', 'Max']
         formats = ['f4','f4','f4','f4','f4','f4','f4','f4']
-        vars = ['S', 'W', 'I', 'SW', 'Z', 'U_low', 'U_high', 'A_low', 'A_high', 'W_low', 'W_high', 'S_low', 'S_high',
-                 'X_low', 'X_high', 'trade', 'P', 'Q', 'F1', 'F3', 'F1_tilde', 'F3_tilde', 'E', 'Profit']
+        vars = ['S', 'W', 'I', 'SW', 'Z', 'U_low', 'U_high', 'A_low', 'A_high', 'Q_low', 'Q_high', 'W_low', 'W_high', 'S_low', 'S_high',
+                 'X_low', 'X_high', 'trade', 'P', 'Q', 'F1', 'F3', 'F1_tilde', 'F3_tilde', 'E', 'Profit', 'trade_low', 'trade_high', 'A', 'Q_env', 'Bhat', 'B']
         if ch7:
             for var in vars:
                 self.stats[var] = { 'Summer' : np.zeros(self.ITERMAX, dtype={'names':names, 'formats':formats}),
@@ -657,7 +786,7 @@ class Simulation:
         # Data series
         self.series = {'S' : 0, 'W' : 0, 'I' : 0, 'SW' : 0, 'Z' : 0, 'P' : 0, 'Q' : 0} 
         self.series_old = {'S' : 0, 'W' : 0, 'I' : 0, 'SW' : 0, 'Z' : 0, 'P' : 0, 'Q' : 0} 
-        self.full_series = {'S' : 0, 'W' : 0, 'I' : 0, 'SW' : 0, 'Z' : 0, 'U_low' : 0, 'U_high' : 0, 'W_low' : 0, 'W_high' : 0, 'S_low': 0, 'S_high' : 0, 'X_low': 0, 'X_high' : 0, 'P' : 0, 'Q' : 0, 'trade' : 0} 
+        self.full_series = {'S' : 0, 'W' : 0, 'I' : 0, 'SW' : 0, 'Z' : 0, 'U_low' : 0, 'U_high' : 0, 'W_low' : 0, 'W_high' : 0, 'S_low': 0, 'S_high' : 0, 'X_low': 0, 'X_high' : 0, 'P' : 0, 'Q' : 0, 'trade' : 0, 'A_low' : 0, 'A_high' : 0 , 'Q_low' : 0, 'Q_high' : 0 , 'trade_low' : 0, 'trade_high' : 0} 
         self.p_series = {'S' : 0, 'W' : 0, 'I' : 0, 'SW' : 0, 'Z' : 0, 'U_low' : 0, 'U_high' : 0, 'Q' : 0, 'trade' : 0, 'A_low' : 0, 'A_high' : 0, 'P' : 0}
 
 
@@ -758,229 +887,6 @@ class Simulation:
 
             #if utility.it == 100:
             import pdb; pdb.set_trace()
-    """
-    def test_ch7_sim(self, int T, Users users, Storage storage, Utility utility, Market market, Environment env):
-        
-        users.seed(0)
-        storage.seed(0)
-        
-        # Representative user explorers 
-        cdef int[:] I_e_l = users.I_e_l 
-        cdef int[:] I_e_h = users.I_e_h 
-        cdef int N_e_l = users.N_e 
-        cdef int N_e_h = users.N_e 
-        cdef int N_e = N_e_l + N_e_h
-
-        cdef double[:,:] W_sim = np.zeros([T, 2])
-        cdef double[:,:] Q_sim = np.zeros([T, 2])
-        cdef double[:,:] SW_sim = np.zeros([T, 2])
-        cdef double[:,:] S_sim = np.zeros([T, 2])
-        cdef double[:,:] I_sim = np.zeros([T, 2])
-        cdef double[:,:] Z_sim = np.zeros([T, 2])
-        cdef double[:,:] P_sim = np.zeros([T, 2])
-        cdef double[:,:] E_sim = np.zeros([T, 2])
-
-        cdef double I_tilde 
-        cdef int t = 0
-        cdef int i = 0
-        cdef int idx
-        cdef double[:] wzero = np.zeros(users.N)
-        cdef double qe, ue
-
-
-        storage.precompute_I_shocks(T)
-        storage.precompute_I_split(T)
-
-        # Run simulation
-        for t in range(T):
-            
-            print '-------------------------------------------------'
-            print 'Time: ' + str(t)
-
-            # ================================================
-            #       M = 0, Summer
-            # ================================================   
-            
-            print 'M = 0, Summer'
-
-            # Initial state
-            S_sim[t, 0] = storage.S
-            I_sim[t, 0] = storage.I
-            Z_sim[t, 0] = storage.Spill 
-            I_tilde = storage.I_tilde 
-            
-            print 'Storage: ' + str(S_sim[t, 0])
-            print 'Inflow: ' + str(I_sim[t, 0])
-            print 'Spill: ' + str(Z_sim[t, 0])
-            
-            print 'User accounts: ' + str(np.array(utility.s))
-            print 'User account sum: ' + str(np.sum(utility.s))
-
-            # Users make withdrawals 
-            users.withdraw(storage.S, utility.s, I_tilde)
-            env.withdraw(storage.S, utility.s[utility.I_env], I_tilde, 0)
-
-            print 'User withdrawals: ' + str(np.array(users.w))
-            print 'User withdrawal sum: ' + str(np.sum(users.w))
-            print 'Env withdrawals: ' + str(np.array(env.w))
-            print 'All withdrawal sum: ' + str(np.sum(users.w) + env.w)
-            
-            # Determine releases and user allocations
-            W_sim[t, 0] = utility.deliver_ch7(users.w, env.w, storage, 0)
-            
-            # Calculate natural and worst case river flows (zero and max extraction)
-            storage.natural_flows(W_sim[t,0], utility.max_E, 0)
-           
-            print 'Natural flows, F1: ' + str(storage.F1_tilde)
-            print 'Natural flows, F2: ' + str(storage.F2_tilde)
-            print 'Natural flows, F3: ' + str(storage.F3_tilde)
-
-            # Inform users of allocations
-            users.allocate(utility.a, I_tilde) 
-            env.allocate(utility.a[utility.I_env], storage.min_F2, storage.F3_tilde)
-            
-            print 'Withdrawals: ' + str(W_sim[t, 0])
-            print 'User allocations: ' + str(np.array(users.a))
-            print 'Env allocations: ' + str(env.a)
-            
-            # Open the spot market
-            market.open_market(users, env)
-            P_sim[t, 0] = market.solve_price(utility.A, I_tilde, 0, plan)
-            
-            print 'Price: ' + str(P_sim[t, 0])
-            
-            # Extract and consume water
-            qe = env.consume(P_sim[t, 0], 0)
-            E_sim[t, 0] = utility.extract(qe)
-            SW_sim[t, 0] = users.consume(P_sim[t, 0], I_tilde, 0)
-            
-            print 'Env water consumption: ' + str(qe)
-            print 'Extraction: ' + str(E_sim[t, 0])
-            print 'User consumption: ' + str(np.array(users.q))
-            print 'User consumption sum:' + str(np.sum(users.q))
-            
-            # Calculate actual river flows
-
-            storage.river_flow(W_sim[t,0], E_sim[t, 0], 0, 0)
-
-            print 'River flows, F1: ' + str(storage.F1)
-            print 'River flows, F2: ' + str(storage.F2)
-            print 'River flows, F3: ' + str(storage.F3)
-            
-            # Env payoff
-
-            print 'User Welfare: ' + str(SW_sim[t, 0])
-            
-            ue = env.payoff(storage.F1, storage.F3, storage.F1_tilde, storage.F3_tilde, P_sim[t, 0])
-            SW_sim[t, 0] += ue
-
-            print 'Social Welfare: ' + str(SW_sim[t, 0])
-            print 'Env Welfare: ' + str(ue)
-
-            ### State transition ###
-
-            storage.update_ch7(W_sim[t, 0], E_sim[t, 0], 0, t)
-
-            print 'Storage: ' + str(storage.S)
-            print 'Inflow: ' + str(storage.I)
-            print 'Spill: ' + str(storage.Spill)
-            
-            # User accounts are updated
-            utility.update(storage.S, storage.I, storage.Loss, storage.Spill, utility.w, 0)
-
-            # New productivity shocks
-            users.update()
-
-            # ================================================
-            #       M = 1, Winter
-            # ================================================   
-            
-            print 'M = 1, Winter'
-
-            # Initial state
-            S_sim[t, 1] = storage.S
-            I_sim[t, 1] = storage.I
-            Z_sim[t, 1] = storage.Spill 
-            I_tilde = storage.I_tilde
-            
-            print 'Storage: ' + str(S_sim[t, 1])
-            print 'Inflow: ' + str(I_sim[t, 1])
-            print 'C: ' + str(storage.C)
-            print 'Spill: ' + str(Z_sim[t, 1])
-            
-            print 'User accounts: ' + str(np.array(utility.s))
-            print 'User account sum: ' + str(np.sum(utility.s))
-
-            # Irrigation season is over
-            users.w[...] = 0
-            users.a[...] = 0
-            users.q[...] = 0
-            users.profit[...] = 0
-            
-            env.withdraw(storage.S, utility.s[utility.I_env], I_tilde, 1)
-
-            print 'User withdrawals: ' + str(np.array(users.w))
-            print 'User withdrawal sum: ' + str(np.sum(users.w))
-            print 'Env withdrawals: ' + str(np.array(env.w))
-            print 'All withdrawal sum: ' + str(np.sum(users.w) + env.w)
-            
-            # Determine releases and user allocations
-            W_sim[t, 1] = utility.deliver_ch7(users.w, env.w, storage, 1)
-            
-            # Calculate natural and worst case river flows (zero and max extraction)
-            storage.natural_flows(W_sim[t, 1], utility.max_E, 1)
-           
-            print 'Natural flows, F1: ' + str(storage.F1_tilde)
-            print 'Natural flows, F2: ' + str(storage.F2_tilde)
-            print 'Natural flows, F3: ' + str(storage.F3_tilde)
-
-            # Inform users of allocations
-            env.allocate(utility.a[utility.I_env], storage.min_F2, storage.F3_tilde)
-            
-            print 'Withdrawals: ' + str(W_sim[t, 1])
-            print 'User allocations: ' + str(np.array(users.a))
-            print 'Env allocations: ' + str(env.a)
-            
-            # Extract and consume water
-            qe = env.a
-            env.q = qe
-            E_sim[t, 1] = 0
-            
-            print 'Env water consumption: ' + str(qe)
-            print 'Extraction: ' + str(E_sim[t, 1])
-            
-            # Calculate actual river flows
-
-            storage.river_flow(W_sim[t,1], E_sim[t, 1], 1)
-
-            print 'River flows, F1: ' + str(storage.F1)
-            print 'River flows, F2: ' + str(storage.F2)
-            print 'River flows, F3: ' + str(storage.F3)
-            
-            # Env payoff
-
-            ue = env.payoff(storage.F1, storage.F3, storage.F1_tilde, storage.F3_tilde, 0)
-            SW_sim[t, 1] = ue
-
-            print 'Social Welfare: ' + str(SW_sim[t, 1])
-            print 'Env Welfare: ' + str(ue)
-
-            ### State transition ###
-
-            storage.update_ch7(W_sim[t, 1], E_sim[t, 1], 1, t)
-
-            print 'Storage: ' + str(storage.S)
-            print 'Inflow: ' + str(storage.I)
-            print 'Spill: ' + str(storage.Spill)
-            
-            # User accounts are updated
-            utility.update(storage.S, storage.I, storage.Loss, storage.Spill, utility.w, 1)
-
-            # New productivity shocks
-            users.update()
-
-            import pdb; pdb.set_trace()
-    """
 
     def stack_sims(self, data, planner = False, stats=False, solve_planner = True, testing=False, partial=False):
         """
@@ -1073,6 +979,8 @@ class Simulation:
                     name = names[i]
                     if name == 'Annual':
                         data = np.sum(self.series[x], axis=1)
+                        if x == 'S':
+                            data = data / 2
                     else:
                         data = self.series[x][:,i]
                     self.stats[x][name]['Mean'][self.ITER] = np.mean(data)
@@ -1183,21 +1091,31 @@ class Simulation:
             pylab.plot(self.S[1:self.ITERNEW])
             pylab.show()
 
-    def simulate_ch7(self, users, storage, utility, market, env, T, num_process, planner=False, stats=False):
+    def simulate_ch7(self, users, storage, utility, market, env, T, num_process, planner=False, stats=False, initP=False, natural=False):
 
         tic = time.time()
 
         self.T = T
 
         print 'Running simulation for ' + str(T) + ' periods...'
-
+        
+        st = 0
+        init = 0
+        nat = 0
+        if stats:
+            st = 1
+        if initP:
+            init = 1
+        if natural:
+            nat = 1
+       
         if num_process == 1:
-            datalist = [run_ch7_sim(0, T, users, storage, utility, market, env, 0, False, planner)]
+            datalist = [run_ch7_sim(0, T, users, storage, utility, market, env, init, st, nat, 0, False, planner)]
         else:
             T = int(T / num_process)
             datalist = []
             ques = [RetryQueue() for i in range(num_process)]
-            args = [(i, T, users, storage, utility, market, env, ques[i], True, planner) for i in range(num_process)]
+            args = [(i, T, users, storage, utility, market, env, init, st, nat, ques[i], True, planner) for i in range(num_process)]
             jobs = [multiprocessing.Process(target=run_ch7_sim, args=(a)) for a in args]
             for j in jobs: j.start()
             for q in ques: datalist.append(q.get())
@@ -1209,16 +1127,22 @@ class Simulation:
 
         tic1 = time.time()
 
-        series = ['W','SW','S','I','Z','P','E','Q', 'F1','F3','F1_tilde','F3_tilde', 'Profit']
+        series = ['W','SW','S','I','Z','P','E','Q', 'A', 'F1','F3','F1_tilde','F3_tilde', 'Profit', 'B']
+        if stats:
+            series = series + ['Q_low', 'Q_high', 'Q_env', 'Bhat'] 
         for x in series:
             self.series[x] = np.vstack(d[x] for d in datalist)
-
+        
         self.X1 = np.vstack(d['X1'] for d in datalist)
         self.XA = np.vstack(d['XA'] for d in datalist)
         self.U = np.hstack(d['U'] for d in datalist)
+        
+        if env.turn_off == 1:
+            self.X1 = np.delete(self.X1, 2, axis=1)
+            self.XA = np.delete(self.XA, 3, axis=1)
 
         if stats:
-            self.summary_stats(sample=1, percentiles=True, ch7=True)
+            self.summary_stats(sample=0.1, percentiles=True, ch7=True)
 
         toc1 = time.time()
 
@@ -1240,5 +1164,11 @@ class Simulation:
         print 'Extraction mean: ' + str(np.mean(self.series['E'][:,1]))
         print 'Price mean: ' + str(np.mean(self.series['P'][:,1]))
 
-
+        print ' ----- Annual ----- ' 
+        print 'Storage mean: ' + str(self.stats['S']['Annual']['Mean'][self.ITEROLD])
+        print 'Inflow mean: ' + str(self.stats['I']['Annual']['Mean'][self.ITEROLD])
+        print 'Withdrawal mean: ' + str(self.stats['W']['Annual']['Mean'][self.ITEROLD])
+        print 'Welfare mean: ' + str(self.stats['SW']['Annual']['Mean'][self.ITEROLD])
+        print 'Extraction mean: ' + str(self.stats['E']['Annual']['Mean'][self.ITEROLD])
+        print 'Price mean: ' + str(self.stats['P']['Annual']['Mean'][self.ITEROLD])
 

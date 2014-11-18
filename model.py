@@ -25,7 +25,7 @@ class Model:
             self.env = Environment(para, turn_off=turn_off_env)
             self.market = Market(para, self.users)
             self.utility = Utility(self.users, self.storage, para, ch7, self.env)
-            self.market.estimate_market_demand(self.storage, self.users, self.env, self.utility, self.para)
+            self.learn_market_demand()
         else:
             self.utility = Utility(self.users, self.storage, para)
 
@@ -46,9 +46,9 @@ class Model:
         st = toc - tic
         print 'Solve time: ' + str(st)
         
-        #self.sim.simulate(self.users, self.storage, self.utility, self.para.T0, self.para.CPU_CORES, planner=True, policy=True, polf=self.sdp.W_f, delta=0, stats=True, planner_explore=False, t_cost_off=True, seed=seed)
+        self.sim.simulate(self.users, self.storage, self.utility, self.para.T0, self.para.CPU_CORES, planner=True, policy=True, polf=self.sdp.W_f, delta=0, stats=True, planner_explore=False, t_cost_off=True, seed=seed)
 
-        #self.utility.sr = SR
+        self.utility.sr = SR
        
         #self.p_series = self.sim.series
 
@@ -169,32 +169,56 @@ class Model:
         self.utility.sr = SR
         
         return [self.sim.stats, self.qv, st]
+    
+    def learn_market_demand(self, T=100000):
+        
+        self.utility.init_policy(self.storage, self.para)
+        self.utility.explore = 1
+        self.utility.d = 0
 
-    def plannerQV_ch7(self, t_cost_off=True, T=200000, stage2=False, d=0, simulate=True):
+        self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, T, self.para.CPU_CORES , planner=True, stats=True, initP=True)
+        
+        self.market.estimate_market_demand(self.sim.series['P'][:, 0], self.sim.series['A'][:, 0], self.sim.series['Q_low'][:, 0], self.sim.series['Q_high'][:, 0], self.sim.series['Q_env'][:, 0], self.sim.series['Bhat'][:, 0], self.sim.series['I'][:, 0]*(self.storage.I_bar_ch7[0]**-1), self.para)
+
+    def plannerQV_ch7(self, t_cost_off=True, T=250000, stage2=False, d=0, simulate=True, envoff=False):
 
         tic = time()
+        
+        if envoff:
+            Tiles = [6, 5, 4, 2]
+            D = 3
+            a = [0, 0, 0.25, 0]
+            b = [100, 100, 99.75, 100]
+            pc_samp = 0.5
+            xarg0 = ['x', 1, 0]
+            xarg1 = ['x', 1, 1]
+        else:
+            Tiles = [6, 6, 6, 5, 2]
+            D = 4
+            xarg0 = ['x', 1, 0.5, 0]
+            xarg1 = ['x', 1, 0.5, 1]
+            a = [0, 0, 0.25, 0, 0]
+            b = [100, 100, 99.75, 100, 100]
+            pc_samp = 0.5
 
-        Tiles = [6, 5, 4, 2]
         L = 25
-        D = 3
 
         # Feasibility constraints
         Alow = lambda X: 0                  # W > 0
         Ahigh = lambda X: X[0]              # W < S
 
-        self.utility.init_policy(self.sdp.W_f, self.storage, self.para)
+        self.utility.init_policy(self.storage, self.para)
         self.utility.explore = 1
         self.utility.d = 0
 
         self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, T, self.para.CPU_CORES, planner=True)
 
-        self.qv = Qlearn.QVtile(D, Tiles, L, 1, 1, self.para.sg_radius1_ch7, self.para, asgd=True, linT=8)
+        self.qv = Qlearn.QVtile(D, Tiles, L, 1, 1, self.para.sg_radius1_ch7, self.para, asgd=True, linT=7)
 
         self.qv.iterate(self.sim.XA, self.sim.X1, self.sim.U, Alow, Ahigh, ITER=self.para.QV_ITER1, Ascaled=False,
-                            plot=False, eta=0.8, sg_points=self.para.sg_points1_ch7, maxT=250000)
-
-        self.qv.W_f.plot(['x', 1, 0])
-        self.qv.W_f.plot(['x', 1, 1], showdata=False)
+                            plot=False, eta=0.8, sg_points=self.para.sg_points1_ch7, maxT=250000, a=a, b=b, pc_samp=pc_samp)
+        self.qv.W_f.plot(xarg0)
+        self.qv.W_f.plot(xarg1, showdata=False)
         pylab.show()
         self.utility.policy = self.qv.W_f
 
@@ -213,9 +237,10 @@ class Model:
             SW = np.hstack([SW, self.sim.U])
 
             self.qv.iterate(XA, X, SW, Alow, Ahigh, ITER=self.para.QV_ITER2, Ascaled=False,
-                            plot=False, eta=0.8, sg_points=self.para.sg_points1, maxT=250000)
-            self.qv.W_f.plot(['x', 1, 0])
-            self.qv.W_f.plot(['x', 1, 1], showdata=False)
+                            plot=False, eta=0.8, sg_points=self.para.sg_points1_ch7, maxT=250000, a=a, b=b, pc_samp=pc_samp)
+            
+            self.qv.W_f.plot(xarg0)
+            self.qv.W_f.plot(xarg1, showdata=False)
             pylab.show()
 
             self.utility.policy = self.qv.W_f
@@ -230,6 +255,12 @@ class Model:
 
         return [self.sim.stats, self.qv, st]
 
+    def chapter7(self, ):
+
+        self.users.init_policy_ch7(self.qv.W_f, self.qv.V_f, self.storage, self.utility, self.para.linT, self.para.CPU_CORES, self.para.sg_radius2_ch7)
+        self.env.init_policy(self.qv.W_f, self.qv.V_f, self.storage, self.utility, self.para.linT, self.para.CPU_CORES, self.para.sg_radius2_ch7)
+
+        self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 10000, self.para.CPU_CORES)
 
     def multiQV(self, ITER, init=False, type='ASGD', eta=0.7, testing=False, test_idx=0, partial=False):
         
@@ -343,7 +374,7 @@ class Model:
         print '\n Solve release sharing problem... '
         
         stats, qv, st = self.plannerQV(t_cost_off=False, stage1=True, stage2=True, T1=self.para.T1, T2=self.para.T1, d=self.para.policy_delta, simulate=True)
-        
+        """ 
         ITER = 0 
         if self.para.opt_lam == 1:
             
@@ -386,7 +417,8 @@ class Model:
             # 'YLABEL': 'Mean welfare',
             # 'XLABEL': 'High reliability user inflow share' }
             #build_chart(chart, data, chart_type='scatter')
-        
+        """
+
         #################           Solve storage right problem          #################
         if self.utility.sr >= 0:
 

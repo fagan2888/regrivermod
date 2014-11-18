@@ -1,5 +1,7 @@
 cimport cython
 from econlearn.tilecode cimport Tilecode, Function_Group
+from regrivermod.utility cimport Utility
+from regrivermod.storage cimport Storage
 
 cdef class Users:
 
@@ -33,6 +35,8 @@ cdef class Users:
     cdef public double Pmax 
     cdef public double[:] MV 
     cdef public double t_cost 
+    
+    cdef public int nat
 
     cdef public bint exploring
     cdef public int N_e
@@ -56,6 +60,11 @@ cdef class Users:
     cdef public double S_high
     cdef public double X_low
     cdef public double X_high
+    cdef public double A_low
+    cdef public double A_high
+    cdef public double Q_low
+    cdef public double Q_high
+
     cdef public double trade_low
     cdef public double trade_high
     cdef public double[:] trade
@@ -82,6 +91,7 @@ cdef class Users:
     cdef public int testing
     cdef public int test_explore
 
+    cdef double[:, :] state_zero_ch7
     cdef double c_pi
     cdef double[:, :] state_zero
     cdef double[:] two_zeros
@@ -98,6 +108,10 @@ cdef class Users:
 
     cdef double[:] withdraw(self, double S, double[:] s, double I)
     
+    cdef double[:] withdraw_ch7(self, double S, double[:] s, double I, int M)
+
+    cdef double take_sale_cash(self, double[:] a, double P)
+
     cdef mv(self, double I)
 
     cdef void explore(self, double[:] s)

@@ -26,7 +26,6 @@ cdef inline int getindex(int j, int i, double[:, :] XS, int D, double[:,:] offse
     if dohash == 1:
         idx = hash_idx(idx, key, mem_max)
 
-
     return idx
 
 cdef inline int index(int j, int i, double[:, :] XS, int D, double[:,:] offset, int[:] flat, int size) nogil:
@@ -123,6 +122,27 @@ cdef inline double predict_fast(int D, int i, double[:,:]  XS, int extrap, doubl
     else:
         if linval == 1:
             y = linear_value(i, XS, D, Tinv, linT, linw, linc)
+    
+    return y
+
+cdef inline double predict_prob(int D, int i, double[:,:]  XS, int extrap, double[:,:] offset, int[:] flat, double Linv, int[:] count, int min_count, int size, int L,  int dohash, int mem_max, int[:] key, double countsuminv) nogil:
+
+    cdef int j, k
+    cdef double y = 0
+    cdef int idx = 0
+    cdef int nosample = 0
+
+    if extrap == 0:
+        for j in range(L): 
+        
+            idx = getindex(j, i, XS, D, offset, flat, size, dohash, mem_max, key)
+           
+            if count[idx] >= min_count:
+                y += count[idx]
+            else:
+                y = 0
+                break
+        y =  y * Linv * countsuminv
     
     return y
     
@@ -864,8 +884,7 @@ cdef class Tilecode:
             for i in prange(self.mem_max, nogil=True, num_threads=self.CORES, schedule=guided):
                 n = self.count[i]
                 self.w[i] = self.wav[i] * (n**-1)
-
-
+    
     cdef void fit_linear(self,  double[:,:] X, double[:] Y):
 
         cdef int i, j, k, z = 0
@@ -920,8 +939,11 @@ cdef class Tilecode:
         """
         
         cdef int i, k, N = 0
-
-        if len(X.shape) == 1:
+        
+        if self.D == 1:
+            N = X.shape[0]
+            X = X.reshape([N, 1])
+        elif len(X.shape) == 1:
             X = X.reshape([1, self.D])
             N = 1
         else:
@@ -948,6 +970,41 @@ cdef class Tilecode:
             Y[i] = predict(self.D, i, XS, extraptemp[i], self.Tinv, self.offset, self.flat, self.Linv, self.w, self.count, self.min_sample, self.lin_spline, self.lin_w, self.lin_c, self.lin_T, self.SIZE, self.L, self.dohash, self.mem_max, self.key)
         return np.array(Y)
     
+    def predict_prob(self, X):
+        
+        """    
+        Return predicted cdf / pdf value
+
+        Parameters
+        -----------
+        X : array, shape=(N, D) or (D,)
+            Input data
+
+        """
+        
+        cdef int i, k, N = 0
+
+        if self.D == 1:
+            N = X.shape[0]
+            X = X.reshape([N, 1])
+        elif len(X.shape) == 1:
+            X = X.reshape([1, self.D])
+            N = 1
+        else:
+            N = X.shape[0]
+
+        cdef double[:] Y = np.zeros(N)
+        cdef double[:,:] XS = np.zeros([N, self.D])
+        cdef int[:] extrap = np.zeros(N, dtype='int32')
+        
+        XS = self.scale_X(X, N, XS) 
+        extrap = self.check_extrap(XS, N, extrap)
+        
+        for i in prange(N, nogil=True, num_threads=self.CORES, schedule=static):
+            Y[i] = predict_prob(self.D, i, XS, extrap[i],  self.offset, self.flat, self.Linv, self.count, self.min_sample, self.SIZE, self.L, self.dohash, self.mem_max, self.key, self.countsuminv)
+        
+        return np.asarray(Y)
+
     def cross_validate(self, cores = 1):
         
         x1 = self.X[0:self.N / 2, :] 
@@ -1077,16 +1134,16 @@ cdef class Tilecode:
         x = [xargs[i] for i in range(self.D)]
 
         if self.D == 1:
-            Xsmooth = np.linspace(self.b, self.a, 200)
-            Ysmooth = self(Xsmooth)
+            Xsmooth = np.linspace(self.a[0], self.b[0], 300)
+            Ysmooth = self.predict(Xsmooth)
             X = self.X
             Y = self.Y
             pylab.plot(X, Y, 'o', Xsmooth, Ysmooth)
         else:
             k = x.index('x')
-            Xsmooth = np.linspace(self.a[k], self.b[k]*1.2, 200)
+            Xsmooth = np.linspace(self.a[k], self.b[k]*1.1, 300)
 
-            xpoints = np.ones([200, self.D])
+            xpoints = np.ones([300, self.D])
             xpoints[:, k]  = 1
             x[k] = 1
 
@@ -1102,6 +1159,49 @@ cdef class Tilecode:
             if returndata:
                 return [Xsmooth[idx], Ysmooth[idx]]
 
+    def plot_prob(self, xargs=0, showdata=True, label='', showplot=True, quad=False, returndata=False):
+
+        """
+        Plot the function on one dimension
+
+        Parameters
+        -----------
+        xargs : list, length = D
+            List of variable default values, set plotting dimension to 'x'
+
+        showdata : boolean, (default=False)
+            Scatter training points
+
+        label : string, (default='')
+            Series label
+
+        showplot : boolean, (default='')
+            > pylab.show()
+        """
+
+        cdef int k = 0
+        
+        x = [xargs[i] for i in range(self.D)]
+
+        if self.D == 1:
+            Xsmooth = np.linspace(self.a[0], self.b[0], 300)
+            Ysmooth = self.predict_prob(Xsmooth)
+            pylab.plot(Xsmooth, Ysmooth)
+        else:
+            k = x.index('x')
+            Xsmooth = np.linspace(self.a[k], self.b[k]*1.1, 300)
+
+            xpoints = np.ones([300, self.D])
+            xpoints[:, k]  = 1
+            x[k] = 1
+
+            for i in range(self.D):
+                xpoints[:, i] = xpoints[:, i] * x[i]
+            xpoints[:, k] = Xsmooth
+            Ysmooth = self.predict_prob(xpoints)
+            idx = Ysmooth != 0
+            pylab.plot(Xsmooth[idx], Ysmooth[idx], label = label)
+    
     #==========================================================================
     # Convenience functions 
     #===========================================================================
@@ -1121,6 +1221,24 @@ cdef class Tilecode:
             XS[0, k] = xs * self.T[k]
 
         val = predict(self.D, 0, XS, extrap, self.Tinv, self.offset, self.flat, self.Linv, self.w, self.count, self.min_sample, self.lin_spline, self.lin_w, self.lin_c, self.lin_T, self.SIZE, self.L, self.dohash, self.mem_max, self.key)
+   
+        return val
+
+    cpdef double one_value_pdf(self, double[:] X):
+        
+        cdef int k
+        cdef double xs
+        cdef int extrap = 0
+        cdef double[:,:] XS = self.xs
+        cdef double val
+
+        for k in range(self.D):
+            xs = (X[k] - self.a[k]) * self.d[k] 
+            if xs < -0.0001 or xs > 1.0001:
+                extrap = 1
+            XS[0, k] = xs * self.T[k]
+
+        val = predict_prob(self.D, 0, XS, extrap,  self.offset, self.flat, self.Linv, self.count, self.min_sample, self.SIZE, self.L, self.dohash, self.mem_max, self.key, self.countsuminv)
    
         return val
 
@@ -1169,14 +1287,14 @@ cdef class Tilecode:
         cdef int i, j, k
         cdef double xs = 0
 
-        for i in prange(N1, nogil=True, num_threads=self.CORES, schedule=static):
+        for i in prange(N1, nogil=True, num_threads=self.CORES):
             for j in range(N2):
                 for k in range(self.D):
                     xs = (X[i,j,k] - self.a[k]) * self.d[k] 
                     XS[i,j,k] = xs * self.T[k]
 
-        for i in range(N1): 
-            for j in prange(N2, nogil=True, num_threads=self.CORES, schedule=static):
+        for j in prange(N2, nogil=True, num_threads=self.CORES):
+            for i in range(N1): 
                 for k in range(self.D):
                     Xi[j, k] = XS[i,j,k]
                 values[i, j] = predict(self.D, j, Xi, 0, self.Tinv, self.offset, self.flat, self.Linv, self.w, self.count, self.min_sample, self.lin_spline, self.lin_w, self.lin_c, self.lin_T, self.SIZE, self.L, self.dohash, self.mem_max, self.key)
