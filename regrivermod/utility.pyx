@@ -92,6 +92,8 @@ cdef class Utility:
 
     def __init__(self, users, storage, para, ch7=False, env=0):
         
+        self.fail = 0
+
         self.N = users.N          
         self.N_low = users.N_low
         self.N_high = users.N_high
@@ -150,7 +152,7 @@ cdef class Utility:
                 self.c_K[i] = users.c_K[i] 
             self.c_F[self.N - 1] = env.Lambda_I
             self.c_K[self.N - 1] = env.Lambda_K
-            self.fixed_loss = (storage.delta_a[0] + storage.delta_Ea) / ( 1 - storage.delta_Eb)
+            self.fixed_loss = 2* storage.delta_a[0] + (storage.delta_Ea) / ( 1 - storage.delta_Eb)
             self.delta_R = storage.delta_R
         else:
             self.c_F = users.c_F                        # User inflow shares
@@ -204,7 +206,7 @@ cdef class Utility:
         self.Lambda_high = para.Lambda_high
         self.M = 0
 
-        self.state_zero = np.zeros(4)
+        self.two_zeros = np.zeros(2)
         self.three_zeros = np.zeros(3)
         self.N_zeros = np.zeros(self.N)
         self.explore = 0
@@ -259,8 +261,6 @@ cdef class Utility:
             for i in range(self.N):
                 self.acc_max[i] = self.c_K[i] * (self.K - self.fixed_loss)
 
-
-
     cdef double release(self, double[:] w, double S):
 
         cdef double W = 0
@@ -285,26 +285,20 @@ cdef class Utility:
     def init_policy(self, Storage storage, para):
 
         cdef int i, N = 200000
-        cdef double[:] state = np.zeros(2)
-        cdef double I, S
-        cdef double[:,:] X = np.zeros([N, 4])
+        cdef double[:,:] X = np.zeros([N, 3])
         cdef double[:] W = np.zeros(N)
 
         for i in range(N):
-
             X[i, 0] = c_rand() * storage.K
             X[i, 1] = c_rand() * storage.Imax  * (storage.I_bar**-1)
             X[i, 2] = c_rand()
-            if c_rand() < 0.5:
-                X[i, 3] = 0
-            else:
-                X[i, 3] = 1
-
             W[i] = X[i, 0]
 
-        self.policy = Tilecode(4, [10, 10, 10, 2], 13, mem_max=1, lin_spline=True, linT=para.linT, cores=para.CPU_CORES)
+        self.policy0 = Tilecode(3, [10, 10, 10], 13, mem_max=1, lin_spline=True, linT=para.linT, cores=para.CPU_CORES)
+        self.policy1 = Tilecode(3, [10, 10, 10], 13, mem_max=1, lin_spline=True, linT=para.linT, cores=para.CPU_CORES)
 
-        self.policy.fit(X, W)
+        self.policy0.fit(X, W)
+        self.policy1.fit(X, np.zeros(N))
 
     cdef double withdraw_ch7(self, double S, double I, double Bhat, int M, int envoff):
 
@@ -312,19 +306,23 @@ cdef class Utility:
         cdef double U, V, Z, W, A
         
         if envoff == 1:
+            state = self.two_zeros
+            state[0] = S
+            state[1] = I
+        else:
             state = self.three_zeros
             state[0] = S
             state[1] = I
-            state[2] = M
-        else:
-            state = self.state_zero
-            state[0] = S
-            state[1] = I
             state[2] = Bhat
-            state[3] = M
-
-        W = c_max(c_min(self.policy.one_value(state), S), 0)
         
+        if M == 0:
+            W = c_max(c_min(self.policy0.one_value(state), S), 0)
+        else:
+            if envoff:
+                W = 0
+            else:
+                W = c_max(c_min(self.policy1.one_value(state), S), 0)
+
         if self.explore == 1:
             if self.d == 0:
                 W = c_rand() * S
@@ -334,7 +332,7 @@ cdef class Utility:
                 Z = ((-2 * c_log(U))**0.5)*c_cos(2*self.c_pi*V)
                 W = c_min(c_max(Z * (self.d * S) + W, 0), S)
 
-        self.A = c_max((W - self.fixed_loss) * (1 - self.delta1b), 0)
+        self.A = c_max((W - self.fixed_loss + self.delta_a[0] ) * (1 - self.delta1b), 0)
 
         if M == 0:
             self.max_E = (W - self.delta_a[0])
@@ -368,12 +366,13 @@ cdef class Utility:
         cdef double W = c_sum(self.N, self.w)
         cdef double[:] wshare = self.N_zeros 
         
-        We = env.q / (1 - storage.delta_Eb)
-
-        for i in range(self.N - 1):
-            wshare[i] = self.w[i] * W**-1
-            self.w[i] = c_max(We - env.w, 0) * wshare[i]
-            self.a[i] = users.w[i] * (1 - storage.delta_Eb)
+        We = env.q * (1 - storage.delta_Eb)**-1
+        
+        if W > 0:
+            for i in range(self.N - 1):
+                wshare[i] = self.w[i] * W**-1
+                self.w[i] = c_max(We - env.w, 0) * wshare[i]
+                self.a[i] = users.w[i] * (1 - storage.delta_Eb)
 
         return We
 
@@ -475,10 +474,10 @@ cdef class Utility:
                     f_loss_ded = 0
                     self.fixed_loss_co = self.fixed_loss
                     if self.ch7 == 1:
-                        f_loss_ded = self.fixed_loss - self.delta_Ea
+                        f_loss_ded = self.delta_a[0] #fixed_loss - self.delta_Ea
                         self.fixed_loss_co = self.delta_Ea
             if self.M == 1:
-                f_loss_ded = self.delta_a[1] - self.fixed_loss_co
+                f_loss_ded = 2 * self.delta_a[1] - self.fixed_loss_co
                 self.fixed_loss_co = self.fixed_loss - self.delta_a[1] * 2
 
             # User inflow shares = lambda_i * I_t (unless HL=1)
@@ -550,7 +549,7 @@ cdef class Utility:
 
             if it == 100:
                 print 'Accounts failed to reconcile!'
-                """
+                self.fail = 1
                 print diff
                 print np.sum(s)
                 print 'target: ' + str(target)
@@ -560,7 +559,6 @@ cdef class Utility:
                 print 'Spill' + str(Spill)
                 print 'self.s sum' + str(np.array(self.s))
                 print 'acc max sum' + str(np.array(self.acc_max))
-                print np.array(er)
                 print 's sum: ' + str(np.array(s))
                 print 'S: ' + str(S)
                 print 'I: ' + str(I)
@@ -569,7 +567,8 @@ cdef class Utility:
                 print 'f_loss_ded: ' + str(f_loss_ded)
                 print 'fixed_loss: ' + str(self.fixed_loss)
                 print 'loss: ' + str(np.array(self.l))
-                """
+            else:
+                self.fail = 0
 
             # Update user accounts
             for i in range(self.N):

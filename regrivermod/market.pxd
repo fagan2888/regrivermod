@@ -15,6 +15,7 @@ cdef class Market:
     cdef int nat
 
     cdef public int N
+    cdef public int M
 
     cdef public double[:] d_beta, d_cons, p, a
 

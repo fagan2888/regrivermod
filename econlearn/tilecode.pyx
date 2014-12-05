@@ -770,7 +770,8 @@ cdef class Tilecode:
                 pointidx = self.datastruct[dataidx + k] 
                 self.w[i] += Y[pointidx]
             n = self.count[i]
-            self.w[i] = self.w[i] * (n**-1)
+            if n > 0:
+                self.w[i] = self.w[i] * (n**-1)
         
         # Store Y values
         if copy == 1:
@@ -798,7 +799,8 @@ cdef class Tilecode:
             if self.asgd == 1:
                 for i in prange(self.mem_max, nogil=True, num_threads=self.CORES, schedule=guided):
                     n = self.count[i]
-                    self.w[i] = self.wav[i] * (n**-1)
+                    if n > 0:
+                        self.w[i] = self.wav[i] * (n**-1)
 
             self.wav = np.zeros([self.mem_max])
 
@@ -1060,7 +1062,7 @@ cdef class Tilecode:
         cdef double v = 0
         cdef double A = 0
         cdef int i, h, j, k
-        cdef double[:] v_opt = np.zeros(N)
+        cdef double[:] v_opt = np.ones(N)*-1000000
         cdef double[:] A_opt = np.zeros(N)
         cdef int GRID = c_int((self.T[0] + 1) * self.L * 1.3)
         cdef double step =  (self.b[0] - self.a[0]) / GRID
@@ -1069,13 +1071,16 @@ cdef class Tilecode:
         cdef double[:,:] XS = np.zeros([N, self.D])
         cdef double AS
         cdef int[:] extrap = np.zeros(N, dtype = 'int32')
+        cdef int[:] somedata = np.zeros(N, dtype = 'int32')
+        cdef int idx, nosample
+        cdef int temp = 0
 
         XS = self.scale_X(X, N, XS)
         extrap = self.check_extrap(XS, N, extrap)
 
         for i in prange(N, nogil=True, num_threads=self.CORES, schedule=static):
             if extrap[i] == 0:
-                A = Al[i]
+                A = c_max(self.a[0], Al[i])
                 while A <= Ah[i]:
                     
                     # Scale A
@@ -1086,8 +1091,31 @@ cdef class Tilecode:
                         v = 0
                     else:
                         # Predict y
-                        v = predict(self.D, i, XS, 0, self.Tinv, self.offset, self.flat, self.Linv, self.w, self.count, self.min_sample, self.lin_spline, self.lin_w, self.lin_c, self.lin_T, self.SIZE, self.L, self.dohash, self.mem_max, self.key)
-
+                        #========================================================================
+                        v = 0
+                        """
+                        v = predict(self.D, i, XS, 0, self.Tinv, self.offset, self.flat, self.Linv, self.w, self.count, self.min_sample, 
+                        self.lin_spline, self.lin_w, self.lin_c, self.lin_T, self.SIZE, self.L, self.dohash, self.mem_max, self.key)
+                        """
+                        idx = 0
+                        j = 0
+                        temp = 0
+                        for j in range(self.L): 
+                        
+                            idx = getindex(j, i, XS, self.D, self.offset, self.flat, self.SIZE, self.dohash, self.mem_max, self.key)
+                           
+                            if self.count[idx] >= self.min_sample:
+                                v += self.w[idx]
+                                temp = temp + 1
+                            else:
+                                v = 0
+                                break
+                        
+                        v =  v * self.Linv
+                        if temp == self.L:
+                            somedata[i] = 1
+                        #========================================================================
+                    
                     if v > v_opt[i]:
                         v_opt[i] = v
                         A_opt[i] = A
@@ -1100,9 +1128,10 @@ cdef class Tilecode:
                         break
             else:
                 v_opt[i] = 0
-
+       
         # return values
-        index = np.array(v_opt) > 0
+        index = np.array(somedata).astype(bool)
+        #index = np.array(v_opt) > 0
         values = np.array(v_opt)[index]
         actions = np.array(A_opt)[index]
         state = np.array(X)[index, 1::]

@@ -96,8 +96,8 @@ cdef class Storage:
             self.I = self.C * (1 - self.omega_mu)
             
             self.I_bar_ch7 = np.zeros(2)
-            self.I_bar_ch7[0] = para.I_bar * (1 - self.omega_mu)
-            self.I_bar_ch7[1] = para.I_bar * (self.omega_mu)
+            self.I_bar_ch7[1] = para.I_bar * (1 - self.omega_mu)
+            self.I_bar_ch7[0] = para.I_bar * (self.omega_mu)
 
             self.I_tilde = self.I * self.I_bar_ch7[0]**-1
                        

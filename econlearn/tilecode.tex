@@ -1,0 +1,1601 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PY{c}{\PYZsh{}!python}
+\PY{c}{\PYZsh{}cython: boundscheck=False, wraparound=False, nonecheck=False, cdivision=False, initializedcheck=False}
+
+\PY{k}{from} \PY{n+nn}{\PYZus{}\PYZus{}future\PYZus{}\PYZus{}} \PY{k}{import} \PY{n}{division}
+\PY{k}{import} \PY{n+nn}{pylab}
+\PY{k}{cimport} \PY{n+nn}{numpy} \PY{k}{as} \PY{n+nn}{np}
+\PY{k}{import} \PY{n+nn}{numpy} \PY{k}{as} \PY{n+nn}{np}
+\PY{k}{import} \PY{n+nn}{time}
+\PY{k}{cimport} \PY{n+nn}{cython}
+\PY{k}{from} \PY{n+nn}{sklearn.linear\PYZus{}model} \PY{k}{import} \PY{n}{LinearRegression} \PY{k}{as} \PY{n}{OLS}
+\PY{k}{from} \PY{n+nn}{displace} \PY{k}{import} \PY{n}{Displace}
+\PY{k}{from} \PY{n+nn}{cython.parallel} \PY{k}{import} \PY{n}{prange}\PY{p}{,} \PY{n}{parallel}
+\PY{c}{\PYZsh{}from cython\PYZus{}gsl cimport *}
+
+
+\PY{c}{\PYZsh{} ===============================================}
+\PY{c}{\PYZsh{}   Inline functions}
+\PY{c}{\PYZsh{} ===============================================}
+
+\PY{k}{cdef} \PY{k+kr}{inline} \PY{k+kt}{int} \PY{n+nf}{getindex}\PY{p}{(}\PY{n+nb}{int} \PY{n}{j}\PY{p}{,} \PY{n+nb}{int} \PY{n}{i}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{n}{XS}\PY{p}{,} \PY{n+nb}{int} \PY{n}{D}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{offset}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{flat}\PY{p}{,} \PY{n+nb}{int} \PY{n}{size}\PY{p}{,} \PY{n+nb}{int} \PY{n}{dohash}\PY{p}{,} \PY{n+nb}{int} \PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{key}\PY{p}{)} \PY{k}{nogil}\PY{p}{:}
+    
+    \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{idx} \PY{o}{=} \PY{l+m+mf}{0}
+    
+    \PY{n}{idx} \PY{o}{=} \PY{n}{index}\PY{p}{(}\PY{n}{j}\PY{p}{,} \PY{n}{i}\PY{p}{,} \PY{n}{XS}\PY{p}{,} \PY{n}{D}\PY{p}{,} \PY{n}{offset}\PY{p}{,} \PY{n}{flat}\PY{p}{,} \PY{n}{size}\PY{p}{)}
+    
+    \PY{k}{if} \PY{n}{dohash} \PY{o}{==} \PY{l+m+mf}{1}\PY{p}{:}
+        \PY{n}{idx} \PY{o}{=} \PY{n}{hash\PYZus{}idx}\PY{p}{(}\PY{n}{idx}\PY{p}{,} \PY{n}{key}\PY{p}{,} \PY{n}{mem\PYZus{}max}\PY{p}{)}
+
+    \PY{k}{return} \PY{n}{idx}
+
+\PY{k}{cdef} \PY{k+kr}{inline} \PY{k+kt}{int} \PY{n+nf}{index}\PY{p}{(}\PY{n+nb}{int} \PY{n}{j}\PY{p}{,} \PY{n+nb}{int} \PY{n}{i}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{n}{XS}\PY{p}{,} \PY{n+nb}{int} \PY{n}{D}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{offset}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{flat}\PY{p}{,} \PY{n+nb}{int} \PY{n}{size}\PY{p}{)} \PY{k}{nogil}\PY{p}{:}
+
+    \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{k}\PY{p}{,} \PY{n+nf}{idx} \PY{o}{=} \PY{l+m+mf}{0}
+    
+    \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+        \PY{n}{idx} \PY{o}{+}\PY{o}{=}  \PY{n}{c\PYZus{}int}\PY{p}{(}\PY{n}{XS}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{+} \PY{n}{offset}\PY{p}{[}\PY{n}{j}\PY{p}{,} \PY{n}{k}\PY{p}{]}\PY{p}{)} \PY{o}{*} \PY{n}{flat}\PY{p}{[}\PY{n}{k}\PY{p}{]}
+    \PY{n}{idx} \PY{o}{+}\PY{o}{=} \PY{n}{size} \PY{o}{*} \PY{n}{j}
+    
+    \PY{k}{return} \PY{n}{idx}
+
+\PY{k}{cdef} \PY{k+kr}{inline} \PY{k+kt}{int} \PY{n+nf}{hash\PYZus{}idx}\PY{p}{(}\PY{n+nb}{int} \PY{n}{idx}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{key}\PY{p}{,} \PY{n+nb}{int} \PY{n}{mem\PYZus{}max}\PY{p}{)} \PY{k}{nogil}\PY{p}{:}
+
+    \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{hashidx} \PY{o}{=} \PY{l+m+mf}{0}
+    \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{n} \PY{o}{=} \PY{l+m+mf}{0}
+
+    \PY{n}{hashidx} \PY{o}{=} \PY{n}{idx} \PY{o}{*} \PY{p}{(}\PY{n}{idx} \PY{o}{+} \PY{l+m+mf}{3}\PY{p}{)}   \PY{c}{\PYZsh{}hash function f(x) = x(x + 3) }
+    
+    \PY{n}{hashidx} \PY{o}{=} \PY{n}{c\PYZus{}abs}\PY{p}{(}\PY{n}{hashidx} \PY{o}{\PYZpc{}} \PY{n}{mem\PYZus{}max}\PY{p}{)}
+
+    \PY{c}{\PYZsh{} Open addressing with linear probing}
+    \PY{k}{while} \PY{n}{key}\PY{p}{[}\PY{n}{hashidx}\PY{p}{]} \PY{o}{!=} \PY{n}{idx} \PY{o+ow}{and} \PY{n}{n} \PY{o}{\PYZlt{}} \PY{n}{mem\PYZus{}max}\PY{p}{:}
+        \PY{n}{hashidx} \PY{o}{+}\PY{o}{=} \PY{l+m+mf}{1}
+        \PY{n}{hashidx} \PY{o}{=} \PY{n}{hashidx} \PY{o}{\PYZpc{}} \PY{n}{mem\PYZus{}max}
+        \PY{k}{if} \PY{n}{key}\PY{p}{[}\PY{n}{hashidx}\PY{p}{]} \PY{o}{==} \PY{l+m+mf}{0}\PY{p}{:}
+            \PY{n}{key}\PY{p}{[}\PY{n}{hashidx}\PY{p}{]} \PY{o}{=} \PY{n}{idx}
+            \PY{k}{break}
+
+    \PY{k}{return} \PY{n}{hashidx}
+
+\PY{k}{cdef} \PY{k+kr}{inline} \PY{k+kt}{double} \PY{n+nf}{linear\PYZus{}value}\PY{p}{(}\PY{n+nb}{int} \PY{n}{i}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{XS}\PY{p}{,} \PY{n+nb}{int} \PY{n}{D}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{Tinv}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{lin\PYZus{}T}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{lin\PYZus{}w}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{lin\PYZus{}c}\PY{p}{)} \PY{k}{nogil}\PY{p}{:}
+
+    \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{k} \PY{o}{=} \PY{l+m+mf}{0}
+    \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{val} \PY{o}{=} \PY{l+m+mf}{0}
+    \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{idx} \PY{o}{=} \PY{l+m+mf}{0}
+    \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{x} \PY{o}{=} \PY{l+m+mf}{0}
+
+    \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+        \PY{n}{x} \PY{o}{=} \PY{n}{XS}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{*} \PY{n}{Tinv}\PY{p}{[}\PY{n}{k}\PY{p}{]}
+        \PY{n}{idx} \PY{o}{=} \PY{n}{c\PYZus{}int}\PY{p}{(}\PY{n}{c\PYZus{}min}\PY{p}{(}\PY{n}{c\PYZus{}max}\PY{p}{(}\PY{n}{x}\PY{p}{,} \PY{l+m+mf}{0.000001}\PY{p}{)}\PY{p}{,} \PY{l+m+mf}{0.99999}\PY{p}{)} \PY{o}{*} \PY{n}{lin\PYZus{}T}\PY{p}{[}\PY{n}{k}\PY{p}{]}\PY{p}{)}
+        \PY{n}{val} \PY{o}{+}\PY{o}{=} \PY{n}{lin\PYZus{}w}\PY{p}{[}\PY{n}{k}\PY{p}{,} \PY{n}{idx}\PY{p}{]} \PY{o}{*} \PY{n}{x} \PY{o}{+} \PY{n}{lin\PYZus{}c}\PY{p}{[}\PY{n}{k}\PY{p}{,} \PY{n}{idx}\PY{p}{]}
+
+    \PY{k}{return} \PY{n}{val}
+        
+\PY{k}{cdef} \PY{k+kr}{inline} \PY{k+kt}{double} \PY{n+nf}{predict}\PY{p}{(}\PY{n+nb}{int} \PY{n}{D}\PY{p}{,} \PY{n+nb}{int} \PY{n}{i}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]}  \PY{n}{XS}\PY{p}{,} \PY{n+nb}{int} \PY{n}{extrap}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{Tinv}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{offset}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{flat}\PY{p}{,} \PY{n}{double} \PY{n}{Linv}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{w}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{count}\PY{p}{,} \PY{n+nb}{int} \PY{n}{min\PYZus{}count}\PY{p}{,} \PY{n+nb}{int} \PY{n}{linval}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{linw}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{linc}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{linT}\PY{p}{,} \PY{n+nb}{int} \PY{n}{size}\PY{p}{,} \PY{n+nb}{int} \PY{n}{L}\PY{p}{,}  \PY{n+nb}{int} \PY{n}{dohash}\PY{p}{,} \PY{n+nb}{int} \PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{key}\PY{p}{)} \PY{k}{nogil}\PY{p}{:}
+
+    \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{j}\PY{p}{,} \PY{n+nf}{k}
+    \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{y} \PY{o}{=} \PY{l+m+mf}{0}
+    \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{idx} \PY{o}{=} \PY{l+m+mf}{0}
+    \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{nosample} \PY{o}{=} \PY{l+m+mf}{0}
+
+    \PY{k}{if} \PY{n}{extrap} \PY{o}{==} \PY{l+m+mf}{0}\PY{p}{:}
+        \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n}{L}\PY{p}{)}\PY{p}{:} 
+        
+            \PY{n}{idx} \PY{o}{=} \PY{n}{getindex}\PY{p}{(}\PY{n}{j}\PY{p}{,} \PY{n}{i}\PY{p}{,} \PY{n}{XS}\PY{p}{,} \PY{n}{D}\PY{p}{,} \PY{n}{offset}\PY{p}{,} \PY{n}{flat}\PY{p}{,} \PY{n}{size}\PY{p}{,} \PY{n}{dohash}\PY{p}{,} \PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n}{key}\PY{p}{)}
+           
+            \PY{k}{if} \PY{n}{count}\PY{p}{[}\PY{n}{idx}\PY{p}{]} \PY{o}{\PYZgt{}}\PY{o}{=} \PY{n}{min\PYZus{}count}\PY{p}{:}
+                \PY{n}{y} \PY{o}{+}\PY{o}{=} \PY{n}{w}\PY{p}{[}\PY{n}{idx}\PY{p}{]}
+            \PY{k}{else}\PY{p}{:}
+                \PY{k}{if} \PY{n}{linval} \PY{o}{==} \PY{l+m+mf}{1}\PY{p}{:}
+                    \PY{n}{y} \PY{o}{+}\PY{o}{=} \PY{n}{linear\PYZus{}value}\PY{p}{(}\PY{n}{i}\PY{p}{,} \PY{n}{XS}\PY{p}{,} \PY{n}{D}\PY{p}{,} \PY{n}{Tinv}\PY{p}{,} \PY{n}{linT}\PY{p}{,} \PY{n}{linw}\PY{p}{,} \PY{n}{linc}\PY{p}{)}
+                \PY{k}{else}\PY{p}{:}
+                    \PY{n}{y} \PY{o}{=} \PY{l+m+mf}{0}
+                    \PY{k}{break}
+        \PY{n}{y} \PY{o}{=}  \PY{n}{y} \PY{o}{*} \PY{n}{Linv}
+    \PY{k}{else}\PY{p}{:}
+        \PY{k}{if} \PY{n}{linval} \PY{o}{==} \PY{l+m+mf}{1}\PY{p}{:}
+            \PY{n}{y} \PY{o}{=} \PY{n}{linear\PYZus{}value}\PY{p}{(}\PY{n}{i}\PY{p}{,} \PY{n}{XS}\PY{p}{,} \PY{n}{D}\PY{p}{,} \PY{n}{Tinv}\PY{p}{,} \PY{n}{linT}\PY{p}{,} \PY{n}{linw}\PY{p}{,} \PY{n}{linc}\PY{p}{)}
+    
+    \PY{k}{return} \PY{n}{y}
+
+\PY{k}{cdef} \PY{k+kr}{inline} \PY{k+kt}{double} \PY{n+nf}{predict\PYZus{}fast}\PY{p}{(}\PY{n+nb}{int} \PY{n}{D}\PY{p}{,} \PY{n+nb}{int} \PY{n}{i}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]}  \PY{n}{XS}\PY{p}{,} \PY{n+nb}{int} \PY{n}{extrap}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{Tinv}\PY{p}{,} \PY{n}{double} \PY{n}{Linv}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{w}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{count}\PY{p}{,} \PY{n+nb}{int} \PY{n}{min\PYZus{}count}\PY{p}{,} \PY{n+nb}{int} \PY{n}{linval}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{linw}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{linc}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{linT}\PY{p}{,} \PY{n+nb}{int} \PY{n}{L}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{datastruct\PYZus{}reverse}\PY{p}{)} \PY{k}{nogil}\PY{p}{:}
+
+    \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{j}\PY{p}{,} \PY{n+nf}{k}
+    \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{y} \PY{o}{=} \PY{l+m+mf}{0}
+    \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{idx} \PY{o}{=} \PY{l+m+mf}{0}
+    \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{nosample} \PY{o}{=} \PY{l+m+mf}{0}
+
+    \PY{k}{if} \PY{n}{extrap} \PY{o}{==} \PY{l+m+mf}{0}\PY{p}{:}
+        \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n}{L}\PY{p}{)}\PY{p}{:} 
+        
+            \PY{n}{idx} \PY{o}{=} \PY{n}{datastruct\PYZus{}reverse}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{j}\PY{p}{]}
+           
+            \PY{k}{if} \PY{n}{count}\PY{p}{[}\PY{n}{idx}\PY{p}{]} \PY{o}{\PYZgt{}}\PY{o}{=} \PY{n}{min\PYZus{}count}\PY{p}{:}
+                \PY{n}{y} \PY{o}{+}\PY{o}{=} \PY{n}{w}\PY{p}{[}\PY{n}{idx}\PY{p}{]}
+            \PY{k}{else}\PY{p}{:}
+                \PY{k}{if} \PY{n}{linval} \PY{o}{==} \PY{l+m+mf}{1}\PY{p}{:}
+                    \PY{n}{y} \PY{o}{+}\PY{o}{=} \PY{n}{linear\PYZus{}value}\PY{p}{(}\PY{n}{i}\PY{p}{,} \PY{n}{XS}\PY{p}{,} \PY{n}{D}\PY{p}{,} \PY{n}{Tinv}\PY{p}{,} \PY{n}{linT}\PY{p}{,} \PY{n}{linw}\PY{p}{,} \PY{n}{linc}\PY{p}{)}
+                \PY{k}{else}\PY{p}{:}
+                    \PY{n}{y} \PY{o}{=} \PY{l+m+mf}{0}
+                    \PY{k}{break}
+        \PY{n}{y} \PY{o}{=}  \PY{n}{y} \PY{o}{*} \PY{n}{Linv}
+    \PY{k}{else}\PY{p}{:}
+        \PY{k}{if} \PY{n}{linval} \PY{o}{==} \PY{l+m+mf}{1}\PY{p}{:}
+            \PY{n}{y} \PY{o}{=} \PY{n}{linear\PYZus{}value}\PY{p}{(}\PY{n}{i}\PY{p}{,} \PY{n}{XS}\PY{p}{,} \PY{n}{D}\PY{p}{,} \PY{n}{Tinv}\PY{p}{,} \PY{n}{linT}\PY{p}{,} \PY{n}{linw}\PY{p}{,} \PY{n}{linc}\PY{p}{)}
+    
+    \PY{k}{return} \PY{n}{y}
+
+\PY{k}{cdef} \PY{k+kr}{inline} \PY{k+kt}{double} \PY{n+nf}{predict\PYZus{}prob}\PY{p}{(}\PY{n+nb}{int} \PY{n}{D}\PY{p}{,} \PY{n+nb}{int} \PY{n}{i}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]}  \PY{n}{XS}\PY{p}{,} \PY{n+nb}{int} \PY{n}{extrap}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{offset}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{flat}\PY{p}{,} \PY{n}{double} \PY{n}{Linv}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{count}\PY{p}{,} \PY{n+nb}{int} \PY{n}{min\PYZus{}count}\PY{p}{,} \PY{n+nb}{int} \PY{n}{size}\PY{p}{,} \PY{n+nb}{int} \PY{n}{L}\PY{p}{,}  \PY{n+nb}{int} \PY{n}{dohash}\PY{p}{,} \PY{n+nb}{int} \PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{key}\PY{p}{,} \PY{n}{double} \PY{n}{countsuminv}\PY{p}{)} \PY{k}{nogil}\PY{p}{:}
+
+    \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{j}\PY{p}{,} \PY{n+nf}{k}
+    \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{y} \PY{o}{=} \PY{l+m+mf}{0}
+    \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{idx} \PY{o}{=} \PY{l+m+mf}{0}
+    \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{nosample} \PY{o}{=} \PY{l+m+mf}{0}
+
+    \PY{k}{if} \PY{n}{extrap} \PY{o}{==} \PY{l+m+mf}{0}\PY{p}{:}
+        \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n}{L}\PY{p}{)}\PY{p}{:} 
+        
+            \PY{n}{idx} \PY{o}{=} \PY{n}{getindex}\PY{p}{(}\PY{n}{j}\PY{p}{,} \PY{n}{i}\PY{p}{,} \PY{n}{XS}\PY{p}{,} \PY{n}{D}\PY{p}{,} \PY{n}{offset}\PY{p}{,} \PY{n}{flat}\PY{p}{,} \PY{n}{size}\PY{p}{,} \PY{n}{dohash}\PY{p}{,} \PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n}{key}\PY{p}{)}
+           
+            \PY{k}{if} \PY{n}{count}\PY{p}{[}\PY{n}{idx}\PY{p}{]} \PY{o}{\PYZgt{}}\PY{o}{=} \PY{n}{min\PYZus{}count}\PY{p}{:}
+                \PY{n}{y} \PY{o}{+}\PY{o}{=} \PY{n}{count}\PY{p}{[}\PY{n}{idx}\PY{p}{]}
+            \PY{k}{else}\PY{p}{:}
+                \PY{n}{y} \PY{o}{=} \PY{l+m+mf}{0}
+                \PY{k}{break}
+        \PY{n}{y} \PY{o}{=}  \PY{n}{y} \PY{o}{*} \PY{n}{Linv} \PY{o}{*} \PY{n}{countsuminv}
+    
+    \PY{k}{return} \PY{n}{y}
+    
+\PY{k}{cdef} \PY{k}{class} \PY{n+nf}{Tilecode}\PY{p}{:}
+    
+    \PY{l+s+sd}{\PYZdq{}\PYZdq{}\PYZdq{}    }
+\PY{l+s+sd}{    Tile coding for function approximation (Supervised Learning).  }
+\PY{l+s+sd}{    Fits by averaging and/or Stochastic Gradient Descent.}
+\PY{l+s+sd}{    Supports multi\PYZhy{}core fit and predict. Options for uniform, random or \PYZsq{}optimal\PYZsq{} displacement vectors.}
+\PY{l+s+sd}{    Provides option for linear spline extrapolation / filling (suitable for small data sets)}
+\PY{l+s+sd}{    Optimises over first dimension (by grid search) subject to supplied constraints.}
+
+\PY{l+s+sd}{    Parameters}
+\PY{l+s+sd}{    \PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}}
+\PY{l+s+sd}{    }
+\PY{l+s+sd}{    D : integer}
+\PY{l+s+sd}{        Total number of dimensions (e.g., action + state dimensions)}
+\PY{l+s+sd}{    }
+\PY{l+s+sd}{    T : list of integers, length D}
+\PY{l+s+sd}{        Number of tiles per dimension }
+\PY{l+s+sd}{    }
+\PY{l+s+sd}{    L : integer}
+\PY{l+s+sd}{        Number of tiling \PYZsq{}layers\PYZsq{}}
+
+\PY{l+s+sd}{    mem\PYZus{}max : double, (default=1)}
+\PY{l+s+sd}{        Proportion of total tiles to store in memory: less than 1 means hashing is used.}
+\PY{l+s+sd}{    }
+\PY{l+s+sd}{    min\PYZus{}sample : integer, (default=50) }
+\PY{l+s+sd}{        Minimum number of observations per tile}
+
+\PY{l+s+sd}{    offset : string, (default=\PYZsq{}uniform\PYZsq{})}
+\PY{l+s+sd}{        Type of displacement vector one of \PYZsq{}uniform\PYZsq{}, \PYZsq{}random\PYZsq{} or \PYZsq{}optimal\PYZsq{}}
+
+\PY{l+s+sd}{    lin\PYZus{}spline : boolean, (default=False)}
+\PY{l+s+sd}{        Use sparse linear spline model to extrapolate / fill empty tiles}
+
+\PY{l+s+sd}{    linT : integer, (default=6)}
+\PY{l+s+sd}{        Number of linear spline knots per dimension}
+\PY{l+s+sd}{    }
+\PY{l+s+sd}{    Attributes}
+\PY{l+s+sd}{    \PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}}
+
+\PY{l+s+sd}{    N : integer}
+\PY{l+s+sd}{        Number of samples}
+
+\PY{l+s+sd}{    X : array, shape=(N, D)}
+\PY{l+s+sd}{        Input data (unscaled) (e.g., state\PYZhy{}action samples, with action as first dimension X[:,0])}
+
+\PY{l+s+sd}{    Y : array, shape=(N) }
+\PY{l+s+sd}{        Output data (unscaled), (e.g., Q samples)}
+
+\PY{l+s+sd}{    a : array, shape=(D) }
+\PY{l+s+sd}{        Minimum of tiling range in each dimension (observations outside of range are ignored)}
+\PY{l+s+sd}{    }
+\PY{l+s+sd}{    b : array, shape=(D) }
+\PY{l+s+sd}{        Maximum of tiling range in each dimension (observations outside of range are ignored)}
+\PY{l+s+sd}{    }
+\PY{l+s+sd}{    R2 : array, shape=(D) }
+\PY{l+s+sd}{        Score (r\PYZhy{}squared)}
+\PY{l+s+sd}{    }
+\PY{l+s+sd}{    \PYZdq{}\PYZdq{}\PYZdq{}} 
+
+    \PY{k}{def} \PY{n+nf}{\PYZus{}\PYZus{}init\PYZus{}\PYZus{}}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{D}\PY{p}{,} \PY{n}{T}\PY{p}{,} \PY{n}{L}\PY{p}{,} \PY{n}{mem\PYZus{}max} \PY{o}{=} \PY{l+m+mf}{1}\PY{p}{,} \PY{n}{min\PYZus{}sample}\PY{o}{=}\PY{l+m+mf}{1}\PY{p}{,} \PY{n}{offset}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{optimal}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{lin\PYZus{}spline}\PY{o}{=}\PY{n+nb+bp}{False}\PY{p}{,} \PY{n}{linT}\PY{o}{=}\PY{l+m+mf}{7}\PY{p}{,} \PY{n}{cores}\PY{o}{=}\PY{l+m+mf}{4}\PY{p}{)}\PY{p}{:}
+
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D} \PY{o}{=} \PY{n}{D}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L} \PY{o}{=} \PY{n}{L}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Linv} \PY{o}{=} \PY{l+m+mf}{1.0} \PY{o}{/} \PY{n}{L}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{min\PYZus{}sample} \PY{o}{=} \PY{n}{min\PYZus{}sample}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{array}\PY{p}{(}\PY{n}{T}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Tinv} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n}{D}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{flat} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ones}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE} \PY{o}{=} \PY{l+m+mf}{1}
+        \PY{n}{width} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{CORES} \PY{o}{=} \PY{n}{cores}
+
+
+        \PY{c}{\PYZsh{} Calculate tile widths and total number of tiles}
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{k}\PY{p}{,} \PY{n+nf}{j}
+        \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Tinv}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{l+m+mf}{1.0} \PY{o}{/} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{n}{k}\PY{p}{]}
+            \PY{n}{width}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{l+m+mf}{1.0} \PY{o}{/} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{n}{k}\PY{p}{]}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE} \PY{o}{*}\PY{o}{=} \PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{+} \PY{l+m+mf}{1}\PY{p}{)}
+            \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n}{k} \PY{o}{+} \PY{l+m+mf}{1}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{flat}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{*}\PY{o}{=} \PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{n}{j}\PY{p}{]} \PY{o}{+} \PY{l+m+mf}{1}\PY{p}{)}
+
+        \PY{c}{\PYZsh{} Build displacement (offset) vectors}
+        \PY{k}{if} \PY{n}{offset} \PY{o}{==} \PY{l+s}{\PYZsq{}}\PY{l+s}{uniform}\PY{l+s}{\PYZsq{}}\PY{p}{:}
+            \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)}\PY{p}{:}
+                    \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset}\PY{p}{[}\PY{n}{j}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{p}{(}\PY{n}{width}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{\PYZhy{}} \PY{p}{(}\PY{n}{j} \PY{o}{+} \PY{l+m+mf}{1}\PY{p}{)} \PY{o}{*} \PY{p}{(}\PY{n}{width}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{/} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)} \PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{n}{k}\PY{p}{]}
+        
+        \PY{k}{elif} \PY{n}{offset} \PY{o}{==} \PY{l+s}{\PYZsq{}}\PY{l+s}{random}\PY{l+s}{\PYZsq{}}\PY{p}{:}
+            \PY{n}{temp} \PY{o}{=} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)}
+            \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                \PY{n}{np}\PY{o}{.}\PY{n}{random}\PY{o}{.}\PY{n}{shuffle}\PY{p}{(}\PY{n}{temp}\PY{p}{)}
+                \PY{n}{off} \PY{o}{=} \PY{l+m+mf}{1.0} \PY{o}{*} \PY{n}{np}\PY{o}{.}\PY{n}{array}\PY{p}{(}\PY{n}{temp}\PY{p}{)} \PY{o}{/} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L} \PY{o}{+} \PY{p}{(}\PY{l+m+mf}{1}\PY{o}{/}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)}
+                \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)}\PY{p}{:}
+                    \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset}\PY{p}{[}\PY{n}{j}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{p}{(}\PY{n}{width}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{\PYZhy{}} \PY{n}{off}\PY{p}{[}\PY{n}{j}\PY{p}{]} \PY{o}{*} \PY{n}{width}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{n}{k}\PY{p}{]}
+            \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{p}{(}\PY{n}{width}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{\PYZhy{}} \PY{l+m+mf}{0.5} \PY{o}{*} \PY{n}{width}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{n}{k}\PY{p}{]}
+        
+        \PY{k}{elif} \PY{n}{offset} \PY{o}{==} \PY{l+s}{\PYZsq{}}\PY{l+s}{optimal}\PY{l+s}{\PYZsq{}}\PY{p}{:}
+            \PY{n}{d} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{array}\PY{p}{(}\PY{n}{Displace}\PY{p}{(}\PY{p}{)}\PY{o}{.}\PY{n}{table}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{]}\PY{p}{)}
+            \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)}\PY{p}{:}
+                \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                    \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset}\PY{p}{[}\PY{n}{j}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{p}{(}\PY{n}{width}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{\PYZhy{}} \PY{p}{(}\PY{n}{width}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{/} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)} \PY{o}{*} \PY{p}{(}\PY{l+m+mf}{1} \PY{o}{+} \PY{p}{(}\PY{p}{(}\PY{p}{(}\PY{n}{j} \PY{o}{+} \PY{l+m+mf}{1}\PY{p}{)} \PY{o}{*} \PY{n}{d}\PY{p}{[}\PY{n}{k}\PY{p}{]}\PY{p}{)} \PY{o}{\PYZpc{}} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L} \PY{p}{)} \PY{p}{)} \PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{n}{k}\PY{p}{]}
+        
+        \PY{k}{if} \PY{n}{mem\PYZus{}max} \PY{o}{==} \PY{l+m+mf}{1}\PY{p}{:}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{dohash} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{else}\PY{p}{:}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{dohash} \PY{o}{=} \PY{l+m+mf}{1}
+        
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max} \PY{o}{=} \PY{n+nb}{int}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE} \PY{o}{*} \PY{n}{mem\PYZus{}max}\PY{p}{)}
+
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{xs} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{l+m+mf}{1}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{)}
+
+        \PY{c}{\PYZsh{} Linear Spline (for extrapolation)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}spline} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}T} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ones}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)} \PY{o}{*} \PY{n}{linT}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}width} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}SIZE} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D} \PY{o}{*} \PY{n}{linT}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{n}{linT}\PY{p}{]}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{n}{linT}\PY{p}{]}\PY{p}{)}
+        \PY{k}{if} \PY{n}{lin\PYZus{}spline}\PY{p}{:}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}spline} \PY{o}{=} \PY{l+m+mf}{1}
+            \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}width}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{l+m+mf}{1.0} \PY{o}{/} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}T}\PY{p}{[}\PY{n}{k}\PY{p}{]}
+        
+    \PY{k}{def} \PY{n+nf}{score}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{X}\PY{p}{,} \PY{n}{Y}\PY{p}{)}\PY{p}{:}
+
+        \PY{n}{X} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{array}\PY{p}{(}\PY{n}{X}\PY{p}{)}
+        \PY{n}{Y} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{array}\PY{p}{(}\PY{n}{Y}\PY{p}{)}
+        \PY{n}{Y\PYZus{}hat} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{predict}\PY{p}{(}\PY{n}{X}\PY{p}{)}
+        \PY{n}{index} \PY{o}{=} \PY{n}{Y\PYZus{}hat} \PY{o}{!=} \PY{l+m+mf}{0}
+
+        \PY{n}{SS\PYZus{}tot} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{sum}\PY{p}{(}\PY{p}{(}\PY{n}{Y}\PY{p}{[}\PY{n}{index}\PY{p}{]} \PY{o}{\PYZhy{}} \PY{n}{np}\PY{o}{.}\PY{n}{mean}\PY{p}{(}\PY{n}{Y}\PY{p}{[}\PY{n}{index}\PY{p}{]}\PY{p}{)}\PY{p}{)}\PY{o}{*}\PY{o}{*}\PY{l+m+mf}{2}\PY{p}{)}
+        \PY{n}{SS\PYZus{}res} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{sum}\PY{p}{(}\PY{p}{(}\PY{n}{Y}\PY{p}{[}\PY{n}{index}\PY{p}{]} \PY{o}{\PYZhy{}} \PY{n}{Y\PYZus{}hat}\PY{p}{[}\PY{n}{index}\PY{p}{]}\PY{p}{)}\PY{o}{*}\PY{o}{*}\PY{l+m+mf}{2}\PY{p}{)}
+
+        \PY{n}{R2} \PY{o}{=} \PY{l+m+mf}{1} \PY{o}{\PYZhy{}}  \PY{n}{SS\PYZus{}res} \PY{o}{/} \PY{n}{SS\PYZus{}tot}
+
+        \PY{k}{return} \PY{n}{R2}
+        
+    \PY{k}{def} \PY{n+nf}{fit}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{X}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{Y}\PY{p}{,} \PY{n}{policy}\PY{o}{=}\PY{l+m+mf}{0}\PY{p}{,} \PY{n}{pa}\PY{o}{=}\PY{o}{\PYZhy{}}\PY{l+m+mf}{1}\PY{p}{,} \PY{n}{pb}\PY{o}{=}\PY{o}{\PYZhy{}}\PY{l+m+mf}{1}\PY{p}{,} \PY{n}{unsupervised}\PY{o}{=}\PY{n+nb+bp}{False}\PY{p}{,} \PY{n}{score}\PY{o}{=}\PY{n+nb+bp}{False}\PY{p}{,} \PY{n}{copy}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{a}\PY{o}{=}\PY{l+m+mf}{0}\PY{p}{,} \PY{n}{b}\PY{o}{=}\PY{l+m+mf}{0}\PY{p}{,} 
+            \PY{n}{pc\PYZus{}samp}\PY{o}{=}\PY{l+m+mf}{1}\PY{p}{,} \PY{n}{sgd}\PY{o}{=}\PY{n+nb+bp}{False}\PY{p}{,} \PY{n}{eta}\PY{o}{=}\PY{l+m+mf}{0.01}\PY{p}{,} \PY{n}{n\PYZus{}iters}\PY{o}{=}\PY{l+m+mf}{1}\PY{p}{,} \PY{n}{scale}\PY{o}{=}\PY{l+m+mf}{0}\PY{p}{,} \PY{n}{asgd}\PY{o}{=}\PY{n+nb+bp}{False}\PY{p}{,} \PY{n}{storeindex}\PY{o}{=}\PY{n+nb+bp}{False}\PY{p}{,} \PY{n}{samplegrid}\PY{o}{=}\PY{n+nb+bp}{False}\PY{p}{,} \PY{n}{M}\PY{o}{=}\PY{l+m+mf}{0}\PY{p}{)}\PY{p}{:}
+
+        \PY{l+s+sd}{\PYZdq{}\PYZdq{}\PYZdq{}    }
+\PY{l+s+sd}{        Fit tilecode function by averaging (then by SGD if sgd=True)}
+
+\PY{l+s+sd}{        Parameters}
+\PY{l+s+sd}{        \PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}}
+\PY{l+s+sd}{        X : array, shape=(N, D) }
+\PY{l+s+sd}{            Input data (unscaled), policy variable is first dimension X[:,0]}
+
+\PY{l+s+sd}{        Y : array, shape=(N) }
+\PY{l+s+sd}{            Output data (unscaled), (e.g., Q samples)}
+
+\PY{l+s+sd}{        score : boolean, (default=False)}
+\PY{l+s+sd}{            Calculate R\PYZhy{}squared}
+
+\PY{l+s+sd}{        cores : integer, (default=1)}
+\PY{l+s+sd}{            Number of CPU cores / jobs to use for fitting}
+
+\PY{l+s+sd}{        copy : boolean (default=False)}
+\PY{l+s+sd}{            Store X and Y}
+
+\PY{l+s+sd}{        setrange : boolean (default=False)}
+\PY{l+s+sd}{            Restrict tiling to a percentile range (if False then use min\PYZhy{}max of data)}
+
+\PY{l+s+sd}{        a : array, optional shape=(D) }
+\PY{l+s+sd}{            Percentile to use for minimum tiling range}
+\PY{l+s+sd}{        }
+\PY{l+s+sd}{        b : array, optional, shape=(D) }
+\PY{l+s+sd}{            Percentile to use for maximum tiling range}
+
+\PY{l+s+sd}{        pc\PYZus{}samp : float, (default=0.05}
+\PY{l+s+sd}{            Proportion of sample to use when calculating percentile ranges (only needed when setrange = True)}
+
+\PY{l+s+sd}{        R2 : array, shape=(D)}
+\PY{l+s+sd}{            Score (r\PYZhy{}squared)}
+\PY{l+s+sd}{        }
+\PY{l+s+sd}{        sgd : boolean (default=False)}
+\PY{l+s+sd}{            Fit by Stochastic Gradient Descent (SGD) (using averaging for starting values)}
+
+\PY{l+s+sd}{        eta : float (default=.01)}
+\PY{l+s+sd}{            SGD Learning rate}
+
+\PY{l+s+sd}{        n\PYZus{}iters : int (default=1)}
+\PY{l+s+sd}{            Number of passes over the data set in SGD}
+
+\PY{l+s+sd}{        scale : float (default=0)}
+\PY{l+s+sd}{            Learning rate scaling factor in SGD}
+\PY{l+s+sd}{        \PYZdq{}\PYZdq{}\PYZdq{}}
+        \PY{c}{\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}      Initialize      \PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}}
+
+        \PY{c}{\PYZsh{} Number of data points}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N} \PY{o}{=} \PY{n}{X}\PY{o}{.}\PY{n}{shape}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}
+
+        \PY{c}{\PYZsh{} Store data}
+        \PY{k}{if} \PY{n}{copy}\PY{p}{:}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{X} \PY{o}{=} \PY{n}{X} 
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Y} \PY{o}{=} \PY{n}{Y}
+
+        \PY{c}{\PYZsh{} Set min\PYZhy{}max tiling range}
+        \PY{k}{if} \PY{n}{a} \PY{o}{==} \PY{l+m+mf}{0}\PY{p}{:}
+            \PY{n}{a} \PY{o}{=} \PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}\PY{o}{*}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}
+        \PY{k}{if} \PY{n}{b} \PY{o}{==} \PY{l+m+mf}{0}\PY{p}{:}
+            \PY{n}{b} \PY{o}{=} \PY{p}{[}\PY{l+m+mf}{100}\PY{p}{]}\PY{o}{*}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}
+        \PY{n}{atemp} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}
+        \PY{n}{btemp} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}
+        \PY{n}{n} \PY{o}{=} \PY{n+nb}{int}\PY{p}{(}\PY{n}{pc\PYZus{}samp} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{)}
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+            \PY{n}{atemp}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{percentile}\PY{p}{(}\PY{n}{X}\PY{p}{[}\PY{l+m+mf}{1}\PY{p}{:}\PY{n}{n}\PY{p}{,} \PY{n}{i}\PY{p}{]}\PY{p}{,} \PY{n}{a}\PY{p}{[}\PY{n}{i}\PY{p}{]}\PY{p}{)}
+            \PY{n}{btemp}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{percentile}\PY{p}{(}\PY{n}{X}\PY{p}{[}\PY{l+m+mf}{1}\PY{p}{:}\PY{n}{n}\PY{p}{,} \PY{n}{i}\PY{p}{]}\PY{p}{,} \PY{n}{b}\PY{p}{[}\PY{n}{i}\PY{p}{]}\PY{p}{)}
+        
+        \PY{k}{if} \PY{o+ow}{not}\PY{p}{(}\PY{n}{pa} \PY{o}{==} \PY{o}{\PYZhy{}}\PY{l+m+mf}{1}\PY{p}{)}\PY{p}{:}
+            \PY{n}{atemp}\PY{p}{[}\PY{n}{policy}\PY{p}{]} \PY{o}{=} \PY{n}{pa}
+        \PY{k}{if} \PY{o+ow}{not}\PY{p}{(}\PY{n}{pb} \PY{o}{==} \PY{o}{\PYZhy{}}\PY{l+m+mf}{1}\PY{p}{)}\PY{p}{:}
+            \PY{n}{btemp}\PY{p}{[}\PY{n}{policy}\PY{p}{]} \PY{o}{=} \PY{n}{pb}
+
+        \PY{n}{dtemp} \PY{o}{=} \PY{l+m+mf}{1} \PY{o}{/} \PY{p}{(}\PY{n}{btemp} \PY{o}{\PYZhy{}} \PY{n}{atemp}\PY{p}{)}
+        \PY{c}{\PYZsh{} Memoryviews}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a} \PY{o}{=} \PY{n}{atemp}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{b} \PY{o}{=} \PY{n}{btemp}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{d} \PY{o}{=} \PY{n}{dtemp}
+
+        \PY{c}{\PYZsh{} Zero weights}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{]}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{wav} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{]}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{]}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{]}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+        
+        \PY{c}{\PYZsh{}if self.dohash == 0:}
+        \PY{c}{\PYZsh{}    self.key = np.array(range(self.mem\PYZus{}max), dtype=\PYZsq{}int32\PYZsq{})}
+
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{extrap} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+        \PY{k}{cdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{XS} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{)}
+        \PY{c}{\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}\PYZsh{}}
+        
+        \PY{n}{XS} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{scale\PYZus{}X}\PY{p}{(}\PY{n}{X}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n}{XS}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{extrap} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{check\PYZus{}extrap}\PY{p}{(}\PY{n}{XS}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{extrap}\PY{p}{)}
+        
+        \PY{k}{if} \PY{n}{samplegrid}\PY{p}{:}
+            \PY{k}{return} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{fit\PYZus{}samplegrid}\PY{p}{(}\PY{n}{X}\PY{p}{,} \PY{n}{XS}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n}{M}\PY{p}{)}
+        \PY{k}{else}\PY{p}{:}
+
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{fit\PYZus{}tiles}\PY{p}{(}\PY{n}{XS}\PY{p}{,} \PY{n}{Y}\PY{p}{)}
+            
+            \PY{k}{if} \PY{n}{storeindex}\PY{p}{:}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{datastruct\PYZus{}reverse} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{]}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{fit\PYZus{}data\PYZus{}reverse}\PY{p}{(}\PY{n}{XS}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{extrap}\PY{p}{)}
+            
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{sgd} \PY{o}{=} \PY{l+m+mf}{0} 
+            \PY{k}{if} \PY{n}{sgd}\PY{p}{:}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{sgd} \PY{o}{=} \PY{l+m+mf}{1}
+                \PY{k}{if} \PY{n}{asgd} \PY{o}{==} \PY{n+nb+bp}{True}\PY{p}{:}
+                    \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{asgd} \PY{o}{=} \PY{l+m+mf}{1}
+                    \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{wav} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{]}\PY{p}{)}
+                \PY{k}{else}\PY{p}{:}
+                    \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{asgd} \PY{o}{=} \PY{l+m+mf}{0}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{eta} \PY{o}{=} \PY{n}{eta} 
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{scale} \PY{o}{=} \PY{n}{scale} 
+                
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{tempidx} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{fit\PYZus{}sgd}\PY{p}{(}\PY{n}{XS}\PY{p}{,} \PY{n}{Y}\PY{p}{,} \PY{n}{eta}\PY{p}{,} \PY{n}{scale}\PY{p}{,} \PY{n}{n\PYZus{}iters}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{asgd}\PY{p}{)}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{wav} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{]}\PY{p}{)}
+            
+            \PY{k}{if} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}spline} \PY{o}{==} \PY{l+m+mf}{1}\PY{p}{:}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{fit\PYZus{}linear}\PY{p}{(}\PY{n}{XS}\PY{p}{,} \PY{n}{Y}\PY{p}{)}
+            
+            \PY{k}{if} \PY{n}{score}\PY{p}{:}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{R2} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{score}\PY{p}{(}\PY{n}{X}\PY{p}{,} \PY{n}{Y}\PY{p}{)}
+                \PY{k}{print} \PY{l+s}{\PYZsq{}}\PY{l+s}{R\PYZhy{}squared: }\PY{l+s}{\PYZsq{}} \PY{o}{+} \PY{n+nb}{str}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{R2}\PY{p}{)}
+            
+            \PY{k}{if} \PY{n}{unsupervised}\PY{p}{:}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{datastruct} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ones}\PY{p}{(}\PY{n+nb}{int}\PY{p}{(}\PY{n}{np}\PY{o}{.}\PY{n}{sum}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{)} \PY{o}{+} \PY{l+m+mf}{10}\PY{p}{)}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{datahash} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{fit\PYZus{}data}\PY{p}{(}\PY{n}{XS}\PY{p}{,} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}\PY{p}{)}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{max\PYZus{}neigh} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{max}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}
+
+            \PY{n}{mem\PYZus{}usage} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{count\PYZus{}nonzero}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{)} \PY{o}{/} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}
+            \PY{k}{if} \PY{n}{mem\PYZus{}usage} \PY{o}{\PYZlt{}} \PY{l+m+mf}{0.025}\PY{p}{:}
+                \PY{k}{print} \PY{l+s}{\PYZsq{}}\PY{l+s}{Tilecoding memory usage: }\PY{l+s}{\PYZsq{}} \PY{o}{+} \PY{n+nb}{str}\PY{p}{(}\PY{n}{mem\PYZus{}usage}\PY{p}{)}
+                \PY{k}{print} \PY{l+s}{\PYZsq{}}\PY{l+s}{On average }\PY{l+s}{\PYZsq{}} \PY{o}{+} \PY{n+nb}{str}\PY{p}{(}\PY{n}{np}\PY{o}{.}\PY{n}{count\PYZus{}nonzero}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{)}\PY{o}{/}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)} \PY{o}{+} \PY{l+s}{\PYZsq{}}\PY{l+s}{ of }\PY{l+s}{\PYZsq{}} \PY{o}{+} \PY{n+nb}{str}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE}\PY{p}{)} \PY{o}{+} \PY{l+s}{\PYZsq{}}\PY{l+s}{ tiles are active per layer}\PY{l+s}{\PYZsq{}}
+    
+    \PY{k}{cdef} \PY{k+kt}{int}[\PY{p}{:}\PY{p}{]} \PY{n}{check\PYZus{}extrap}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{XS}\PY{p}{,} \PY{n+nb}{int} \PY{n}{N}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{extrap}\PY{p}{)}\PY{p}{:}
+
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{k}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{xs} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{xmax} \PY{o}{=} \PY{l+m+mf}{0}
+
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n}{prange}\PY{p}{(}\PY{n}{N}\PY{p}{,} \PY{k}{nogil}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{num\PYZus{}threads}\PY{o}{=}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{CORES}\PY{p}{,} \PY{n}{schedule}\PY{o}{=}\PY{n}{dynamic}\PY{p}{)}\PY{p}{:}
+            \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                \PY{n}{xs} \PY{o}{=} \PY{n}{XS}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{]}
+                \PY{n}{xmax} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{+} \PY{l+m+mf}{0.0001}
+                \PY{k}{if} \PY{n}{xs} \PY{o}{\PYZlt{}} \PY{o}{\PYZhy{}}\PY{l+m+mf}{0.0001} \PY{o+ow}{or} \PY{n}{xs} \PY{o}{\PYZgt{}} \PY{n}{xmax}\PY{p}{:}
+                    \PY{n}{extrap}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{l+m+mf}{1}
+
+        \PY{k}{return} \PY{n}{extrap}
+
+    \PY{k}{cdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{scale\PYZus{}X}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{X}\PY{p}{,} \PY{n+nb}{int} \PY{n}{N}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{XS}\PY{p}{)}\PY{p}{:}
+
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{k}
+
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n}{prange}\PY{p}{(}\PY{n}{N}\PY{p}{,} \PY{k}{nogil}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{num\PYZus{}threads}\PY{o}{=}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{CORES}\PY{p}{,} \PY{n}{schedule}\PY{o}{=}\PY{n}{dynamic}\PY{p}{)}\PY{p}{:}
+            \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                \PY{n}{XS}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{p}{(}\PY{p}{(}\PY{n}{X}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{\PYZhy{}} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{[}\PY{n}{k}\PY{p}{]}\PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{d}\PY{p}{[}\PY{n}{k}\PY{p}{]}\PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{n}{k}\PY{p}{]}
+
+        \PY{k}{return} \PY{n}{XS}
+         
+
+    \PY{k}{cdef} \PY{k+kt}{void} \PY{n+nf}{fit\PYZus{}tiles}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{X}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{Y}\PY{p}{)}\PY{p}{:}
+    
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{idx} \PY{o}{=} \PY{l+m+mf}{0} 
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{j}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{n} \PY{o}{=} \PY{l+m+mf}{0}
+
+        \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n}{prange}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{,} \PY{k}{nogil}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{num\PYZus{}threads}\PY{o}{=}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{CORES}\PY{p}{,} \PY{n}{schedule}\PY{o}{=}\PY{n}{guided}\PY{p}{)}\PY{p}{:}
+            \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{)}\PY{p}{:} 
+                \PY{k}{if} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{extrap}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{==} \PY{l+m+mf}{0}\PY{p}{:}
+                    \PY{n}{idx} \PY{o}{=} \PY{n}{getindex}\PY{p}{(}\PY{n}{j}\PY{p}{,} \PY{n}{i}\PY{p}{,} \PY{n}{X}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{flat}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{dohash}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key}\PY{p}{)}
+                    \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{[}\PY{n}{idx}\PY{p}{]} \PY{o}{+}\PY{o}{=} \PY{l+m+mf}{1}
+                    \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{idx}\PY{p}{]} \PY{o}{+}\PY{o}{=} \PY{n}{Y}\PY{p}{[}\PY{n}{i}\PY{p}{]}
+
+        \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n}{prange}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{k}{nogil}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{num\PYZus{}threads}\PY{o}{=}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{CORES}\PY{p}{,} \PY{n}{schedule}\PY{o}{=}\PY{n}{dynamic}\PY{p}{)}\PY{p}{:}
+            \PY{n}{n} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{[}\PY{n}{j}\PY{p}{]}
+            \PY{k}{if} \PY{n}{n} \PY{o}{\PYZgt{}} \PY{l+m+mf}{0}\PY{p}{:}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{j}\PY{p}{]} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{j}\PY{p}{]} \PY{o}{*} \PY{p}{(}\PY{n}{n}\PY{o}{*}\PY{o}{*}\PY{o}{\PYZhy{}}\PY{l+m+mf}{1}\PY{p}{)}
+
+    \PY{k}{cdef} \PY{k+kt}{void} \PY{n+nf}{fit\PYZus{}data}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{X}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{countsofar}\PY{p}{)}\PY{p}{:}
+        
+        \PY{l+s+sd}{\PYZdq{}\PYZdq{}\PYZdq{} fit data structure mapping tiles to data points \PYZdq{}\PYZdq{}\PYZdq{}}
+
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{idx}\PY{p}{,} \PY{n+nf}{dataidx} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{j}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{n} \PY{o}{=} \PY{l+m+mf}{0}
+        
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{l+m+mf}{1}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{)}\PY{p}{:}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{datahash}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{datahash}\PY{p}{[}\PY{n}{i}\PY{o}{\PYZhy{}}\PY{l+m+mf}{1}\PY{p}{]} \PY{o}{+} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{[}\PY{n}{i}\PY{o}{\PYZhy{}}\PY{l+m+mf}{1}\PY{p}{]} 
+
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n}{prange}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n}{num\PYZus{}threads}\PY{o}{=}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{CORES}\PY{p}{,} \PY{k}{nogil}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{schedule}\PY{o}{=}\PY{n}{guided}\PY{p}{)}\PY{p}{:}
+            \PY{k}{if} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{extrap}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{==} \PY{l+m+mf}{0}\PY{p}{:}
+                \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)}\PY{p}{:}
+                    \PY{n}{idx} \PY{o}{=} \PY{n}{getindex}\PY{p}{(}\PY{n}{j}\PY{p}{,} \PY{n}{i}\PY{p}{,} \PY{n}{X}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{flat}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{dohash}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key}\PY{p}{)}
+                    \PY{n}{dataidx} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{datahash}\PY{p}{[}\PY{n}{idx}\PY{p}{]}
+                    \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{datastruct}\PY{p}{[}\PY{n}{dataidx} \PY{o}{+} \PY{n}{countsofar}\PY{p}{[}\PY{n}{idx}\PY{p}{]}\PY{p}{]} \PY{o}{=} \PY{n}{i}
+                    \PY{n}{countsofar}\PY{p}{[}\PY{n}{idx}\PY{p}{]} \PY{o}{+}\PY{o}{=} \PY{l+m+mf}{1}
+        
+    \PY{k}{cdef} \PY{k+kt}{void} \PY{n+nf}{fit\PYZus{}data\PYZus{}reverse}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{X}\PY{p}{,} \PY{n+nb}{int} \PY{n}{N}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{extrap}\PY{p}{)}\PY{p}{:}
+
+        \PY{l+s+sd}{\PYZdq{}\PYZdq{}\PYZdq{} fit data structure mapping data points to tiles \PYZdq{}\PYZdq{}\PYZdq{}}
+
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{idx}\PY{p}{,} \PY{n+nf}{dataidx} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{j}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{n} \PY{o}{=} \PY{l+m+mf}{0}
+        
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n}{prange}\PY{p}{(}\PY{n}{N}\PY{p}{,} \PY{n}{num\PYZus{}threads}\PY{o}{=}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{CORES}\PY{p}{,} \PY{k}{nogil}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{schedule}\PY{o}{=}\PY{n}{guided}\PY{p}{)}\PY{p}{:}
+            \PY{k}{if} \PY{n}{extrap}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{==} \PY{l+m+mf}{0}\PY{p}{:}
+                \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)}\PY{p}{:}
+                    \PY{n}{idx} \PY{o}{=} \PY{n}{getindex}\PY{p}{(}\PY{n}{j}\PY{p}{,} \PY{n}{i}\PY{p}{,} \PY{n}{X}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{flat}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{dohash}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key}\PY{p}{)}
+                    \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{datastruct\PYZus{}reverse}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{j}\PY{p}{]} \PY{o}{=} \PY{n}{idx}
+   
+
+    \PY{k}{def} \PY{n+nf}{fit\PYZus{}samplegrid}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{X}\PY{p}{,} \PY{n}{double} \PY{n}{prop}\PY{p}{)}\PY{p}{:}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N} \PY{o}{=} \PY{n}{X}\PY{o}{.}\PY{n}{shape}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}
+        
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{idx} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{j}\PY{p}{,} \PY{n+nf}{k}\PY{p}{,} \PY{n+nf}{h}
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{m} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{dens} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{grid}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{cmax} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{cmax\PYZus{}idx} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{int}[\PY{p}{:}\PY{p}{]} \PY{n}{xc} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{]}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+        \PY{k}{cdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{]} \PY{n}{xc\PYZus{}dens} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{]}\PY{p}{)}
+        \PY{k}{cdef} \PY{k+kt}{int}[\PY{p}{:}\PY{p}{]} \PY{n}{xc\PYZus{}count}
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{M} \PY{o}{=} \PY{l+m+mf}{0}
+
+        \PY{n}{atemp} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{min}\PY{p}{(}\PY{n}{X}\PY{p}{,} \PY{n}{axis}\PY{o}{=}\PY{l+m+mf}{0}\PY{p}{)}
+        \PY{n}{btemp} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{max}\PY{p}{(}\PY{n}{X}\PY{p}{,} \PY{n}{axis}\PY{o}{=}\PY{l+m+mf}{0}\PY{p}{)}
+        \PY{n}{dtemp} \PY{o}{=} \PY{l+m+mf}{1} \PY{o}{/} \PY{p}{(}\PY{n}{btemp} \PY{o}{\PYZhy{}} \PY{n}{atemp}\PY{p}{)}
+
+        \PY{c}{\PYZsh{} Memoryviews}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a} \PY{o}{=} \PY{n}{atemp}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{b} \PY{o}{=} \PY{n}{btemp}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{d} \PY{o}{=} \PY{n}{dtemp}
+        
+        \PY{c}{\PYZsh{} scale X}
+        \PY{k}{cdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{XS} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{)}
+        \PY{n}{XS} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{scale\PYZus{}X}\PY{p}{(}\PY{n}{X}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n}{XS}\PY{p}{)}
+
+        \PY{c}{\PYZsh{} Zero weights}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{]}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+        \PY{n}{xc\PYZus{}count} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{]}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+        
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{datastruct\PYZus{}reverse} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{]}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n}{prange}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n}{num\PYZus{}threads}\PY{o}{=}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{CORES}\PY{p}{,} \PY{k}{nogil}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{schedule}\PY{o}{=}\PY{n}{guided}\PY{p}{)}\PY{p}{:}
+            \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)}\PY{p}{:}
+                \PY{n}{idx} \PY{o}{=} \PY{n}{getindex}\PY{p}{(}\PY{n}{j}\PY{p}{,} \PY{n}{i}\PY{p}{,} \PY{n}{XS}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{flat}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{dohash}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key}\PY{p}{)}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{datastruct\PYZus{}reverse}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{j}\PY{p}{]} \PY{o}{=} \PY{n}{idx}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{[}\PY{n}{idx}\PY{p}{]} \PY{o}{+}\PY{o}{=} \PY{l+m+mf}{1}
+        
+        \PY{n}{mem\PYZus{}usage} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{count\PYZus{}nonzero}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{)} \PY{o}{/} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}
+        \PY{k}{print} \PY{l+s}{\PYZsq{}}\PY{l+s}{Tilecoding memory usage: }\PY{l+s}{\PYZsq{}} \PY{o}{+} \PY{n+nb}{str}\PY{p}{(}\PY{n}{mem\PYZus{}usage}\PY{p}{)}
+        \PY{k}{print} \PY{l+s}{\PYZsq{}}\PY{l+s}{On average }\PY{l+s}{\PYZsq{}} \PY{o}{+} \PY{n+nb}{str}\PY{p}{(}\PY{n}{np}\PY{o}{.}\PY{n}{count\PYZus{}nonzero}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{)}\PY{o}{/}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)} \PY{o}{+} \PY{l+s}{\PYZsq{}}\PY{l+s}{ of }\PY{l+s}{\PYZsq{}} \PY{o}{+} \PY{n+nb}{str}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE}\PY{p}{)} \PY{o}{+} \PY{l+s}{\PYZsq{}}\PY{l+s}{ tiles are active per layer}\PY{l+s}{\PYZsq{}}
+        
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{)}\PY{p}{:}
+            \PY{n}{dens} \PY{o}{=} \PY{l+m+mf}{0}
+            \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)}\PY{p}{:}
+                \PY{n}{idx} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{datastruct\PYZus{}reverse}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{j}\PY{p}{]}
+                \PY{n}{dens} \PY{o}{+}\PY{o}{=} \PY{n}{xc\PYZus{}count}\PY{p}{[}\PY{n}{idx}\PY{p}{]} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Linv}
+            \PY{k}{if} \PY{n}{dens} \PY{o}{==} \PY{l+m+mf}{0}\PY{p}{:}
+                \PY{n}{xc}\PY{p}{[}\PY{n}{m}\PY{p}{]} \PY{o}{=} \PY{n}{i}
+                \PY{n}{m} \PY{o}{+}\PY{o}{=} \PY{l+m+mf}{1}
+                \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)}\PY{p}{:}
+                    \PY{n}{idx} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{datastruct\PYZus{}reverse}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{j}\PY{p}{]} 
+                    \PY{n}{xc\PYZus{}count}\PY{p}{[}\PY{n}{idx}\PY{p}{]} \PY{o}{+}\PY{o}{=} \PY{l+m+mf}{1}
+        
+        \PY{k}{if} \PY{n}{prop} \PY{o}{\PYZlt{}} \PY{l+m+mf}{1}\PY{p}{:}           
+            \PY{n}{M} \PY{o}{=} \PY{p}{\PYZlt{}}\PY{k+kt}{int}\PY{p}{\PYZgt{}} \PY{p}{(}\PY{n}{prop} \PY{o}{*} \PY{n}{m}\PY{p}{)}
+            \PY{n}{grid} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n}{M}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{)}
+            \PY{k}{for} \PY{n}{h} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n}{m}\PY{p}{)}\PY{p}{:}  \PY{c}{\PYZsh{} Predict density}
+                \PY{n}{i} \PY{o}{=} \PY{n}{xc}\PY{p}{[}\PY{n}{h}\PY{p}{]}
+                \PY{n}{dens} \PY{o}{=} \PY{l+m+mf}{0}
+                \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)}\PY{p}{:}
+                    \PY{n}{idx} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{datastruct\PYZus{}reverse}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{j}\PY{p}{]}
+                    \PY{n}{dens} \PY{o}{+}\PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{[}\PY{n}{idx}\PY{p}{]} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Linv}
+                \PY{n}{xc\PYZus{}dens}\PY{p}{[}\PY{n}{h}\PY{p}{]} \PY{o}{=} \PY{n}{dens}
+
+            \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n}{M}\PY{p}{)}\PY{p}{:} \PY{c}{\PYZsh{} Select highest density points}
+                \PY{n}{cmax} \PY{o}{=} \PY{l+m+mf}{0}
+                \PY{k}{for} \PY{n}{h} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n}{m}\PY{p}{)}\PY{p}{:}
+                    \PY{k}{if} \PY{n}{xc\PYZus{}dens}\PY{p}{[}\PY{n}{h}\PY{p}{]} \PY{o}{\PYZgt{}} \PY{n}{cmax}\PY{p}{:}
+                        \PY{n}{cmax} \PY{o}{=} \PY{n}{xc\PYZus{}dens}\PY{p}{[}\PY{n}{h}\PY{p}{]}
+                        \PY{n}{cmax\PYZus{}idx} \PY{o}{=} \PY{n}{h}
+                \PY{n}{xc\PYZus{}dens}\PY{p}{[}\PY{n}{cmax\PYZus{}idx}\PY{p}{]} \PY{o}{=} \PY{o}{\PYZhy{}}\PY{l+m+mf}{1}
+                \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                    \PY{n}{grid}\PY{p}{[}\PY{n}{j}\PY{p}{,}\PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{n}{X}\PY{p}{[}\PY{n}{xc}\PY{p}{[}\PY{n}{cmax\PYZus{}idx}\PY{p}{]}\PY{p}{,} \PY{n}{k}\PY{p}{]}
+        \PY{k}{else}\PY{p}{:}
+            \PY{n}{grid} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n}{m}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{)}
+            \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n}{m}\PY{p}{)}\PY{p}{:} 
+                \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                    \PY{n}{grid}\PY{p}{[}\PY{n}{j}\PY{p}{,}\PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{n}{X}\PY{p}{[}\PY{n}{xc}\PY{p}{[}\PY{n}{j}\PY{p}{]}\PY{p}{,} \PY{n}{k}\PY{p}{]}
+   
+        \PY{k}{return} \PY{p}{[}\PY{n}{grid}\PY{p}{,} \PY{n}{m}\PY{p}{]}
+    \PY{l+s+sd}{\PYZdq{}\PYZdq{}\PYZdq{} }
+\PY{l+s+sd}{    def predict\PYZus{}quad(self, X):}
+\PY{l+s+sd}{        }
+\PY{l+s+sd}{        cdef int i, k, N = 0}
+
+\PY{l+s+sd}{        if len(X.shape) == 1:}
+\PY{l+s+sd}{            X = X.reshape([1, self.D])}
+\PY{l+s+sd}{            N = 1}
+\PY{l+s+sd}{        else:}
+\PY{l+s+sd}{            N = X.shape[0]}
+
+\PY{l+s+sd}{        cdef double[:,:] XS = np.zeros([N, self.D])}
+
+\PY{l+s+sd}{        XS = self.scale\PYZus{}X(X, N, XS)}
+\PY{l+s+sd}{    }
+\PY{l+s+sd}{        return np.array(self.local\PYZus{}quadratic(XS, N))}
+
+\PY{l+s+sd}{    cdef double[:] local\PYZus{}quadratic(self, double[:, :] X, int N):}
+
+\PY{l+s+sd}{        cdef int[:] neigh\PYZus{}idx = np.zeros(self.max\PYZus{}neigh, dtype=\PYZsq{}int32\PYZsq{})}
+\PY{l+s+sd}{        cdef int[:] neigh\PYZus{}count = np.zeros(self.max\PYZus{}neigh, dtype=\PYZsq{}int32\PYZsq{})}
+\PY{l+s+sd}{        cdef int[:] neigh\PYZus{}key = np.zeros(self.N, dtype=\PYZsq{}int32\PYZsq{}) }
+\PY{l+s+sd}{        cdef int[:] n = np.zeros(N, dtype=\PYZsq{}int32\PYZsq{}) }
+\PY{l+s+sd}{        cdef int[:] col = np.zeros(N, dtype=\PYZsq{}int32\PYZsq{}) }
+\PY{l+s+sd}{        cdef int i, j, k, pointidx, dataidx, idx, key, h, data, z}
+\PY{l+s+sd}{        cdef double[:] x = np.zeros(self.D + 1)}
+\PY{l+s+sd}{        cdef double weight, totalcount = 0}
+\PY{l+s+sd}{        cdef double[:] yhat = np.zeros(N)}
+\PY{l+s+sd}{        cdef int cols = \PYZlt{}int\PYZgt{} (((self.D + 1)*(self.D + 2)) / 2)}
+
+\PY{l+s+sd}{        cdef gsl\PYZus{}vector *S}
+\PY{l+s+sd}{        cdef gsl\PYZus{}vector *beta}
+\PY{l+s+sd}{        cdef gsl\PYZus{}matrix *V}
+\PY{l+s+sd}{        cdef gsl\PYZus{}matrix *Xm}
+\PY{l+s+sd}{        cdef gsl\PYZus{}matrix *XX}
+\PY{l+s+sd}{        cdef gsl\PYZus{}vector *Xy}
+\PY{l+s+sd}{        cdef gsl\PYZus{}vector *y}
+\PY{l+s+sd}{        }
+\PY{l+s+sd}{        V = gsl\PYZus{}matrix\PYZus{}alloc(cols, cols)}
+\PY{l+s+sd}{        S = gsl\PYZus{}vector\PYZus{}alloc(cols)}
+\PY{l+s+sd}{        beta = gsl\PYZus{}vector\PYZus{}calloc(cols)}
+\PY{l+s+sd}{        Xm = gsl\PYZus{}matrix\PYZus{}calloc(self.max\PYZus{}neigh, cols)}
+\PY{l+s+sd}{        XX = gsl\PYZus{}matrix\PYZus{}calloc(cols, cols)}
+\PY{l+s+sd}{        Xy = gsl\PYZus{}vector\PYZus{}calloc(cols)}
+\PY{l+s+sd}{        y = gsl\PYZus{}vector\PYZus{}calloc(self.max\PYZus{}neigh)}
+
+\PY{l+s+sd}{        for i in range(N): \PYZsh{}, nogil=True, num\PYZus{}threads=self.CORES, schedule=static):}
+\PY{l+s+sd}{            }
+\PY{l+s+sd}{            \PYZsh{} ==============================}
+\PY{l+s+sd}{            \PYZsh{} Find nearest neighbors}
+\PY{l+s+sd}{            \PYZsh{}===============================}
+
+\PY{l+s+sd}{            totalcount = 0}
+\PY{l+s+sd}{            data = 1}
+\PY{l+s+sd}{            for j in range(self.L):}
+\PY{l+s+sd}{                idx = getindex(j, i, X, self.D, self.offset, self.flat, self.SIZE, self.dohash, self.mem\PYZus{}max, self.key)}
+\PY{l+s+sd}{                if self.count[idx] == 0:}
+\PY{l+s+sd}{                    data = 0}
+\PY{l+s+sd}{                    break}
+\PY{l+s+sd}{                dataidx = self.datahash[idx]}
+\PY{l+s+sd}{                totalcount += self.count[idx]}
+\PY{l+s+sd}{                for k in range(self.count[idx]):}
+\PY{l+s+sd}{                    pointidx = self.datastruct[dataidx + k] }
+\PY{l+s+sd}{                    key = neigh\PYZus{}key[pointidx]}
+\PY{l+s+sd}{                    if key == 0:}
+\PY{l+s+sd}{                        neigh\PYZus{}idx[n[i]] = pointidx}
+\PY{l+s+sd}{                        neigh\PYZus{}key[pointidx] = n[i]}
+\PY{l+s+sd}{                        neigh\PYZus{}count[n[i]] += 1}
+\PY{l+s+sd}{                        n[i] += 1}
+\PY{l+s+sd}{                    else:}
+\PY{l+s+sd}{                        neigh\PYZus{}count[key] += 1}
+\PY{l+s+sd}{            }
+\PY{l+s+sd}{            if n[i] \PYZgt{} (2 * cols) and data == 1:}
+\PY{l+s+sd}{                }
+\PY{l+s+sd}{                \PYZsh{}==============================================}
+\PY{l+s+sd}{                \PYZsh{} Fit quadratic by OLS, using the c GSL library}
+\PY{l+s+sd}{                \PYZsh{}==============================================}
+\PY{l+s+sd}{                }
+\PY{l+s+sd}{                \PYZsh{}n[i] = \PYZlt{}int\PYZgt{} c\PYZus{}min(n[i], 1000)}
+
+\PY{l+s+sd}{                V = gsl\PYZus{}matrix\PYZus{}calloc(cols, cols)}
+\PY{l+s+sd}{                S = gsl\PYZus{}vector\PYZus{}calloc(cols)}
+\PY{l+s+sd}{                beta = gsl\PYZus{}vector\PYZus{}calloc(cols)}
+\PY{l+s+sd}{                Xm = gsl\PYZus{}matrix\PYZus{}calloc(n[i], cols)}
+\PY{l+s+sd}{                XX = gsl\PYZus{}matrix\PYZus{}calloc(cols, cols)}
+\PY{l+s+sd}{                Xy = gsl\PYZus{}vector\PYZus{}calloc(cols)}
+\PY{l+s+sd}{                y = gsl\PYZus{}vector\PYZus{}calloc(n[i])}
+\PY{l+s+sd}{                }
+\PY{l+s+sd}{                \PYZsh{}gsl\PYZus{}matrix\PYZus{}set\PYZus{}zero(V)}
+\PY{l+s+sd}{                \PYZsh{}gsl\PYZus{}vector\PYZus{}set\PYZus{}zero(S)}
+\PY{l+s+sd}{                \PYZsh{}gsl\PYZus{}vector\PYZus{}set\PYZus{}zero(beta)}
+\PY{l+s+sd}{                \PYZsh{}gsl\PYZus{}matrix\PYZus{}set\PYZus{}zero(Xm)}
+\PY{l+s+sd}{                \PYZsh{}gsl\PYZus{}matrix\PYZus{}set\PYZus{}zero(XX)}
+\PY{l+s+sd}{                \PYZsh{}gsl\PYZus{}vector\PYZus{}set\PYZus{}zero(Xy)}
+\PY{l+s+sd}{                \PYZsh{}gsl\PYZus{}vector\PYZus{}set\PYZus{}zero(y)}
+\PY{l+s+sd}{                }
+\PY{l+s+sd}{                \PYZsh{}NN\PYZus{}counter = gsl\PYZus{}vector\PYZus{}view\PYZus{}array(neigh\PYZus{}count, n[i])}
+\PY{l+s+sd}{                \PYZsh{}gsl\PYZus{}sort\PYZus{}vector\PYZus{}index(NN\PYZus{}counter.vector)}
+\PY{l+s+sd}{                 }
+\PY{l+s+sd}{                for h in range(n[i]):}
+\PY{l+s+sd}{                    x[0] = 1}
+\PY{l+s+sd}{                    weight = (neigh\PYZus{}count[h] * (totalcount**\PYZhy{}1)) \PYZsh{}** c\PYZus{}max( ((n / 2000)**0.5), 1) }
+\PY{l+s+sd}{                    for k in range(self.D):}
+\PY{l+s+sd}{                        x[k + 1] = ((self.X[neigh\PYZus{}idx[h], k] \PYZhy{} self.a[k] ) * self.d[k]) * self.T[k] }
+\PY{l+s+sd}{                    gsl\PYZus{}vector\PYZus{}set(y, h, self.Y[neigh\PYZus{}idx[h]] * weight) }
+\PY{l+s+sd}{                    col[i] = 0}
+\PY{l+s+sd}{                    for k in range(self.D + 1):             }
+\PY{l+s+sd}{                        for z in range(k, self.D + 1):}
+\PY{l+s+sd}{                            gsl\PYZus{}matrix\PYZus{}set(Xm, h, col[i], x[k] * x[z] * weight) }
+\PY{l+s+sd}{                            col[i] += 1}
+\PY{l+s+sd}{                }
+\PY{l+s+sd}{                gsl\PYZus{}blas\PYZus{}dgemm(CblasTrans, CblasNoTrans, 1.0, Xm, Xm, 0, XX) }
+\PY{l+s+sd}{                gsl\PYZus{}blas\PYZus{}dgemv(CblasTrans, 1.0, Xm, y, 0, Xy) }
+
+\PY{l+s+sd}{                gsl\PYZus{}linalg\PYZus{}cholesky\PYZus{}decomp(XX)}
+\PY{l+s+sd}{                gsl\PYZus{}linalg\PYZus{}cholesky\PYZus{}solve(XX, Xy, beta)}
+
+\PY{l+s+sd}{                \PYZsh{}gsl\PYZus{}linalg\PYZus{}SV\PYZus{}decomp\PYZus{}jacobi(Xm, V, S)}
+\PY{l+s+sd}{                \PYZsh{}gsl\PYZus{}linalg\PYZus{}SV\PYZus{}solve(Xm, V, S, y, beta) }
+\PY{l+s+sd}{                }
+\PY{l+s+sd}{                \PYZsh{}for h in range(cols):}
+\PY{l+s+sd}{                \PYZsh{}    print \PYZsq{}Beta: \PYZsq{} + str(gsl\PYZus{}vector\PYZus{}get(beta, h))}
+
+\PY{l+s+sd}{                \PYZsh{} ========================================= }
+\PY{l+s+sd}{                \PYZsh{} Evaluate quadratic}
+\PY{l+s+sd}{                \PYZsh{} =========================================}
+\PY{l+s+sd}{                }
+\PY{l+s+sd}{                x[0] = 1}
+\PY{l+s+sd}{                for k in range(self.D):}
+\PY{l+s+sd}{                    x[k + 1] = X[i, k]}
+\PY{l+s+sd}{                }
+\PY{l+s+sd}{                col[i] = 0}
+\PY{l+s+sd}{                for k in range(self.D + 1):             }
+\PY{l+s+sd}{                    for z in range(k, self.D + 1):}
+\PY{l+s+sd}{                        yhat[i] += gsl\PYZus{}vector\PYZus{}get(beta, col[i]) * x[k] * x[z]}
+\PY{l+s+sd}{                        col[i] += 1}
+
+\PY{l+s+sd}{                \PYZsh{} ========================================}
+\PY{l+s+sd}{                \PYZsh{} zero for next iteration}
+\PY{l+s+sd}{                \PYZsh{} ========================================}
+\PY{l+s+sd}{                }
+\PY{l+s+sd}{                for j in range(self.max\PYZus{}neigh):}
+\PY{l+s+sd}{                    neigh\PYZus{}idx[j] = 0 }
+\PY{l+s+sd}{                    neigh\PYZus{}count[j] = 0 }
+\PY{l+s+sd}{                }
+\PY{l+s+sd}{                for j in range(self.N):    }
+\PY{l+s+sd}{                    neigh\PYZus{}key[j] = 0}
+\PY{l+s+sd}{            else:}
+\PY{l+s+sd}{                yhat[i] = 0}
+\PY{l+s+sd}{        else:}
+\PY{l+s+sd}{            yhat[i] = 0}
+\PY{l+s+sd}{        }
+\PY{l+s+sd}{        gsl\PYZus{}vector\PYZus{}free(beta)}
+\PY{l+s+sd}{        gsl\PYZus{}vector\PYZus{}free(S)}
+\PY{l+s+sd}{        gsl\PYZus{}matrix\PYZus{}free(V)}
+\PY{l+s+sd}{        gsl\PYZus{}matrix\PYZus{}free(Xm)}
+\PY{l+s+sd}{        gsl\PYZus{}matrix\PYZus{}free(XX)}
+\PY{l+s+sd}{        gsl\PYZus{}vector\PYZus{}free(Xy)}
+\PY{l+s+sd}{        gsl\PYZus{}vector\PYZus{}free(y)}
+\PY{l+s+sd}{        }
+\PY{l+s+sd}{        return yhat}
+\PY{l+s+sd}{    \PYZdq{}\PYZdq{}\PYZdq{}}
+
+    \PY{k}{cpdef} \PY{n+nf}{partial\PYZus{}fit}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{Y}\PY{p}{,} \PY{n+nb}{int} \PY{n}{copy}\PY{p}{)}\PY{p}{:}
+
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{k}\PY{p}{,} \PY{n+nf}{pointidx}\PY{p}{,} \PY{n+nf}{dataidx}\PY{p}{,} \PY{n+nf}{idx}\PY{p}{,} \PY{n+nf}{t} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{n}\PY{p}{,} \PY{n+nf}{new\PYZus{}w}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{y}\PY{p}{,} \PY{n+nf}{error}\PY{p}{,} \PY{n+nf}{alpha}\PY{p}{,} \PY{n+nf}{power} \PY{o}{=} \PY{p}{(}\PY{l+m+mf}{2.0}\PY{o}{/}\PY{l+m+mf}{3.0}\PY{p}{)}\PY{o}{*}\PY{o}{\PYZhy{}}\PY{l+m+mf}{1} 
+        
+        \PY{c}{\PYZsh{} Fit by averaging (assuming we have data structure)}
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n}{prange}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{k}{nogil}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{num\PYZus{}threads}\PY{o}{=}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{CORES}\PY{p}{,} \PY{n}{schedule}\PY{o}{=}\PY{n}{guided}\PY{p}{)}\PY{p}{:}
+            \PY{n}{dataidx} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{datahash}\PY{p}{[}\PY{n}{i}\PY{p}{]} 
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{l+m+mf}{0}
+            \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{[}\PY{n}{i}\PY{p}{]}\PY{p}{)}\PY{p}{:}
+                \PY{n}{pointidx} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{datastruct}\PY{p}{[}\PY{n}{dataidx} \PY{o}{+} \PY{n}{k}\PY{p}{]} 
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{+}\PY{o}{=} \PY{n}{Y}\PY{p}{[}\PY{n}{pointidx}\PY{p}{]}
+            \PY{n}{n} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{[}\PY{n}{i}\PY{p}{]}
+            \PY{k}{if} \PY{n}{n} \PY{o}{\PYZgt{}} \PY{l+m+mf}{0}\PY{p}{:}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{*} \PY{p}{(}\PY{n}{n}\PY{o}{*}\PY{o}{*}\PY{o}{\PYZhy{}}\PY{l+m+mf}{1}\PY{p}{)}
+        
+        \PY{c}{\PYZsh{} Store Y values}
+        \PY{k}{if} \PY{n}{copy} \PY{o}{==} \PY{l+m+mf}{1}\PY{p}{:}
+            \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{)}\PY{p}{:}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Y}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{n}{Y}\PY{p}{[}\PY{n}{i}\PY{p}{]}
+        
+        \PY{c}{\PYZsh{} Fit by SGD / ASGD (assuming we have \PYZhy{} reverse data structure)}
+        \PY{k}{if} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{sgd} \PY{o}{==} \PY{l+m+mf}{1}\PY{p}{:}
+            \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{)}\PY{p}{:}
+                \PY{k}{if} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{extrap}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{==} \PY{l+m+mf}{0}\PY{p}{:}
+                    \PY{n}{t} \PY{o}{+}\PY{o}{=} \PY{l+m+mf}{1}
+                    \PY{n}{alpha} \PY{o}{=}  \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{eta} \PY{o}{*} \PY{p}{(}\PY{l+m+mf}{1} \PY{o}{+}  \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{eta} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{scale} \PY{o}{*} \PY{n}{t}\PY{p}{)}\PY{o}{*}\PY{o}{*}\PY{n}{power}
+                    \PY{n}{y} \PY{o}{=} \PY{l+m+mf}{0}
+                    \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)}\PY{p}{:} 
+                        \PY{n}{idx} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{datastruct\PYZus{}reverse}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{j}\PY{p}{]}
+                        \PY{n}{y} \PY{o}{+}\PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{idx}\PY{p}{]}
+                    \PY{n}{y} \PY{o}{=}  \PY{n}{y} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Linv}
+
+                    \PY{n}{error} \PY{o}{=} \PY{p}{(}\PY{n}{Y}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{\PYZhy{}} \PY{n}{y}\PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Linv}
+
+                    \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)}\PY{p}{:}
+                        \PY{n}{idx} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{datastruct\PYZus{}reverse}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{j}\PY{p}{]}
+                        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{idx}\PY{p}{]} \PY{o}{+}\PY{o}{=} \PY{n}{error} \PY{o}{*} \PY{n}{alpha}
+                        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{wav}\PY{p}{[}\PY{n}{idx}\PY{p}{]} \PY{o}{+}\PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{idx}\PY{p}{]}
+            \PY{k}{if} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{asgd} \PY{o}{==} \PY{l+m+mf}{1}\PY{p}{:}
+                \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n}{prange}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{k}{nogil}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{num\PYZus{}threads}\PY{o}{=}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{CORES}\PY{p}{,} \PY{n}{schedule}\PY{o}{=}\PY{n}{guided}\PY{p}{)}\PY{p}{:}
+                    \PY{n}{n} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{[}\PY{n}{i}\PY{p}{]}
+                    \PY{k}{if} \PY{n}{n} \PY{o}{\PYZgt{}} \PY{l+m+mf}{0}\PY{p}{:}
+                        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{wav}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{*} \PY{p}{(}\PY{n}{n}\PY{o}{*}\PY{o}{*}\PY{o}{\PYZhy{}}\PY{l+m+mf}{1}\PY{p}{)}
+
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{wav} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{]}\PY{p}{)}
+
+    \PY{k}{cdef} \PY{k+kt}{void} \PY{n+nf}{fit\PYZus{}sgd}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{X}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{Y}\PY{p}{,} \PY{n}{double} \PY{n}{eta}\PY{p}{,} \PY{n}{double} \PY{n}{scale}\PY{p}{,} \PY{n+nb}{int} \PY{n}{n\PYZus{}iters}\PY{p}{,} \PY{n+nb}{int} \PY{n}{ASGD}\PY{p}{)}\PY{p}{:}
+
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{j}\PY{p}{,} \PY{n+nf}{k}\PY{p}{,} \PY{n+nf}{t}\PY{p}{,} \PY{n+nf}{it} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{int}[\PY{p}{:}\PY{p}{]} \PY{n}{idx} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{tempidx}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{Yhat}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{y}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{alpha} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{error} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{n} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{power} \PY{o}{=} \PY{p}{(}\PY{l+m+mf}{2.0}\PY{o}{/}\PY{l+m+mf}{3.0}\PY{p}{)}
+        
+        \PY{k}{for} \PY{n}{it} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n}{n\PYZus{}iters}\PY{p}{)}\PY{p}{:}
+            \PY{n}{t} \PY{o}{=} \PY{l+m+mf}{0}
+            \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{)}\PY{p}{:}
+                \PY{k}{if} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{extrap}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{==} \PY{l+m+mf}{0}\PY{p}{:}
+                    \PY{n}{t} \PY{o}{+}\PY{o}{=} \PY{l+m+mf}{1}
+                    \PY{n}{alpha} \PY{o}{=}  \PY{n}{eta} \PY{o}{*} \PY{p}{(}\PY{p}{(}\PY{p}{(}\PY{l+m+mf}{1} \PY{o}{+}  \PY{n}{eta} \PY{o}{*} \PY{n}{scale} \PY{o}{*} \PY{n}{t}\PY{p}{)}\PY{o}{*}\PY{o}{*}\PY{n}{power}\PY{p}{)}\PY{o}{*}\PY{o}{*}\PY{o}{\PYZhy{}}\PY{l+m+mf}{1}\PY{p}{)}
+
+                    \PY{c}{\PYZsh{} predict yhat}
+                    \PY{n}{y} \PY{o}{=} \PY{l+m+mf}{0}
+                    \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)}\PY{p}{:} 
+                        \PY{n}{idx}\PY{p}{[}\PY{n}{j}\PY{p}{]} \PY{o}{=} \PY{n}{getindex}\PY{p}{(}\PY{n}{j}\PY{p}{,} \PY{n}{i}\PY{p}{,} \PY{n}{X}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{flat}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{dohash}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key}\PY{p}{)}
+                        \PY{n}{y} \PY{o}{+}\PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{idx}\PY{p}{[}\PY{n}{j}\PY{p}{]}\PY{p}{]}
+                    \PY{n}{y} \PY{o}{=}  \PY{n}{y} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Linv}
+
+                    \PY{c}{\PYZsh{} compute error}
+                    \PY{n}{error} \PY{o}{=} \PY{p}{(}\PY{n}{Y}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{\PYZhy{}} \PY{n}{y}\PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Linv}
+
+                    \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)}\PY{p}{:}
+                        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{idx}\PY{p}{[}\PY{n}{j}\PY{p}{]}\PY{p}{]} \PY{o}{+}\PY{o}{=} \PY{n}{error} \PY{o}{*} \PY{n}{alpha}
+                        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{wav}\PY{p}{[}\PY{n}{idx}\PY{p}{[}\PY{n}{j}\PY{p}{]}\PY{p}{]} \PY{o}{+}\PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{idx}\PY{p}{[}\PY{n}{j}\PY{p}{]}\PY{p}{]}
+                        \PY{n}{idx}\PY{p}{[}\PY{n}{j}\PY{p}{]} \PY{o}{=} \PY{l+m+mf}{0}
+
+        \PY{k}{if} \PY{n}{ASGD} \PY{o}{==} \PY{l+m+mf}{1}\PY{p}{:}           
+            \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n}{prange}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{k}{nogil}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{num\PYZus{}threads}\PY{o}{=}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{CORES}\PY{p}{,} \PY{n}{schedule}\PY{o}{=}\PY{n}{guided}\PY{p}{)}\PY{p}{:}
+                \PY{n}{n} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{[}\PY{n}{i}\PY{p}{]}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{wav}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{*} \PY{p}{(}\PY{n}{n}\PY{o}{*}\PY{o}{*}\PY{o}{\PYZhy{}}\PY{l+m+mf}{1}\PY{p}{)}
+
+    \PY{k}{def} \PY{n+nf}{partial\PYZus{}sgd}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{X}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{Y}\PY{p}{,} \PY{n}{double} \PY{n}{eta}\PY{p}{,} \PY{n}{double} \PY{n}{scale}\PY{p}{,} \PY{n+nb}{int} \PY{n}{n\PYZus{}iters}\PY{p}{,} \PY{n+nb}{int} \PY{n}{ASGD}\PY{p}{)}\PY{p}{:}
+
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{j}\PY{p}{,} \PY{n+nf}{k}\PY{p}{,} \PY{n+nf}{t}\PY{p}{,} \PY{n+nf}{it} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{int}[\PY{p}{:}\PY{p}{]} \PY{n}{idxL} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{tempidx}
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{idx} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{Yhat}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{y}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{alpha} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{error} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{n} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{power} \PY{o}{=} \PY{p}{(}\PY{l+m+mf}{2.0}\PY{o}{/}\PY{l+m+mf}{3.0}\PY{p}{)}
+    
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{N} \PY{o}{=} \PY{n}{X}\PY{o}{.}\PY{n}{shape}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{]}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+
+        \PY{k}{for} \PY{n}{it} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n}{n\PYZus{}iters}\PY{p}{)}\PY{p}{:}
+            \PY{n}{t} \PY{o}{=} \PY{l+m+mf}{0}
+            \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n}{N}\PY{p}{)}\PY{p}{:}
+                \PY{k}{if} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{extrap}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{==} \PY{l+m+mf}{0}\PY{p}{:}
+                    \PY{n}{t} \PY{o}{+}\PY{o}{=} \PY{l+m+mf}{1}
+                    \PY{n}{alpha} \PY{o}{=}  \PY{n}{eta} \PY{o}{*} \PY{p}{(}\PY{p}{(}\PY{p}{(}\PY{l+m+mf}{1} \PY{o}{+}  \PY{n}{eta} \PY{o}{*} \PY{n}{scale} \PY{o}{*} \PY{n}{t}\PY{p}{)}\PY{o}{*}\PY{o}{*}\PY{n}{power}\PY{p}{)}\PY{o}{*}\PY{o}{*}\PY{o}{\PYZhy{}}\PY{l+m+mf}{1}\PY{p}{)}
+
+                    \PY{c}{\PYZsh{} predict yhat}
+                    \PY{n}{y} \PY{o}{=} \PY{l+m+mf}{0}
+                    \PY{n}{idx} \PY{o}{=} \PY{l+m+mf}{0} 
+                    \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)}\PY{p}{:} 
+                        \PY{n}{idx} \PY{o}{=} \PY{n}{getindex}\PY{p}{(}\PY{n}{j}\PY{p}{,} \PY{n}{i}\PY{p}{,} \PY{n}{X}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{flat}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{dohash}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key}\PY{p}{)}
+                        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{[}\PY{n}{idx}\PY{p}{]} \PY{o}{+}\PY{o}{=} \PY{l+m+mf}{1}
+                        \PY{n}{y} \PY{o}{+}\PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{idx}\PY{p}{]}
+                        \PY{n}{idxL}\PY{p}{[}\PY{n}{j}\PY{p}{]} \PY{o}{=} \PY{n}{idx}
+                    \PY{n}{y} \PY{o}{=}  \PY{n}{y} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Linv}
+
+                    \PY{c}{\PYZsh{} compute error}
+                    \PY{n}{error} \PY{o}{=} \PY{p}{(}\PY{n}{Y}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{\PYZhy{}} \PY{n}{y}\PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Linv}
+
+                    \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)}\PY{p}{:}
+                        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{idxL}\PY{p}{[}\PY{n}{j}\PY{p}{]}\PY{p}{]} \PY{o}{+}\PY{o}{=} \PY{n}{error} \PY{o}{*} \PY{n}{alpha}
+                        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{wav}\PY{p}{[}\PY{n}{idxL}\PY{p}{[}\PY{n}{j}\PY{p}{]}\PY{p}{]} \PY{o}{+}\PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{idxL}\PY{p}{[}\PY{n}{j}\PY{p}{]}\PY{p}{]}
+                        \PY{n}{idxL}\PY{p}{[}\PY{n}{j}\PY{p}{]} \PY{o}{=} \PY{l+m+mf}{0}
+
+        \PY{k}{if} \PY{n}{ASGD} \PY{o}{==} \PY{l+m+mf}{1}\PY{p}{:}           
+            \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n}{prange}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{k}{nogil}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{num\PYZus{}threads}\PY{o}{=}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{CORES}\PY{p}{,} \PY{n}{schedule}\PY{o}{=}\PY{n}{guided}\PY{p}{)}\PY{p}{:}
+                \PY{n}{n} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{[}\PY{n}{i}\PY{p}{]}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{wav}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{*} \PY{p}{(}\PY{n}{n}\PY{o}{*}\PY{o}{*}\PY{o}{\PYZhy{}}\PY{l+m+mf}{1}\PY{p}{)}
+    
+    \PY{k}{cdef} \PY{k+kt}{void} \PY{n+nf}{fit\PYZus{}linear}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,}  \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{X}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{Y}\PY{p}{)}\PY{p}{:}
+
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{j}\PY{p}{,} \PY{n+nf}{k}\PY{p}{,} \PY{n+nf}{z} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{x}
+        \PY{k}{cdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{Xreg} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}SIZE}\PY{p}{]}\PY{p}{)}
+        \PY{k}{cdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{]} \PY{n}{beta} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}SIZE}\PY{p}{)}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{c} \PY{o}{=} \PY{l+m+mf}{0}
+
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{)}\PY{p}{:}
+            \PY{n}{z} \PY{o}{=} \PY{l+m+mf}{0}
+            \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                \PY{n}{x} \PY{o}{=} \PY{n}{X}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{j}\PY{p}{]} \PY{o}{/} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{n}{j}\PY{p}{]}
+                \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}T}\PY{p}{[}\PY{n}{j}\PY{p}{]}\PY{p}{)}\PY{p}{:}
+                    \PY{n}{Xreg}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{z}\PY{p}{]} \PY{o}{=} \PY{n}{c\PYZus{}max}\PY{p}{(}\PY{n}{x} \PY{o}{\PYZhy{}} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}width}\PY{p}{[}\PY{n}{j}\PY{p}{]} \PY{o}{*} \PY{n}{k}\PY{p}{,} \PY{l+m+mf}{0}\PY{p}{)}
+                    \PY{n}{z} \PY{o}{+}\PY{o}{=}\PY{l+m+mf}{1}
+
+        \PY{n}{ols} \PY{o}{=} \PY{n}{OLS}\PY{p}{(}\PY{n}{fit\PYZus{}intercept}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{)}\PY{o}{.}\PY{n}{fit}\PY{p}{(}\PY{n}{Xreg}\PY{p}{,} \PY{n}{Y}\PY{p}{)}
+        \PY{n}{beta} \PY{o}{=} \PY{n}{ols}\PY{o}{.}\PY{n}{coef\PYZus{}}
+        \PY{n}{c} \PY{o}{=} \PY{n}{ols}\PY{o}{.}\PY{n}{intercept\PYZus{}} \PY{o}{/} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}
+
+        \PY{n}{z} \PY{o}{=} \PY{l+m+mf}{0}
+
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}T}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}\PY{p}{]}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}T}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}\PY{p}{]}\PY{p}{)}
+
+        \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+            \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}T}\PY{p}{[}\PY{n}{j}\PY{p}{]}\PY{p}{)}\PY{p}{:}
+                \PY{k}{if} \PY{n}{k} \PY{o}{\PYZgt{}} \PY{l+m+mf}{0}\PY{p}{:}
+                    \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{[}\PY{n}{j}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{n}{beta}\PY{p}{[}\PY{n}{z}\PY{p}{]} \PY{o}{+} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{[}\PY{n}{j}\PY{p}{,} \PY{n}{k} \PY{o}{\PYZhy{}} \PY{l+m+mf}{1}\PY{p}{]}
+                    \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{[}\PY{n}{j}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{+}\PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{[}\PY{n}{j}\PY{p}{,} \PY{n}{k} \PY{o}{\PYZhy{}} \PY{l+m+mf}{1}\PY{p}{]} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}width}\PY{p}{[}\PY{n}{j}\PY{p}{]} \PY{o}{*} \PY{n}{k} \PY{o}{\PYZhy{}} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{[}\PY{n}{j}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}width}\PY{p}{[}\PY{n}{j}\PY{p}{]} \PY{o}{*} \PY{n}{k} \PY{o}{+} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{[}\PY{n}{j}\PY{p}{,} \PY{n}{k} \PY{o}{\PYZhy{}}\PY{l+m+mf}{1}\PY{p}{]}
+                \PY{k}{else}\PY{p}{:}
+                    \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{[}\PY{n}{j}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{n}{beta}\PY{p}{[}\PY{n}{z}\PY{p}{]}
+                    \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{[}\PY{n}{j}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{n}{c}
+
+                \PY{n}{z} \PY{o}{+}\PY{o}{=} \PY{l+m+mf}{1}
+
+    \PY{k}{def} \PY{n+nf}{predict}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{X}\PY{p}{,} \PY{n}{store\PYZus{}XS}\PY{o}{=}\PY{n+nb+bp}{False}\PY{p}{)}\PY{p}{:}
+        
+        \PY{l+s+sd}{\PYZdq{}\PYZdq{}\PYZdq{}    }
+\PY{l+s+sd}{        Return predicted value }
+
+\PY{l+s+sd}{        Parameters}
+\PY{l+s+sd}{        \PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}}
+\PY{l+s+sd}{        X : array, shape=(N, D) or (D,)}
+\PY{l+s+sd}{            Input data}
+
+\PY{l+s+sd}{        Returns}
+\PY{l+s+sd}{        \PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}}
+\PY{l+s+sd}{    }
+\PY{l+s+sd}{        Y : array, shape=(N,)}
+\PY{l+s+sd}{            Predicted values}
+\PY{l+s+sd}{        \PYZdq{}\PYZdq{}\PYZdq{}}
+        
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{k}\PY{p}{,} \PY{n+nf}{N} \PY{o}{=} \PY{l+m+mf}{0}
+        
+        \PY{k}{if} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D} \PY{o}{==} \PY{l+m+mf}{1}\PY{p}{:}
+            \PY{n}{N} \PY{o}{=} \PY{n}{X}\PY{o}{.}\PY{n}{shape}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}
+            \PY{n}{X} \PY{o}{=} \PY{n}{X}\PY{o}{.}\PY{n}{reshape}\PY{p}{(}\PY{p}{[}\PY{n}{N}\PY{p}{,} \PY{l+m+mf}{1}\PY{p}{]}\PY{p}{)}
+        \PY{k}{elif} \PY{n+nb}{len}\PY{p}{(}\PY{n}{X}\PY{o}{.}\PY{n}{shape}\PY{p}{)} \PY{o}{==} \PY{l+m+mf}{1}\PY{p}{:}
+            \PY{n}{X} \PY{o}{=} \PY{n}{X}\PY{o}{.}\PY{n}{reshape}\PY{p}{(}\PY{p}{[}\PY{l+m+mf}{1}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{)}
+            \PY{n}{N} \PY{o}{=} \PY{l+m+mf}{1}
+        \PY{k}{else}\PY{p}{:}
+            \PY{n}{N} \PY{o}{=} \PY{n}{X}\PY{o}{.}\PY{n}{shape}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}
+
+        \PY{k}{cdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{]} \PY{n}{Y} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n}{N}\PY{p}{)}
+        \PY{k}{cdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{XS} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{)}
+        \PY{k}{cdef} \PY{k+kt}{int}[\PY{p}{:}\PY{p}{]} \PY{n}{extraptemp} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n}{N}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+        
+        \PY{n}{XS} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{scale\PYZus{}X}\PY{p}{(}\PY{n}{X}\PY{p}{,} \PY{n}{N}\PY{p}{,} \PY{n}{XS}\PY{p}{)} 
+        \PY{n}{extraptemp} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{check\PYZus{}extrap}\PY{p}{(}\PY{n}{XS}\PY{p}{,} \PY{n}{N}\PY{p}{,} \PY{n}{extraptemp}\PY{p}{)}
+        
+        \PY{k}{if} \PY{n}{store\PYZus{}XS}\PY{p}{:}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{XS} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{)}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{XS}\PY{p}{[}\PY{o}{.}\PY{o}{.}\PY{o}{.}\PY{p}{]} \PY{o}{=} \PY{n}{XS}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{extrapXS} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n}{N}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{extrapXS}\PY{p}{[}\PY{o}{.}\PY{o}{.}\PY{o}{.}\PY{p}{]} \PY{o}{=} \PY{n}{extraptemp}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{XSN} \PY{o}{=} \PY{n}{N}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{fastvalues} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n}{N}\PY{p}{)}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{datastruct\PYZus{}reverse} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{]}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{fit\PYZus{}data\PYZus{}reverse}\PY{p}{(}\PY{n}{XS}\PY{p}{,} \PY{n}{N}\PY{p}{,} \PY{n}{extraptemp}\PY{p}{)}
+
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n}{prange}\PY{p}{(}\PY{n}{N}\PY{p}{,} \PY{k}{nogil}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{num\PYZus{}threads}\PY{o}{=}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{CORES}\PY{p}{,} \PY{n}{schedule}\PY{o}{=}\PY{n}{static}\PY{p}{)}\PY{p}{:}
+            \PY{n}{Y}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{n}{predict}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{n}{i}\PY{p}{,} \PY{n}{XS}\PY{p}{,} \PY{n}{extraptemp}\PY{p}{[}\PY{n}{i}\PY{p}{]}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Tinv}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{flat}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Linv}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{min\PYZus{}sample}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}spline}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}T}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{dohash}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key}\PY{p}{)}
+        \PY{k}{return} \PY{n}{np}\PY{o}{.}\PY{n}{array}\PY{p}{(}\PY{n}{Y}\PY{p}{)}
+    
+    \PY{k}{def} \PY{n+nf}{predict\PYZus{}prob}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{X}\PY{p}{)}\PY{p}{:}
+        
+        \PY{l+s+sd}{\PYZdq{}\PYZdq{}\PYZdq{}    }
+\PY{l+s+sd}{        Return predicted cdf / pdf value}
+
+\PY{l+s+sd}{        Parameters}
+\PY{l+s+sd}{        \PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}}
+\PY{l+s+sd}{        X : array, shape=(N, D) or (D,)}
+\PY{l+s+sd}{            Input data}
+
+\PY{l+s+sd}{        \PYZdq{}\PYZdq{}\PYZdq{}}
+        
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{k}\PY{p}{,} \PY{n+nf}{N} \PY{o}{=} \PY{l+m+mf}{0}
+
+        \PY{k}{if} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D} \PY{o}{==} \PY{l+m+mf}{1}\PY{p}{:}
+            \PY{n}{N} \PY{o}{=} \PY{n}{X}\PY{o}{.}\PY{n}{shape}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}
+            \PY{n}{X} \PY{o}{=} \PY{n}{X}\PY{o}{.}\PY{n}{reshape}\PY{p}{(}\PY{p}{[}\PY{n}{N}\PY{p}{,} \PY{l+m+mf}{1}\PY{p}{]}\PY{p}{)}
+        \PY{k}{elif} \PY{n+nb}{len}\PY{p}{(}\PY{n}{X}\PY{o}{.}\PY{n}{shape}\PY{p}{)} \PY{o}{==} \PY{l+m+mf}{1}\PY{p}{:}
+            \PY{n}{X} \PY{o}{=} \PY{n}{X}\PY{o}{.}\PY{n}{reshape}\PY{p}{(}\PY{p}{[}\PY{l+m+mf}{1}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{)}
+            \PY{n}{N} \PY{o}{=} \PY{l+m+mf}{1}
+        \PY{k}{else}\PY{p}{:}
+            \PY{n}{N} \PY{o}{=} \PY{n}{X}\PY{o}{.}\PY{n}{shape}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}
+
+        \PY{k}{cdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{]} \PY{n}{Y} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n}{N}\PY{p}{)}
+        \PY{k}{cdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{XS} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{)}
+        \PY{k}{cdef} \PY{k+kt}{int}[\PY{p}{:}\PY{p}{]} \PY{n}{extrap} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n}{N}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+        
+        \PY{n}{XS} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{scale\PYZus{}X}\PY{p}{(}\PY{n}{X}\PY{p}{,} \PY{n}{N}\PY{p}{,} \PY{n}{XS}\PY{p}{)} 
+        \PY{n}{extrap} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{check\PYZus{}extrap}\PY{p}{(}\PY{n}{XS}\PY{p}{,} \PY{n}{N}\PY{p}{,} \PY{n}{extrap}\PY{p}{)}
+        
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n}{prange}\PY{p}{(}\PY{n}{N}\PY{p}{,} \PY{k}{nogil}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{num\PYZus{}threads}\PY{o}{=}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{CORES}\PY{p}{,} \PY{n}{schedule}\PY{o}{=}\PY{n}{static}\PY{p}{)}\PY{p}{:}
+            \PY{n}{Y}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{n}{predict\PYZus{}prob}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{n}{i}\PY{p}{,} \PY{n}{XS}\PY{p}{,} \PY{n}{extrap}\PY{p}{[}\PY{n}{i}\PY{p}{]}\PY{p}{,}  \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{flat}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Linv}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{min\PYZus{}sample}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{dohash}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{countsuminv}\PY{p}{)}
+        
+        \PY{k}{return} \PY{n}{np}\PY{o}{.}\PY{n}{asarray}\PY{p}{(}\PY{n}{Y}\PY{p}{)}
+
+    \PY{k}{def} \PY{n+nf}{cross\PYZus{}validate}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{cores} \PY{o}{=} \PY{l+m+mf}{1}\PY{p}{)}\PY{p}{:}
+        
+        \PY{n}{x1} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{X}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{:}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N} \PY{o}{/} \PY{l+m+mf}{2}\PY{p}{,} \PY{p}{:}\PY{p}{]} 
+        \PY{n}{y1} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Y}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{:}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N} \PY{o}{/} \PY{l+m+mf}{2}\PY{p}{]}
+    
+        \PY{n}{x2} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{X}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N} \PY{o}{/} \PY{l+m+mf}{2}\PY{p}{:}\PY{p}{:}\PY{p}{,} \PY{p}{:}\PY{p}{]}
+        \PY{n}{y2} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Y}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N} \PY{o}{/} \PY{l+m+mf}{2}\PY{p}{:}\PY{p}{:}\PY{p}{]} 
+
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{fit}\PY{p}{(}\PY{n}{x1}\PY{p}{,} \PY{n}{y1}\PY{p}{,} \PY{n}{cores} \PY{o}{=} \PY{n}{cores}\PY{p}{)}
+        \PY{n}{R2\PYZus{}1} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{score}\PY{p}{(}\PY{n}{x2}\PY{p}{,} \PY{n}{y2}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{fit}\PY{p}{(}\PY{n}{x2}\PY{p}{,} \PY{n}{y2}\PY{p}{,} \PY{n}{cores} \PY{o}{=} \PY{n}{cores}\PY{p}{)}
+        \PY{n}{R2\PYZus{}2} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{score}\PY{p}{(}\PY{n}{x1}\PY{p}{,} \PY{n}{y1}\PY{p}{)}
+
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{fit}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{X}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Y}\PY{p}{)}
+
+        \PY{k}{return} \PY{p}{(}\PY{n}{R2\PYZus{}1} \PY{o}{+} \PY{n}{R2\PYZus{}2}\PY{p}{)} \PY{o}{/} \PY{l+m+mf}{2}
+
+    \PY{k}{def} \PY{n+nf}{opt}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{X}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{Al}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{Ah}\PY{p}{)}\PY{p}{:}
+        
+        \PY{l+s+sd}{\PYZdq{}\PYZdq{}\PYZdq{}    }
+\PY{l+s+sd}{        Optimise the function over the first dimension (e.g., actions) for a subset of points.}
+
+\PY{l+s+sd}{        Subject to feasibility constraints Al \PYZlt{}= A* \PYZlt{}= Ah}
+
+\PY{l+s+sd}{        Parameters}
+\PY{l+s+sd}{        \PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}}
+\PY{l+s+sd}{        X : array, shape=(N, D) }
+\PY{l+s+sd}{            Input points to optimise over (unscaled)}
+\PY{l+s+sd}{        }
+\PY{l+s+sd}{        Al : array, shape=(N) }
+\PY{l+s+sd}{            Action lower bound}
+\PY{l+s+sd}{        }
+\PY{l+s+sd}{        Ah : array, shape=(N) }
+\PY{l+s+sd}{            Action upped bound}
+\PY{l+s+sd}{        }
+\PY{l+s+sd}{        Returns}
+\PY{l+s+sd}{        \PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}}
+\PY{l+s+sd}{    }
+\PY{l+s+sd}{        actions : array, shape=(\PYZlt{}N,)}
+\PY{l+s+sd}{            Optimal actions  (e.g. argmax Q(a, s))}
+
+\PY{l+s+sd}{        values : array, shape=(\PYZlt{}N)}
+\PY{l+s+sd}{            Optimal Q values, (e.g. max Q(a, s))}
+\PY{l+s+sd}{        }
+\PY{l+s+sd}{        points : array, shape(\PYZlt{}N, D)}
+\PY{l+s+sd}{            Points actually used: some points may be ignored if count \PYZlt{} min\PYZus{}sample}
+\PY{l+s+sd}{        }
+\PY{l+s+sd}{        index : array, shape(\PYZlt{}N, D)}
+\PY{l+s+sd}{            index of points actually used}
+\PY{l+s+sd}{        \PYZdq{}\PYZdq{}\PYZdq{}}
+        
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{N} \PY{o}{=} \PY{n}{X}\PY{o}{.}\PY{n}{shape}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{v} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{A} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{h}\PY{p}{,} \PY{n+nf}{j}\PY{p}{,} \PY{n+nf}{k}
+        \PY{k}{cdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{]} \PY{n}{v\PYZus{}opt} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ones}\PY{p}{(}\PY{n}{N}\PY{p}{)}\PY{o}{*}\PY{o}{\PYZhy{}}\PY{l+m+mf}{1000000}
+        \PY{k}{cdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{]} \PY{n}{A\PYZus{}opt} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n}{N}\PY{p}{)}
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{GRID} \PY{o}{=} \PY{n}{c\PYZus{}int}\PY{p}{(}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]} \PY{o}{+} \PY{l+m+mf}{1}\PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L} \PY{o}{*} \PY{l+m+mf}{1.3}\PY{p}{)}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{step} \PY{o}{=}  \PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{b}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]} \PY{o}{\PYZhy{}} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}\PY{p}{)} \PY{o}{/} \PY{n}{GRID}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{A\PYZus{}old}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{xt} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{XS} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{)}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{AS}
+        \PY{k}{cdef} \PY{k+kt}{int}[\PY{p}{:}\PY{p}{]} \PY{n}{extrap} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n}{N}\PY{p}{,} \PY{n}{dtype} \PY{o}{=} \PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+        \PY{k}{cdef} \PY{k+kt}{int}[\PY{p}{:}\PY{p}{]} \PY{n}{somedata} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n}{N}\PY{p}{,} \PY{n}{dtype} \PY{o}{=} \PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{idx}\PY{p}{,} \PY{n+nf}{nosample}
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{temp} \PY{o}{=} \PY{l+m+mf}{0}
+
+        \PY{n}{XS} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{scale\PYZus{}X}\PY{p}{(}\PY{n}{X}\PY{p}{,} \PY{n}{N}\PY{p}{,} \PY{n}{XS}\PY{p}{)}
+        \PY{n}{extrap} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{check\PYZus{}extrap}\PY{p}{(}\PY{n}{XS}\PY{p}{,} \PY{n}{N}\PY{p}{,} \PY{n}{extrap}\PY{p}{)}
+
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n}{prange}\PY{p}{(}\PY{n}{N}\PY{p}{,} \PY{k}{nogil}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{num\PYZus{}threads}\PY{o}{=}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{CORES}\PY{p}{,} \PY{n}{schedule}\PY{o}{=}\PY{n}{static}\PY{p}{)}\PY{p}{:}
+            \PY{k}{if} \PY{n}{extrap}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{==} \PY{l+m+mf}{0}\PY{p}{:}
+                \PY{n}{A} \PY{o}{=} \PY{n}{c\PYZus{}max}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}\PY{p}{,} \PY{n}{Al}\PY{p}{[}\PY{n}{i}\PY{p}{]}\PY{p}{)}
+                \PY{k}{while} \PY{n}{A} \PY{o}{\PYZlt{}}\PY{o}{=} \PY{n}{Ah}\PY{p}{[}\PY{n}{i}\PY{p}{]}\PY{p}{:}
+                    
+                    \PY{c}{\PYZsh{} Scale A}
+                    \PY{n}{AS} \PY{o}{=} \PY{p}{(}\PY{p}{(}\PY{n}{A} \PY{o}{\PYZhy{}} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}\PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{d}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}\PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}
+                    \PY{n}{XS}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{l+m+mf}{0}\PY{p}{]} \PY{o}{=} \PY{n}{AS} 
+                    
+                    \PY{k}{if} \PY{n}{AS} \PY{o}{\PYZlt{}} \PY{o}{\PYZhy{}}\PY{l+m+mf}{0.0001} \PY{o+ow}{or} \PY{n}{AS} \PY{o}{\PYZgt{}} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]} \PY{o}{+} \PY{l+m+mf}{0.0001}\PY{p}{:}
+                        \PY{n}{v} \PY{o}{=} \PY{l+m+mf}{0}
+                    \PY{k}{else}\PY{p}{:}
+                        \PY{c}{\PYZsh{} Predict y}
+                        \PY{c}{\PYZsh{}========================================================================}
+                        \PY{n}{v} \PY{o}{=} \PY{l+m+mf}{0}
+                        \PY{l+s+sd}{\PYZdq{}\PYZdq{}\PYZdq{}}
+\PY{l+s+sd}{                        v = predict(self.D, i, XS, 0, self.Tinv, self.offset, self.flat, self.Linv, self.w, self.count, self.min\PYZus{}sample, }
+\PY{l+s+sd}{                        self.lin\PYZus{}spline, self.lin\PYZus{}w, self.lin\PYZus{}c, self.lin\PYZus{}T, self.SIZE, self.L, self.dohash, self.mem\PYZus{}max, self.key)}
+\PY{l+s+sd}{                        \PYZdq{}\PYZdq{}\PYZdq{}}
+                        \PY{n}{idx} \PY{o}{=} \PY{l+m+mf}{0}
+                        \PY{n}{j} \PY{o}{=} \PY{l+m+mf}{0}
+                        \PY{n}{temp} \PY{o}{=} \PY{l+m+mf}{0}
+                        \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)}\PY{p}{:} 
+                        
+                            \PY{n}{idx} \PY{o}{=} \PY{n}{getindex}\PY{p}{(}\PY{n}{j}\PY{p}{,} \PY{n}{i}\PY{p}{,} \PY{n}{XS}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{flat}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{dohash}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key}\PY{p}{)}
+                           
+                            \PY{k}{if} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{[}\PY{n}{idx}\PY{p}{]} \PY{o}{\PYZgt{}}\PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{min\PYZus{}sample}\PY{p}{:}
+                                \PY{n}{v} \PY{o}{+}\PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{idx}\PY{p}{]}
+                                \PY{n}{temp} \PY{o}{=} \PY{n}{temp} \PY{o}{+} \PY{l+m+mf}{1}
+                            \PY{k}{else}\PY{p}{:}
+                                \PY{n}{v} \PY{o}{=} \PY{l+m+mf}{0}
+                                \PY{k}{break}
+                        
+                        \PY{n}{v} \PY{o}{=}  \PY{n}{v} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Linv}
+                        \PY{k}{if} \PY{n}{temp} \PY{o}{==} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{:}
+                            \PY{n}{somedata}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{l+m+mf}{1}
+                        \PY{c}{\PYZsh{}========================================================================}
+                    
+                    \PY{k}{if} \PY{n}{v} \PY{o}{\PYZgt{}} \PY{n}{v\PYZus{}opt}\PY{p}{[}\PY{n}{i}\PY{p}{]}\PY{p}{:}
+                        \PY{n}{v\PYZus{}opt}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{n}{v}
+                        \PY{n}{A\PYZus{}opt}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{n}{A}
+                    
+                    \PY{n}{A\PYZus{}old} \PY{o}{=} \PY{n}{A}
+                    \PY{n}{A} \PY{o}{=} \PY{n}{A} \PY{o}{+} \PY{n}{step}
+                    \PY{k}{if} \PY{n}{A} \PY{o}{\PYZgt{}} \PY{n}{Ah}\PY{p}{[}\PY{n}{i}\PY{p}{]}\PY{p}{:}
+                        \PY{n}{A} \PY{o}{=} \PY{n}{Ah}\PY{p}{[}\PY{n}{i}\PY{p}{]}
+                    \PY{k}{if} \PY{n}{A\PYZus{}old} \PY{o}{==} \PY{n}{Ah}\PY{p}{[}\PY{n}{i}\PY{p}{]}\PY{p}{:}
+                        \PY{k}{break}
+            \PY{k}{else}\PY{p}{:}
+                \PY{n}{v\PYZus{}opt}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{l+m+mf}{0}
+       
+        \PY{c}{\PYZsh{} return values}
+        \PY{n}{index} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{array}\PY{p}{(}\PY{n}{somedata}\PY{p}{)}\PY{o}{.}\PY{n}{astype}\PY{p}{(}\PY{n+nb}{bool}\PY{p}{)}
+        \PY{c}{\PYZsh{}index = np.array(v\PYZus{}opt) \PYZgt{} 0}
+        \PY{n}{values} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{array}\PY{p}{(}\PY{n}{v\PYZus{}opt}\PY{p}{)}\PY{p}{[}\PY{n}{index}\PY{p}{]}
+        \PY{n}{actions} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{array}\PY{p}{(}\PY{n}{A\PYZus{}opt}\PY{p}{)}\PY{p}{[}\PY{n}{index}\PY{p}{]}
+        \PY{n}{state} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{array}\PY{p}{(}\PY{n}{X}\PY{p}{)}\PY{p}{[}\PY{n}{index}\PY{p}{,} \PY{l+m+mf}{1}\PY{p}{:}\PY{p}{:}\PY{p}{]}
+
+        \PY{k}{return} \PY{p}{[}\PY{n}{actions}\PY{p}{,} \PY{n}{values}\PY{p}{,} \PY{n}{state}\PY{p}{,} \PY{n}{index}\PY{p}{]}
+
+    \PY{k}{def} \PY{n+nf}{plot}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{xargs}\PY{o}{=}\PY{l+m+mf}{0}\PY{p}{,} \PY{n}{showdata}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{label}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{showplot}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{quad}\PY{o}{=}\PY{n+nb+bp}{False}\PY{p}{,} \PY{n}{returndata}\PY{o}{=}\PY{n+nb+bp}{False}\PY{p}{)}\PY{p}{:}
+
+        \PY{l+s+sd}{\PYZdq{}\PYZdq{}\PYZdq{}}
+\PY{l+s+sd}{        Plot the function on one dimension}
+
+\PY{l+s+sd}{        Parameters}
+\PY{l+s+sd}{        \PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}}
+\PY{l+s+sd}{        xargs : list, length = D}
+\PY{l+s+sd}{            List of variable default values, set plotting dimension to \PYZsq{}x\PYZsq{}}
+
+\PY{l+s+sd}{        showdata : boolean, (default=False)}
+\PY{l+s+sd}{            Scatter training points}
+
+\PY{l+s+sd}{        label : string, (default=\PYZsq{}\PYZsq{})}
+\PY{l+s+sd}{            Series label}
+
+\PY{l+s+sd}{        showplot : boolean, (default=\PYZsq{}\PYZsq{})}
+\PY{l+s+sd}{            \PYZgt{} pylab.show()}
+\PY{l+s+sd}{        \PYZdq{}\PYZdq{}\PYZdq{}}
+
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{k} \PY{o}{=} \PY{l+m+mf}{0}
+        
+        \PY{n}{x} \PY{o}{=} \PY{p}{[}\PY{n}{xargs}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{]}
+
+        \PY{k}{if} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D} \PY{o}{==} \PY{l+m+mf}{1}\PY{p}{:}
+            \PY{n}{Xsmooth} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{linspace}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{b}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}\PY{p}{,} \PY{l+m+mf}{300}\PY{p}{)}
+            \PY{n}{Ysmooth} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{predict}\PY{p}{(}\PY{n}{Xsmooth}\PY{p}{)}
+            \PY{n}{X} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{X}
+            \PY{n}{Y} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Y}
+            \PY{n}{pylab}\PY{o}{.}\PY{n}{plot}\PY{p}{(}\PY{n}{X}\PY{p}{,} \PY{n}{Y}\PY{p}{,} \PY{l+s}{\PYZsq{}}\PY{l+s}{o}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{Xsmooth}\PY{p}{,} \PY{n}{Ysmooth}\PY{p}{)}
+        \PY{k}{else}\PY{p}{:}
+            \PY{n}{k} \PY{o}{=} \PY{n}{x}\PY{o}{.}\PY{n}{index}\PY{p}{(}\PY{l+s}{\PYZsq{}}\PY{l+s}{x}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+            \PY{n}{Xsmooth} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{linspace}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{[}\PY{n}{k}\PY{p}{]}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{b}\PY{p}{[}\PY{n}{k}\PY{p}{]}\PY{o}{*}\PY{l+m+mf}{1.1}\PY{p}{,} \PY{l+m+mf}{300}\PY{p}{)}
+
+            \PY{n}{xpoints} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ones}\PY{p}{(}\PY{p}{[}\PY{l+m+mf}{300}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{)}
+            \PY{n}{xpoints}\PY{p}{[}\PY{p}{:}\PY{p}{,} \PY{n}{k}\PY{p}{]}  \PY{o}{=} \PY{l+m+mf}{1}
+            \PY{n}{x}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{l+m+mf}{1}
+
+            \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                \PY{n}{xpoints}\PY{p}{[}\PY{p}{:}\PY{p}{,} \PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{n}{xpoints}\PY{p}{[}\PY{p}{:}\PY{p}{,} \PY{n}{i}\PY{p}{]} \PY{o}{*} \PY{n}{x}\PY{p}{[}\PY{n}{i}\PY{p}{]}
+            \PY{n}{xpoints}\PY{p}{[}\PY{p}{:}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{n}{Xsmooth}
+            \PY{n}{Ysmooth} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{predict}\PY{p}{(}\PY{n}{xpoints}\PY{p}{)}
+            \PY{n}{idx} \PY{o}{=} \PY{n}{Ysmooth} \PY{o}{!=} \PY{l+m+mf}{0}
+            \PY{k}{if} \PY{n}{showdata}\PY{p}{:}
+                \PY{n}{pylab}\PY{o}{.}\PY{n}{plot}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{X}\PY{p}{[}\PY{p}{:}\PY{p}{,} \PY{n}{k}\PY{p}{]}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Y}\PY{p}{,} \PY{l+s}{\PYZsq{}}\PY{l+s}{o}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{Xsmooth}\PY{p}{[}\PY{n}{idx}\PY{p}{]}\PY{p}{,} \PY{n}{Ysmooth}\PY{p}{[}\PY{n}{idx}\PY{p}{]}\PY{p}{,} \PY{n}{label} \PY{o}{=} \PY{n}{label}\PY{p}{)}
+            \PY{k}{else}\PY{p}{:}
+                \PY{n}{pylab}\PY{o}{.}\PY{n}{plot}\PY{p}{(}\PY{n}{Xsmooth}\PY{p}{[}\PY{n}{idx}\PY{p}{]}\PY{p}{,} \PY{n}{Ysmooth}\PY{p}{[}\PY{n}{idx}\PY{p}{]}\PY{p}{,} \PY{n}{label} \PY{o}{=} \PY{n}{label}\PY{p}{)}
+            \PY{k}{if} \PY{n}{returndata}\PY{p}{:}
+                \PY{k}{return} \PY{p}{[}\PY{n}{Xsmooth}\PY{p}{[}\PY{n}{idx}\PY{p}{]}\PY{p}{,} \PY{n}{Ysmooth}\PY{p}{[}\PY{n}{idx}\PY{p}{]}\PY{p}{]}
+
+    \PY{k}{def} \PY{n+nf}{plot\PYZus{}prob}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{xargs}\PY{o}{=}\PY{l+m+mf}{0}\PY{p}{,} \PY{n}{showdata}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{label}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{showplot}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{quad}\PY{o}{=}\PY{n+nb+bp}{False}\PY{p}{,} \PY{n}{returndata}\PY{o}{=}\PY{n+nb+bp}{False}\PY{p}{)}\PY{p}{:}
+
+        \PY{l+s+sd}{\PYZdq{}\PYZdq{}\PYZdq{}}
+\PY{l+s+sd}{        Plot the function on one dimension}
+
+\PY{l+s+sd}{        Parameters}
+\PY{l+s+sd}{        \PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}}
+\PY{l+s+sd}{        xargs : list, length = D}
+\PY{l+s+sd}{            List of variable default values, set plotting dimension to \PYZsq{}x\PYZsq{}}
+
+\PY{l+s+sd}{        showdata : boolean, (default=False)}
+\PY{l+s+sd}{            Scatter training points}
+
+\PY{l+s+sd}{        label : string, (default=\PYZsq{}\PYZsq{})}
+\PY{l+s+sd}{            Series label}
+
+\PY{l+s+sd}{        showplot : boolean, (default=\PYZsq{}\PYZsq{})}
+\PY{l+s+sd}{            \PYZgt{} pylab.show()}
+\PY{l+s+sd}{        \PYZdq{}\PYZdq{}\PYZdq{}}
+
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{k} \PY{o}{=} \PY{l+m+mf}{0}
+        
+        \PY{n}{x} \PY{o}{=} \PY{p}{[}\PY{n}{xargs}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{]}
+
+        \PY{k}{if} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D} \PY{o}{==} \PY{l+m+mf}{1}\PY{p}{:}
+            \PY{n}{Xsmooth} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{linspace}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{b}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}\PY{p}{,} \PY{l+m+mf}{300}\PY{p}{)}
+            \PY{n}{Ysmooth} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{predict\PYZus{}prob}\PY{p}{(}\PY{n}{Xsmooth}\PY{p}{)}
+            \PY{n}{pylab}\PY{o}{.}\PY{n}{plot}\PY{p}{(}\PY{n}{Xsmooth}\PY{p}{,} \PY{n}{Ysmooth}\PY{p}{)}
+        \PY{k}{else}\PY{p}{:}
+            \PY{n}{k} \PY{o}{=} \PY{n}{x}\PY{o}{.}\PY{n}{index}\PY{p}{(}\PY{l+s}{\PYZsq{}}\PY{l+s}{x}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+            \PY{n}{Xsmooth} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{linspace}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{[}\PY{n}{k}\PY{p}{]}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{b}\PY{p}{[}\PY{n}{k}\PY{p}{]}\PY{o}{*}\PY{l+m+mf}{1.1}\PY{p}{,} \PY{l+m+mf}{300}\PY{p}{)}
+
+            \PY{n}{xpoints} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ones}\PY{p}{(}\PY{p}{[}\PY{l+m+mf}{300}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{)}
+            \PY{n}{xpoints}\PY{p}{[}\PY{p}{:}\PY{p}{,} \PY{n}{k}\PY{p}{]}  \PY{o}{=} \PY{l+m+mf}{1}
+            \PY{n}{x}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{l+m+mf}{1}
+
+            \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                \PY{n}{xpoints}\PY{p}{[}\PY{p}{:}\PY{p}{,} \PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{n}{xpoints}\PY{p}{[}\PY{p}{:}\PY{p}{,} \PY{n}{i}\PY{p}{]} \PY{o}{*} \PY{n}{x}\PY{p}{[}\PY{n}{i}\PY{p}{]}
+            \PY{n}{xpoints}\PY{p}{[}\PY{p}{:}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{n}{Xsmooth}
+            \PY{n}{Ysmooth} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{predict\PYZus{}prob}\PY{p}{(}\PY{n}{xpoints}\PY{p}{)}
+            \PY{n}{idx} \PY{o}{=} \PY{n}{Ysmooth} \PY{o}{!=} \PY{l+m+mf}{0}
+            \PY{n}{pylab}\PY{o}{.}\PY{n}{plot}\PY{p}{(}\PY{n}{Xsmooth}\PY{p}{[}\PY{n}{idx}\PY{p}{]}\PY{p}{,} \PY{n}{Ysmooth}\PY{p}{[}\PY{n}{idx}\PY{p}{]}\PY{p}{,} \PY{n}{label} \PY{o}{=} \PY{n}{label}\PY{p}{)}
+    
+    \PY{c}{\PYZsh{}==========================================================================}
+    \PY{c}{\PYZsh{} Convenience functions }
+    \PY{c}{\PYZsh{}===========================================================================}
+
+    \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{one\PYZus{}value}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{X}\PY{p}{)}\PY{p}{:}
+        
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{k}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{xs}
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{extrap} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{XS} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{xs}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{val}
+
+        \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+            \PY{n}{xs} \PY{o}{=} \PY{p}{(}\PY{n}{X}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{\PYZhy{}} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{[}\PY{n}{k}\PY{p}{]}\PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{d}\PY{p}{[}\PY{n}{k}\PY{p}{]} 
+            \PY{k}{if} \PY{n}{xs} \PY{o}{\PYZlt{}} \PY{o}{\PYZhy{}}\PY{l+m+mf}{0.0001} \PY{o+ow}{or} \PY{n}{xs} \PY{o}{\PYZgt{}} \PY{l+m+mf}{1.0001}\PY{p}{:}
+                \PY{n}{extrap} \PY{o}{=} \PY{l+m+mf}{1}
+            \PY{n}{XS}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{n}{xs} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{n}{k}\PY{p}{]}
+
+        \PY{n}{val} \PY{o}{=} \PY{n}{predict}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{l+m+mf}{0}\PY{p}{,} \PY{n}{XS}\PY{p}{,} \PY{n}{extrap}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Tinv}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{flat}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Linv}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{min\PYZus{}sample}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}spline}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}T}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{dohash}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key}\PY{p}{)}
+   
+        \PY{k}{return} \PY{n}{val}
+
+    \PY{k}{cpdef} \PY{k+kt}{double} \PY{n+nf}{one\PYZus{}value\PYZus{}pdf}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{X}\PY{p}{)}\PY{p}{:}
+        
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{k}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{xs}
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{extrap} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{XS} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{xs}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{val}
+
+        \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+            \PY{n}{xs} \PY{o}{=} \PY{p}{(}\PY{n}{X}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{\PYZhy{}} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{[}\PY{n}{k}\PY{p}{]}\PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{d}\PY{p}{[}\PY{n}{k}\PY{p}{]} 
+            \PY{k}{if} \PY{n}{xs} \PY{o}{\PYZlt{}} \PY{o}{\PYZhy{}}\PY{l+m+mf}{0.0001} \PY{o+ow}{or} \PY{n}{xs} \PY{o}{\PYZgt{}} \PY{l+m+mf}{1.0001}\PY{p}{:}
+                \PY{n}{extrap} \PY{o}{=} \PY{l+m+mf}{1}
+            \PY{n}{XS}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{n}{xs} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{n}{k}\PY{p}{]}
+
+        \PY{n}{val} \PY{o}{=} \PY{n}{predict\PYZus{}prob}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{l+m+mf}{0}\PY{p}{,} \PY{n}{XS}\PY{p}{,} \PY{n}{extrap}\PY{p}{,}  \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{flat}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Linv}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{min\PYZus{}sample}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{dohash}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{countsuminv}\PY{p}{)}
+   
+        \PY{k}{return} \PY{n}{val}
+
+    \PY{k}{cdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{]} \PY{n}{N\PYZus{}values}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{X}\PY{p}{,} \PY{n+nb}{int} \PY{n}{N}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{values}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{XS}\PY{p}{)}\PY{p}{:}
+        
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{k}
+        
+        \PY{n}{XS} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{scale\PYZus{}X}\PY{p}{(}\PY{n}{X}\PY{p}{,} \PY{n}{N}\PY{p}{,} \PY{n}{XS}\PY{p}{)}
+
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n}{prange}\PY{p}{(}\PY{n}{N}\PY{p}{,} \PY{k}{nogil}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{num\PYZus{}threads}\PY{o}{=}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{CORES}\PY{p}{,} \PY{n}{schedule}\PY{o}{=}\PY{n}{static}\PY{p}{)}\PY{p}{:}
+            \PY{n}{values}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{n}{predict}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{n}{i}\PY{p}{,} \PY{n}{XS}\PY{p}{,} \PY{l+m+mf}{0}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Tinv}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{flat}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Linv}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{min\PYZus{}sample}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}spline}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}T}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{dohash}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key}\PY{p}{)}
+    
+        \PY{k}{return} \PY{n}{values}
+
+
+    \PY{k}{cdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{]} \PY{n}{N\PYZus{}values\PYZus{}policy}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{X}\PY{p}{,} \PY{n+nb}{int} \PY{n}{N}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{values}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{extrap}\PY{p}{)}\PY{p}{:}
+        
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{k}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{xs}\PY{p}{,} \PY{n+nf}{xmax}
+        
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n}{N}\PY{p}{)}\PY{p}{:}
+            \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                \PY{n}{xs} \PY{o}{=} \PY{p}{(}\PY{p}{(}\PY{n}{X}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{\PYZhy{}} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{[}\PY{n}{k}\PY{p}{]}\PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{d}\PY{p}{[}\PY{n}{k}\PY{p}{]}\PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{n}{k}\PY{p}{]}
+                \PY{n}{xmax} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{+} \PY{l+m+mf}{0.0001}
+                \PY{k}{if} \PY{n}{xs} \PY{o}{\PYZlt{}} \PY{o}{\PYZhy{}}\PY{l+m+mf}{0.0001} \PY{o+ow}{or} \PY{n}{xs} \PY{o}{\PYZgt{}} \PY{n}{xmax}\PY{p}{:}
+                    \PY{n}{extrap}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{l+m+mf}{1}
+                \PY{n}{X}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{n}{xs}
+
+            \PY{n}{values}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{n}{predict}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{n}{i}\PY{p}{,} \PY{n}{X}\PY{p}{,} \PY{n}{extrap}\PY{p}{[}\PY{n}{i}\PY{p}{]}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Tinv}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{flat}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Linv}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{min\PYZus{}sample}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}spline}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}T}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{dohash}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key}\PY{p}{)}
+    
+        \PY{k}{return} \PY{n}{values}
+    
+    \PY{k}{def} \PY{n+nf}{fast\PYZus{}values}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{p}{)}\PY{p}{:}
+        
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}
+        
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n}{prange}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{XSN}\PY{p}{,} \PY{k}{nogil}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{num\PYZus{}threads}\PY{o}{=}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{CORES}\PY{p}{,} \PY{n}{schedule}\PY{o}{=}\PY{n}{static}\PY{p}{)}\PY{p}{:}
+            
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{fastvalues}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{n}{predict\PYZus{}fast}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{n}{i}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{XS}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{extrapXS}\PY{p}{[}\PY{n}{i}\PY{p}{]}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Tinv}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Linv}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{min\PYZus{}sample}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}spline}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}T}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{datastruct\PYZus{}reverse}\PY{p}{)}
+    
+        \PY{k}{return} \PY{n}{np}\PY{o}{.}\PY{n}{array}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{fastvalues}\PY{p}{)}
+
+    
+    \PY{k}{cdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{matrix\PYZus{}values}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,}  \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{X}\PY{p}{,} \PY{n+nb}{int} \PY{n}{N1}\PY{p}{,} \PY{n+nb}{int} \PY{n}{N2}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{values}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{n}{XS}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{Xi}\PY{p}{)}\PY{p}{:}
+
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{j}\PY{p}{,} \PY{n+nf}{k}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{xs} \PY{o}{=} \PY{l+m+mf}{0}
+
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n}{prange}\PY{p}{(}\PY{n}{N1}\PY{p}{,} \PY{k}{nogil}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{num\PYZus{}threads}\PY{o}{=}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{CORES}\PY{p}{)}\PY{p}{:}
+            \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n}{N2}\PY{p}{)}\PY{p}{:}
+                \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                    \PY{n}{xs} \PY{o}{=} \PY{p}{(}\PY{n}{X}\PY{p}{[}\PY{n}{i}\PY{p}{,}\PY{n}{j}\PY{p}{,}\PY{n}{k}\PY{p}{]} \PY{o}{\PYZhy{}} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{[}\PY{n}{k}\PY{p}{]}\PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{d}\PY{p}{[}\PY{n}{k}\PY{p}{]} 
+                    \PY{n}{XS}\PY{p}{[}\PY{n}{i}\PY{p}{,}\PY{n}{j}\PY{p}{,}\PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{n}{xs} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{n}{k}\PY{p}{]}
+
+        \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n}{prange}\PY{p}{(}\PY{n}{N2}\PY{p}{,} \PY{k}{nogil}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{num\PYZus{}threads}\PY{o}{=}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{CORES}\PY{p}{)}\PY{p}{:}
+            \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n}{N1}\PY{p}{)}\PY{p}{:} 
+                \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                    \PY{n}{Xi}\PY{p}{[}\PY{n}{j}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{n}{XS}\PY{p}{[}\PY{n}{i}\PY{p}{,}\PY{n}{j}\PY{p}{,}\PY{n}{k}\PY{p}{]}
+                \PY{n}{values}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{j}\PY{p}{]} \PY{o}{=} \PY{n}{predict}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{n}{j}\PY{p}{,} \PY{n}{Xi}\PY{p}{,} \PY{l+m+mf}{0}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Tinv}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{flat}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Linv}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{min\PYZus{}sample}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}spline}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}T}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{dohash}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key}\PY{p}{)}
+
+        \PY{k}{return} \PY{n}{values}
+
+\PY{k}{cdef} \PY{k}{class} \PY{n+nf}{Function\PYZus{}Group}\PY{p}{:}
+
+    \PY{l+s+sd}{\PYZdq{}\PYZdq{}\PYZdq{} }
+\PY{l+s+sd}{    Container for a group of Tilecode instances (user policy functions)}
+\PY{l+s+sd}{    }
+\PY{l+s+sd}{    Assumes all Tilecode instances use identical grids}
+\PY{l+s+sd}{    }
+\PY{l+s+sd}{    Assumes lin\PYZus{}spline == 1}
+
+\PY{l+s+sd}{    Assumes no hashing}
+
+\PY{l+s+sd}{        Parameters}
+\PY{l+s+sd}{        \PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}}
+\PY{l+s+sd}{        N : int }
+\PY{l+s+sd}{            Number of users}
+\PY{l+s+sd}{        }
+\PY{l+s+sd}{        N\PYZus{}low : array}
+\PY{l+s+sd}{            Number of low reliability users}
+
+\PY{l+s+sd}{        wlow: Tilecode instance}
+\PY{l+s+sd}{            Low user policy function}
+
+\PY{l+s+sd}{        whigh: Tilecode instance}
+\PY{l+s+sd}{            High user policy function}
+
+\PY{l+s+sd}{    \PYZdq{}\PYZdq{}\PYZdq{}}
+
+    \PY{k}{def} \PY{n+nf}{\PYZus{}\PYZus{}init\PYZus{}\PYZus{}}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{N}\PY{p}{,} \PY{n}{N\PYZus{}low}\PY{p}{,} \PY{n}{Tilecode} \PY{n}{wlow}\PY{p}{,} \PY{n}{Tilecode} \PY{n}{whigh}\PY{p}{)}\PY{p}{:}
+        
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N} \PY{o}{=} \PY{n}{N}                                   \PY{c}{\PYZsh{} Number of instances (e.g., users)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N\PYZus{}low} \PY{o}{=} \PY{n}{N\PYZus{}low}
+
+        \PY{c}{\PYZsh{} Assuming all these parameters are the same for each instance}
+
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{D}                              \PY{c}{\PYZsh{} Number of dimensions}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{L}                              \PY{c}{\PYZsh{} Number of layers}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{T}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{flat} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{flat}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{SIZE}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{offset}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}SIZE} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{lin\PYZus{}SIZE}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}T} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{lin\PYZus{}T}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{min\PYZus{}sample} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{min\PYZus{}sample}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Tinv} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{Tinv}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Linv} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{Linv}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{mem\PYZus{}max}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{xs\PYZus{}zeros} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}
+
+        \PY{c}{\PYZsh{} These ones vary across users}
+
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{)} 
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{b} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{d} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{]}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{]}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{mem\PYZus{}max}\PY{p}{]}\PY{p}{,} \PY{n}{dtype}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{int32}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}T}\PY{p}{]}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}T}\PY{p}{]}\PY{p}{)}
+
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{k}\PY{p}{,} \PY{n+nf}{z}\PY{p}{,} \PY{n+nf}{j}
+
+        \PY{c}{\PYZsh{} Load parameters \PYZhy{} Low users first}
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N\PYZus{}low}\PY{p}{)}\PY{p}{:}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{[}\PY{n}{i}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{a}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{b}\PY{p}{[}\PY{n}{i}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{b}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{d}\PY{p}{[}\PY{n}{i}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{d}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{w}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{count}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{key}
+            \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{[}\PY{n}{k}\PY{p}{,} \PY{p}{:}\PY{p}{]}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{[}\PY{n}{k}\PY{p}{,} \PY{p}{:}\PY{p}{]}
+        
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N\PYZus{}low}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{)}\PY{p}{:}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{[}\PY{n}{i}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{whigh}\PY{o}{.}\PY{n}{a}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{b}\PY{p}{[}\PY{n}{i}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{whigh}\PY{o}{.}\PY{n}{b}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{d}\PY{p}{[}\PY{n}{i}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{whigh}\PY{o}{.}\PY{n}{d}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{whigh}\PY{o}{.}\PY{n}{w}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{whigh}\PY{o}{.}\PY{n}{count}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{whigh}\PY{o}{.}\PY{n}{key}
+            \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{whigh}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{[}\PY{n}{k}\PY{p}{,} \PY{p}{:}\PY{p}{]}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{whigh}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{[}\PY{n}{k}\PY{p}{,} \PY{p}{:}\PY{p}{]}
+        
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ascontiguousarray}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ascontiguousarray}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ascontiguousarray}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ascontiguousarray}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ascontiguousarray}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ascontiguousarray}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{b} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ascontiguousarray}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{b}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{d} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ascontiguousarray}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{d}\PY{p}{)}
+    
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{XS} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{extrap} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{]}\PY{p}{)}
+
+    \PY{k}{def} \PY{n+nf}{update}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{Ilow}\PY{p}{,} \PY{n}{Tilecode} \PY{n}{wlow}\PY{p}{,} \PY{n+nb}{int}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{Ihigh}\PY{p}{,} \PY{n}{Tilecode} \PY{n}{whigh}\PY{p}{)}\PY{p}{:}
+
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{k}\PY{p}{,} \PY{n+nf}{z}\PY{p}{,} \PY{n+nf}{j}\PY{p}{,} \PY{n+nf}{h}
+
+        \PY{c}{\PYZsh{} Load parameters \PYZhy{} Low users first}
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N\PYZus{}low}\PY{p}{)}\PY{p}{:}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{[}\PY{n}{i}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{a}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{b}\PY{p}{[}\PY{n}{i}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{b}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{d}\PY{p}{[}\PY{n}{i}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{d}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{w}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{count}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{key}
+            \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{[}\PY{n}{k}\PY{p}{,} \PY{p}{:}\PY{p}{]}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{wlow}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{[}\PY{n}{k}\PY{p}{,} \PY{p}{:}\PY{p}{]}
+        
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N\PYZus{}low}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{)}\PY{p}{:}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{[}\PY{n}{i}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{whigh}\PY{o}{.}\PY{n}{a}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{b}\PY{p}{[}\PY{n}{i}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{whigh}\PY{o}{.}\PY{n}{b}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{d}\PY{p}{[}\PY{n}{i}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{whigh}\PY{o}{.}\PY{n}{d}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{whigh}\PY{o}{.}\PY{n}{w}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{whigh}\PY{o}{.}\PY{n}{count}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{whigh}\PY{o}{.}\PY{n}{key}
+            \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{whigh}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{[}\PY{n}{k}\PY{p}{,} \PY{p}{:}\PY{p}{]}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{,} \PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{whigh}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{[}\PY{n}{k}\PY{p}{,} \PY{p}{:}\PY{p}{]}
+        
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ascontiguousarray}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ascontiguousarray}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ascontiguousarray}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{key}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ascontiguousarray}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ascontiguousarray}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ascontiguousarray}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{b} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ascontiguousarray}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{b}\PY{p}{)}
+        \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{d} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ascontiguousarray}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{d}\PY{p}{)}
+
+    \PY{k}{def} \PY{n+nf}{predict}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{X}\PY{p}{)}\PY{p}{:}
+
+        \PY{k}{return} \PY{n}{np}\PY{o}{.}\PY{n}{array}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{get\PYZus{}values}\PY{p}{(}\PY{n}{X}\PY{p}{,} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{)}\PY{p}{)}\PY{p}{)}
+
+    \PY{k}{cdef} \PY{k+kt}{void} \PY{n+nf}{scale\PYZus{}X}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{X}\PY{p}{,} \PY{n+nb}{int} \PY{n}{N}\PY{p}{)}\PY{p}{:}
+
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{k}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{xs}
+
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n}{N}\PY{p}{)}\PY{p}{:}
+            \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{extrap}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{l+m+mf}{0}
+            \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                \PY{n}{xs} \PY{o}{=} \PY{p}{(}\PY{n}{X}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{\PYZhy{}} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{]}\PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{d}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{]}
+                \PY{k}{if} \PY{n}{xs} \PY{o}{\PYZlt{}} \PY{o}{\PYZhy{}}\PY{l+m+mf}{0.0001} \PY{o+ow}{or} \PY{n}{xs} \PY{o}{\PYZgt{}} \PY{l+m+mf}{1.0001}\PY{p}{:}
+                    \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{extrap}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{l+m+mf}{1}
+                \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{XS}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{n}{xs} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{n}{k}\PY{p}{]}
+    
+    \PY{k}{cpdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{]} \PY{n}{get\PYZus{}values}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{n}{X}\PY{p}{,} \PY{n}{double}\PY{p}{[}\PY{p}{:}\PY{p}{]} \PY{n}{values}\PY{p}{)}\PY{p}{:}
+
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{j}\PY{p}{,} \PY{n+nf}{k}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{y} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{idx} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{x} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{double} \PY{n+nf}{extrap} \PY{o}{=} \PY{l+m+mf}{0}
+        \PY{k}{cdef} \PY{k+kt}{double}[\PY{p}{:}\PY{p}{]} \PY{n}{xs} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{xs\PYZus{}zeros}
+        \PY{c}{\PYZsh{}cdef double[:] T = self.T}
+        \PY{c}{\PYZsh{}cdef double[:,:] w = self.w}
+        \PY{c}{\PYZsh{}cdef double[:,:] offset = self.offset}
+        \PY{c}{\PYZsh{}cdef double[:] flat = self.flat}
+        \PY{c}{\PYZsh{}cdef int SIZE = self.SIZE}
+        \PY{c}{\PYZsh{}cdef double[:,:] count = self.count}
+        \PY{c}{\PYZsh{}cdef double[:] a = self.a}
+        \PY{c}{\PYZsh{}cdef double[:] d = self.d}
+        \PY{c}{\PYZsh{}cdef int L = self.L}
+        \PY{c}{\PYZsh{}cdef double[:] Tinv = self.Tinv}
+        \PY{c}{\PYZsh{}cdef int lin\PYZus{}T = self.lin\PYZus{}T}
+        \PY{c}{\PYZsh{}cdef double[:,:,:] lin\PYZus{}w = self.lin\PYZus{}w[}
+        \PY{c}{\PYZsh{}cdef double[:,:,:] lin\PYZus{}c = self.lin\PYZus{}c}
+        \PY{c}{\PYZsh{}cdef double Linv = self.Linv}
+        \PY{c}{\PYZsh{}cdef int D = self.D}
+
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{T} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{T}\PY{p}{[}\PY{l+m+mf}{0}\PY{p}{]}
+
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{)}\PY{p}{:}
+            
+            \PY{n}{y} \PY{o}{=} \PY{l+m+mf}{0}
+            \PY{n}{extrap} \PY{o}{=} \PY{l+m+mf}{0}
+            
+            \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                \PY{n}{x} \PY{o}{=} \PY{p}{(}\PY{p}{(}\PY{n}{X}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{\PYZhy{}} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{]}\PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{d}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{]}\PY{p}{)} 
+                \PY{k}{if} \PY{n}{x} \PY{o}{\PYZlt{}} \PY{o}{\PYZhy{}}\PY{l+m+mf}{0.0001} \PY{o+ow}{or} \PY{n}{x} \PY{o}{\PYZgt{}} \PY{l+m+mf}{1.0001}\PY{p}{:}
+                    \PY{n}{extrap} \PY{o}{=} \PY{l+m+mf}{1}
+                \PY{n}{xs}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{n}{x} \PY{o}{*} \PY{n}{T}
+            
+            \PY{k}{if} \PY{n}{extrap} \PY{o}{==} \PY{l+m+mf}{0}\PY{p}{:}
+                \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{L}\PY{p}{)}\PY{p}{:}
+                    \PY{n}{idx} \PY{o}{=} \PY{l+m+mf}{0}
+                    \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                        \PY{n}{idx} \PY{o}{+}\PY{o}{=}  \PY{n}{c\PYZus{}int}\PY{p}{(}\PY{n}{xs}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{+} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{offset}\PY{p}{[}\PY{n}{j}\PY{p}{,} \PY{n}{k}\PY{p}{]}\PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{flat}\PY{p}{[}\PY{n}{k}\PY{p}{]}
+                    
+                    \PY{n}{idx} \PY{o}{+}\PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{SIZE} \PY{o}{*} \PY{n}{j}
+                    
+                    \PY{k}{if} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{count}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{idx}\PY{p}{]} \PY{o}{\PYZgt{}} \PY{l+m+mf}{0}\PY{p}{:}
+                        \PY{n}{y} \PY{o}{+}\PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{w}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{idx}\PY{p}{]}
+                    \PY{k}{else}\PY{p}{:}
+                    \PY{c}{\PYZsh{}\PYZsh{} Linear value}
+                        \PY{n}{idx} \PY{o}{=} \PY{l+m+mf}{0}
+                        \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                            \PY{n}{x} \PY{o}{=} \PY{n}{xs}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Tinv}\PY{p}{[}\PY{n}{k}\PY{p}{]}
+                            \PY{n}{idx} \PY{o}{=} \PY{n}{c\PYZus{}int}\PY{p}{(}\PY{n}{c\PYZus{}min}\PY{p}{(}\PY{n}{c\PYZus{}max}\PY{p}{(}\PY{n}{x}\PY{p}{,} \PY{l+m+mf}{0.000001}\PY{p}{)}\PY{p}{,} \PY{l+m+mf}{0.99999}\PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}T}\PY{p}{)}
+                            \PY{n}{y} \PY{o}{+}\PY{o}{=} \PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{,} \PY{n}{idx}\PY{p}{]} \PY{o}{*} \PY{n}{x} \PY{o}{+} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{,} \PY{n}{idx}\PY{p}{]}\PY{p}{)} \PY{c}{\PYZsh{}*self.L}
+                            \PY{c}{\PYZsh{}break }
+                            \PY{c}{\PYZsh{} self.w[i, idx] = y}
+                            \PY{c}{\PYZsh{} self.count[i, idx] = 1}
+                \PY{n}{y} \PY{o}{=}  \PY{n}{y} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Linv}
+
+            \PY{k}{else}\PY{p}{:}
+                
+                \PY{c}{\PYZsh{} Linear value}
+                \PY{n}{idx} \PY{o}{=} \PY{l+m+mf}{0}
+                \PY{k}{for} \PY{n}{k} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                    \PY{n}{x} \PY{o}{=} \PY{n}{xs}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{Tinv}\PY{p}{[}\PY{n}{k}\PY{p}{]}
+                    \PY{n}{idx} \PY{o}{=} \PY{n}{c\PYZus{}int}\PY{p}{(}\PY{n}{c\PYZus{}min}\PY{p}{(}\PY{n}{c\PYZus{}max}\PY{p}{(}\PY{n}{x}\PY{p}{,} \PY{l+m+mf}{0.000001}\PY{p}{)}\PY{p}{,} \PY{l+m+mf}{0.99999}\PY{p}{)} \PY{o}{*} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}T}\PY{p}{)}
+                    \PY{n}{y} \PY{o}{+}\PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}w}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{,} \PY{n}{idx}\PY{p}{]} \PY{o}{*} \PY{n}{x} \PY{o}{+} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{lin\PYZus{}c}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{,} \PY{n}{idx}\PY{p}{]}
+                
+            \PY{c}{\PYZsh{} Apply feasibility constraint}
+            \PY{n}{values}\PY{p}{[}\PY{n}{i}\PY{p}{]} \PY{o}{=} \PY{n}{c\PYZus{}min}\PY{p}{(}\PY{n}{c\PYZus{}max}\PY{p}{(}\PY{n}{y}\PY{p}{,} \PY{l+m+mf}{0}\PY{p}{)}\PY{p}{,} \PY{n}{X}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{l+m+mf}{1}\PY{p}{]}\PY{p}{)}
+        
+        \PY{k}{return} \PY{n}{values}
+
+    \PY{k}{def} \PY{n+nf}{plot}\PY{p}{(}\PY{n+nb+bp}{self}\PY{p}{,} \PY{n}{xargs}\PY{o}{=}\PY{l+m+mf}{0}\PY{p}{,} \PY{n}{showdata}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{,} \PY{n}{label}\PY{o}{=}\PY{l+s}{\PYZsq{}}\PY{l+s}{\PYZsq{}}\PY{p}{,} \PY{n}{showplot}\PY{o}{=}\PY{n+nb+bp}{True}\PY{p}{)}\PY{p}{:}
+        
+        \PY{l+s+sd}{\PYZdq{}\PYZdq{}\PYZdq{}}
+\PY{l+s+sd}{        Plot all the user functions on one dimension}
+
+\PY{l+s+sd}{        Parameters}
+\PY{l+s+sd}{        \PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}\PYZhy{}}
+\PY{l+s+sd}{        xargs : list, length = D}
+\PY{l+s+sd}{            List of variable default values, set plotting dimension to \PYZsq{}x\PYZsq{}}
+
+\PY{l+s+sd}{        showdata : boolean, (default=False)}
+\PY{l+s+sd}{            Scatter training points}
+
+\PY{l+s+sd}{        label : string, (default=\PYZsq{}\PYZsq{})}
+\PY{l+s+sd}{            Series label}
+
+\PY{l+s+sd}{        showplot : boolean, (default=\PYZsq{}\PYZsq{})}
+\PY{l+s+sd}{            \PYZgt{} pylab.show()}
+\PY{l+s+sd}{        \PYZdq{}\PYZdq{}\PYZdq{}}
+
+
+        \PY{k}{cdef} \PY{k+kt}{int} \PY{n+nf}{i}\PY{p}{,} \PY{n+nf}{k} \PY{o}{=} \PY{l+m+mf}{0}
+        
+        \PY{n}{points} \PY{o}{=} \PY{l+m+mf}{1000}
+        \PY{n}{X} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{)}
+        \PY{n}{Xsmooth} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n}{points}\PY{p}{]}\PY{p}{)}
+        \PY{n}{xpoints} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{ones}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n}{points}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{]}\PY{p}{)}
+        \PY{n}{Ysmooth} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{zeros}\PY{p}{(}\PY{p}{[}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{,} \PY{n}{points}\PY{p}{]}\PY{p}{)}
+        \PY{n}{k} \PY{o}{=} \PY{n}{xargs}\PY{o}{.}\PY{n}{index}\PY{p}{(}\PY{l+s}{\PYZsq{}}\PY{l+s}{x}\PY{l+s}{\PYZsq{}}\PY{p}{)}
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{)}\PY{p}{:}
+            \PY{n}{Xsmooth}\PY{p}{[}\PY{n}{i}\PY{p}{,}\PY{p}{:}\PY{p}{]} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{linspace}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{a}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{]}\PY{o}{*}\PY{l+m+mf}{0.8}\PY{p}{,} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{b}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{k}\PY{p}{]}\PY{o}{*}\PY{l+m+mf}{1.2}\PY{p}{,} \PY{n}{points}\PY{p}{)}
+            \PY{n}{xval} \PY{o}{=} \PY{n}{xargs}
+            \PY{n}{xval}\PY{p}{[}\PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{l+m+mf}{1}
+            \PY{k}{for} \PY{n}{h} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n}{points}\PY{p}{)}\PY{p}{:}
+                \PY{k}{for} \PY{n}{j} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{D}\PY{p}{)}\PY{p}{:}
+                    \PY{n}{xpoints}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{h}\PY{p}{,} \PY{n}{j}\PY{p}{]} \PY{o}{=} \PY{n}{xpoints}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{h}\PY{p}{,} \PY{n}{j}\PY{p}{]} \PY{o}{*} \PY{n}{xval}\PY{p}{[}\PY{n}{j}\PY{p}{]}
+                \PY{n}{xpoints}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{n}{h}\PY{p}{,} \PY{n}{k}\PY{p}{]} \PY{o}{=} \PY{n}{Xsmooth}\PY{p}{[}\PY{n}{i}\PY{p}{,}\PY{n}{h}\PY{p}{]}
+
+        \PY{k}{for} \PY{n}{h} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n}{points}\PY{p}{)}\PY{p}{:}
+            \PY{n}{X} \PY{o}{=} \PY{n}{xpoints}\PY{p}{[}\PY{p}{:}\PY{p}{,} \PY{n}{h}\PY{p}{,} \PY{p}{:}\PY{p}{]}
+            \PY{n}{Y} \PY{o}{=} \PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{predict}\PY{p}{(}\PY{n}{X}\PY{p}{)}
+            \PY{n}{Ysmooth}\PY{p}{[}\PY{p}{:}\PY{p}{,} \PY{n}{h}\PY{p}{]} \PY{o}{=} \PY{n}{Y}
+
+        \PY{k}{for} \PY{n}{i} \PY{o+ow}{in} \PY{n+nb}{range}\PY{p}{(}\PY{n+nb+bp}{self}\PY{o}{.}\PY{n}{N}\PY{p}{)}\PY{p}{:}
+            \PY{n}{pylab}\PY{o}{.}\PY{n}{plot}\PY{p}{(}\PY{n}{Xsmooth}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{p}{:}\PY{p}{]}\PY{p}{,} \PY{n}{Ysmooth}\PY{p}{[}\PY{n}{i}\PY{p}{,} \PY{p}{:}\PY{p}{]}\PY{p}{,} \PY{n}{label} \PY{o}{=} \PY{p}{(}\PY{l+s}{\PYZdq{}}\PY{l+s}{user }\PY{l+s}{\PYZdq{}} \PY{o}{+} \PY{n+nb}{str}\PY{p}{(}\PY{n}{i}\PY{p}{)}\PY{p}{)}\PY{p}{)}
+\end{Verbatim}

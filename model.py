@@ -134,7 +134,7 @@ class Model:
                 self.qv = Qlearn.QVtile(D, Ta, La, 1, minsamp, self.para.sg_radius1, self.para, asgd=asgd, linT=8)
             
             self.qv.iterate(self.sim.XA_t, self.sim.X_t1, self.sim.series['SW'], Alow, Ahigh, ITER=self.para.QV_ITER1, Ascaled=False,
-                    plot=True, xargs=xargs, eta=0.8, sg_points=self.para.sg_points1, maxT=250000)
+                    plot=False, xargs=xargs, eta=0.8, sg_points=self.para.sg_points1, maxT=250000)
         
             XA = self.sim.XA_t
             X = self.sim.X_t1
@@ -171,8 +171,9 @@ class Model:
         return [self.sim.stats, self.qv, st]
     
     def learn_market_demand(self, T=100000):
-        
+       
         self.utility.init_policy(self.storage, self.para)
+        
         self.utility.explore = 1
         self.utility.d = 0
 
@@ -185,20 +186,18 @@ class Model:
         tic = time()
         
         if envoff:
-            Tiles = [6, 5, 4, 2]
+            Tiles = [6, 5, 4]
+            D = 2
+            a = [0, 0, 0.25]
+            b = [100, 100, 99.75]
+            pc_samp = 0.5
+            xarg = ['x', 1]
+        else:
+            Tiles = [6, 6, 6, 5]
             D = 3
+            xarg = ['x', 1, 1]
             a = [0, 0, 0.25, 0]
             b = [100, 100, 99.75, 100]
-            pc_samp = 0.5
-            xarg0 = ['x', 1, 0]
-            xarg1 = ['x', 1, 1]
-        else:
-            Tiles = [6, 6, 6, 5, 2]
-            D = 4
-            xarg0 = ['x', 1, 0.5, 0]
-            xarg1 = ['x', 1, 0.5, 1]
-            a = [0, 0, 0.25, 0, 0]
-            b = [100, 100, 99.75, 100, 100]
             pc_samp = 0.5
 
         L = 25
@@ -212,16 +211,21 @@ class Model:
         self.utility.d = 0
 
         self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, T, self.para.CPU_CORES, planner=True)
+        
+        self.qv = Qlearn.QVtile_ch7(D, Tiles, L, 1, 1, self.para.sg_radius1_ch7, self.para, asgd=True, linT=7)
 
-        self.qv = Qlearn.QVtile(D, Tiles, L, 1, 1, self.para.sg_radius1_ch7, self.para, asgd=True, linT=7)
-
-        self.qv.iterate(self.sim.XA, self.sim.X1, self.sim.U, Alow, Ahigh, ITER=self.para.QV_ITER1, Ascaled=False,
-                            plot=False, eta=0.8, sg_points=self.para.sg_points1_ch7, maxT=250000, a=a, b=b, pc_samp=pc_samp)
-        self.qv.W_f.plot(xarg0)
-        self.qv.W_f.plot(xarg1, showdata=False)
-        pylab.show()
-        self.utility.policy = self.qv.W_f
-
+        self.qv.iterate(self.sim.XA, self.sim.X1, self.sim.U, Alow, Ahigh, ITER=self.para.QV_ITER1, 
+                            plot=False, eta=0.8, sg_points=self.para.sg_points1_ch7/2, maxT=250000, a=a, b=b, pc_samp=pc_samp, plotiter=False, xargs=xarg)
+        
+        for m in range(2): 
+            self.qv.W_f[m].plot(xarg)
+            pylab.show()
+            self.qv.V_f[m].plot(xarg)
+            pylab.show()
+        
+        self.utility.policy0 = self.qv.W_f[0]
+        self.utility.policy1 = self.qv.W_f[1]
+        
         if stage2:
 
             XA = self.sim.XA
@@ -239,10 +243,6 @@ class Model:
             self.qv.iterate(XA, X, SW, Alow, Ahigh, ITER=self.para.QV_ITER2, Ascaled=False,
                             plot=False, eta=0.8, sg_points=self.para.sg_points1_ch7, maxT=250000, a=a, b=b, pc_samp=pc_samp)
             
-            self.qv.W_f.plot(xarg0)
-            self.qv.W_f.plot(xarg1, showdata=False)
-            pylab.show()
-
             self.utility.policy = self.qv.W_f
 
         toc = time()
@@ -252,16 +252,125 @@ class Model:
         if simulate:
             self.utility.explore = 0
             self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, self.para.T0, self.para.CPU_CORES, planner=True, stats=True)
-
+        
         return [self.sim.stats, self.qv, st]
 
     def chapter7(self, ):
 
-        self.users.init_policy_ch7(self.qv.W_f, self.qv.V_f, self.storage, self.utility, self.para.linT, self.para.CPU_CORES, self.para.sg_radius2_ch7)
-        self.env.init_policy(self.qv.W_f, self.qv.V_f, self.storage, self.utility, self.para.linT, self.para.CPU_CORES, self.para.sg_radius2_ch7)
+        self.plannerQV_ch7(T=150000, stage2=False, d=0.2, simulate=True, envoff=False)
+        
+        big_tic = time()
+        
+        ##################          User starting values              #################
+        
+        print 'Starting values, fitted QV iteration ...'
+        
+        self.users.set_explorers(2, 0.3)#.3)
+        self.env.explore = 1
+        self.env.d = 0.3
+        
+        #stats, qv = 
+        self.multiQV_ch7(ITER=self.para.ITER1, init=True)
+        
+        ##################          Main Q-learning              #################
+        
+        print '\nSolve decentralised problem, multiple agent fitted QV iteration ...'
+        
+        for i in range(self.para.ITER2):
+            
+            print '\n  ---  Iteration: ' + str(i) + '  ---\n'
+            print '-----------------------------------------'
 
-        self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 10000, self.para.CPU_CORES)
+            stats, qv = self.multiQV_ch7(ITER=1, partial=True)
+            
+            self.users.update_policy_ch7(qv[0].W_f, qv[1].W_f, Np=self.para.update_rate_ch7[i], N_e=2, d=0.2)
+            self.env.update_policy(qv[2].W_f)
+            self.env.d = self.para.envd[i]
+            
+            """ 
+            if np.mean(self.series['B']) > 0:
+                env_lambda = min(env.Lambda_I + 0.01, 0.99)
+            else:
+                env_lambda = min(env.Lambda_I - 0.01, 0.99)
+            
+            self.env.set_shares(env_lambda) 
+            self.users.set_shares(self.para.Lambda_high, env_lambda, env_lambda):
+            self.utility.set_shares(self.para.Lambda_high, self.users)
+            """
 
+        self.users.exploring = 0
+        self.env.explore = 0
+        self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, self.para.T2, self.para.CPU_CORES, partial=False, stats=True)
+        
+        big_toc = time()
+        print "Total time (minutes): " + str(round((big_toc - big_tic) / 60, 2))
+
+    def multiQV_ch7(self, ITER, init=False, eta=0.7, partial=False):
+        
+        tic = time()
+        
+        if init:
+            Tuser = [6, 5, 6, 4, 4]
+            Luser = 25
+            minsamp = 3
+            asgd = True
+            Tenv = [5, 4, 5, 4, 4]
+            Lenv = 25
+
+
+            for m in range(2):
+                self.users.init_policy_ch7(self.qv.W_f[m], self.qv.V_f[m], self.storage, self.utility, self.para.linT, self.para.CPU_CORES, 
+                        self.para.sg_radius2_ch7, m)
+                
+                self.env.init_policy(self.qv.W_f[m], self.qv.V_f[m], self.storage, self.utility, self.para.linT, self.para.CPU_CORES, 
+                        self.para.sg_radius2_ch7, m)
+        
+            self.qv_multi = [0, 0, 0]
+            
+            self.qv_multi[0] = Qlearn.QVtile_ch7(4, Tuser, Luser, 0.5, minsamp, self.para.sg_radius2_ch7, self.para, asgd=asgd, 
+                    linT=self.para.linT)
+            self.qv_multi[1] = Qlearn.QVtile_ch7(4, Tuser, Luser, 0.5, minsamp, self.para.sg_radius2_ch7, self.para, asgd=asgd, 
+                    linT=self.para.linT) 
+            self.qv_multi[2] = Qlearn.QVtile_ch7(4, Tenv, Lenv, 0.5, minsamp, self.para.sg_radius2_ch7, self.para, asgd=asgd, 
+                    linT=self.para.linT) 
+        
+        if partial:
+            bigT = int((self.para.T2_ch7 / 2) * self.para.sample_rate)
+        else:
+            bigT = int(self.para.T2_ch7 / 2)
+        
+        self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, bigT,self.para.CPU_CORES, partial=partial, stats=False) #
+        
+        # Feasibility constraints
+        Alow = lambda X: 0              # w > 0
+        Ahigh = lambda X: X[1]          # w < s
+        
+        print "\nSolving low reliability users problem"
+        print "-------------------------------------\n"
+        self.qv_multi[0].iterate([self.sim.XA_t[0], self.sim.XA_t1[0]], [self.sim.X_t1[0], self.sim.X_t11[0]],  [self.sim.u_t[0], self.sim.u_t1[0]],  
+                Alow, Ahigh, ITER=ITER, a = [0, 0, 0, 0.25, 0.25],b = [100, 100, 100, 99.40, 99.40], pc_samp=0.25, 
+                maxT=1200000,eta=eta, tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2_ch7, sgmem_max=0.15, plotiter=False, 
+                xargs=[300000,'x', 1, 1, 1], test=False, plot=False)
+        
+     
+        print "\nSolving high reliability users problem"
+        print "-------------------------------------\n"
+        self.qv_multi[1].iterate([self.sim.XA_t[1], self.sim.XA_t1[1]], [self.sim.X_t1[1], self.sim.X_t11[1]], [self.sim.u_t[1], self.sim.u_t1[1]],
+                Alow, Ahigh, ITER=ITER, a = [0, 0, 0, 0.25, 0.25], b = [100, 100, 100, 99.40, 99.40], pc_samp=0.25, 
+                maxT=1200000, eta=eta, tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2, sgmem_max=0.15, plotiter=False, 
+                xargs=[300000,'x', 1, 1, 1], plot=False)
+        
+        print "\nSolving the EWHs problem"
+        print "-------------------------------------\n"
+        self.qv_multi[2].iterate(self.sim.XA_e, self.sim.X1_e, self.sim.u_e, Alow, Ahigh, ITER=ITER, maxT=1200000, eta=eta,
+                tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2, sgmem_max= 0.15, plotiter=False, xargs=[1000000,'x', 1, 2, 1], plot=False)
+
+        toc = time()
+        st = toc - tic    
+        print 'Total time: ' + str(st)
+        
+        return [self.sim.stats, self.qv_multi]
+        
     def multiQV(self, ITER, init=False, type='ASGD', eta=0.7, testing=False, test_idx=0, partial=False):
         
         tic = time()
@@ -374,7 +483,7 @@ class Model:
         print '\n Solve release sharing problem... '
         
         stats, qv, st = self.plannerQV(t_cost_off=False, stage1=True, stage2=True, T1=self.para.T1, T2=self.para.T1, d=self.para.policy_delta, simulate=True)
-        """ 
+         
         ITER = 0 
         if self.para.opt_lam == 1:
             
@@ -413,11 +522,11 @@ class Model:
 
         #if self.para.opt_lam:
             #data = [[Lambda, SW]]
-            #chart = {'OUTFILE': home + out + 'Lambda' + str(self.para.HL) + img_ext,
+            #chart = {'OUTFILE': home + out + 'Lambdatest' + str(self.para.HL) + img_ext,
             # 'YLABEL': 'Mean welfare',
             # 'XLABEL': 'High reliability user inflow share' }
             #build_chart(chart, data, chart_type='scatter')
-        """
+        self.RSLambda = Lambda_max
 
         #################           Solve storage right problem          #################
         if self.utility.sr >= 0:
@@ -539,8 +648,8 @@ class Model:
 
                                 Lambda[j + 1] = max(min(Lambda[j] + 1 * delta, 0.99), 0.01)
                                 
-                                pylab.scatter(Lambda[0:j+1], SW[0:j+1])
-                                pylab.show()
+                                #pylab.scatter(Lambda[0:j+1], SW[0:j+1])
+                                #pylab.show()
                     
                                 print '--- Optimal share search ---'
                                 print 'Lambda previous: ' + str(Lambda[j -1])
@@ -571,6 +680,8 @@ class Model:
         self.sim.finalise_stats()
 
         stats = self.sim.stats
+
+        self.CSLambda = Lambda_high
 
         return stats, Lambda_high, Lambda_K
 

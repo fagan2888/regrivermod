@@ -77,6 +77,8 @@ cdef class Users:
     cdef public double[:] e
    
     cdef public Function_Group policy
+    cdef public Function_Group policy0
+    cdef public Function_Group policy1
     cdef public Tilecode w_f_low
     cdef public Tilecode W_f
     cdef public Tilecode w_f_high

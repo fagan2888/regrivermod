@@ -19,27 +19,34 @@ para = Para(rebuild=True)
 # Planner with central parameters
 #==========================================
 
-para.set_property_rights(scenario='RS')
+para.set_property_rights(scenario='SWA')
 para.ch7['inflow_share'] = 0.25
 para.ch7['capacity_share'] = 0.25
 
+"""
+para.sg_radius1_ch7 = 0.02
+para.sg_points1_ch7 = 750
 mod = Model(para, ch7=True, turn_off_env=True)
-mod.plannerQV_ch7(T=125000, stage2=True, d=0.2, simulate=True, envoff=True)
+mod.plannerQV_ch7(T=150000, stage2=False, d=0.2, simulate=True, envoff=True)
 stats_envoff = mod.sim.stats
 series_envoff = mod.sim.series
 del mod
-    
+
+para.sg_radius1_ch7 = 0.045
+para.sg_points1_ch7 = 2000
+
 mod = Model(para, ch7=True, turn_off_env=False)
-mod.plannerQV_ch7(T=125000, stage2=True, d=0.2, simulate=True, envoff=False)
+mod.plannerQV_ch7(T=150000, stage2=False, d=0.2, simulate=True, envoff=False)
 series = mod.sim.series
 stats = mod.sim.stats
 
 results = [stats_envoff, series_envoff, stats, series]
 
 chapter7.planner(results)
+"""
 
+mod = Model(para, ch7=True, turn_off_env=False)
 mod.chapter7()
-
 """
 b_value = np.linspace(10, 2000, 25)
 

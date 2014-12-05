@@ -8,9 +8,13 @@ from para import Para
 from model import Model
 from results import chapter6
 from results.chartbuilder import *
+import multiprocessing
+from multiprocessing.queues import Queue
+import sys
 
 home = '/home/nealbob'
 folder = '/Dropbox/Model/results/chapter6/'
+NCI = '/short/fr3/ndh401/chapter6/'
 out = '/Dropbox/Thesis/IMG/chapter6/'
 
 para = Para()
@@ -61,6 +65,7 @@ with open(home + folder + 'notrade_result.pkl', 'wb') as f:
     pickle.dump(results, f)
     f.close()
 """
+"""
 #==========================================
 # Risk aversion
 #==========================================
@@ -80,33 +85,80 @@ chapter6.tables(results, scenarios, Lambda, LambdaK, label='risk1', risk=True)
 with open(home + folder + 'risk1_result.pkl', 'wb') as f:
     pickle.dump(results, f)
     f.close()
+
 """
 #==========================================
-# General case 
+# Inflow share search 
 #==========================================
 
+try:
+    arg1 = sys.argv[1]
+    arg2 = sys.argv[2]
+except IndexError:
+    print "Provide arguments <runnum> <numofjobs>"
 
-for i in range(1):
+para.central_case(utility=True)
+N = int(arg2)
+paralist = []
+resultlist = []
+
+def solve_model(para, scen, que):
+    
+    para.set_property_rights(scenario=scen)
+    mod = Model(para)
+    stats, _, _ = mod.chapter6()
+    Lambda = [mod.RSLambda, mod.CSLambda]
+    del mod
+    
+    que.put([stats, Lambda])
+
+def retry_on_eintr(function, *args, **kw):
+    while True:
+        try:
+            return function(*args, **kw)
+        except IOError, e:            
+            if e.errno == errno.EINTR:
+                continue
+            else:
+                raise    
+
+class RetryQueue(Queue):
+    """Queue which will retry if interrupted with EINTR."""
+
+    def get(self, block=True, timeout=None):
+        return retry_on_eintr(Queue.get, self, block, timeout)
+
+for i in range(N):
     #try:
-    for scen in scenarios:
-        para.set_property_rights(scenario=scen)
-        para.t_cost = 10000000000
 
-        res = mod.chapter6()
+    res = []
+    para.randomize()
+    para.CPU_CORES = 2
+    paralist.append(para)            
 
-        results[scen].append(res)
+    """
+    ques = [RetryQueue(), RetryQueue()]
+    args = [(para, 'CS-O', ques[0]), (para, 'CS-HL-O', ques[1])]
+    jobs = [multiprocessing.Process(target=solve_model, args=(a)) for a in args]
+    for j in jobs: j.start()
+    for q in ques: res.append(q.get())
+    for j in jobs: j.join()
+    """
 
-        #with open(home + folder + '_result.pkl', 'wb') as f:
-        #   pickle.dump(res, f)
-        #   f.close()
+    resultlist.append(res)
 
-        #para.randomize(N = 100)
+    with open(NCI + 'lambda_para_' + arg1 + '.pkl', 'wb') as f:
+       pickle.dump(paralist, f)
+       f.close()
+    
+    with open(NCI + 'lambda_result_' + arg1 +'.pkl', 'wb') as f:
+       pickle.dump(resultlist, f)
+       f.close()
 
     #except KeyboardInterrupt:
     #    raise
     #except:
     #    pass
-"""
 
 
 """

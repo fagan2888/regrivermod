@@ -348,11 +348,12 @@ class Para:
         self.ch7_param['delta_Eb'] = [0.1, 0.3]
         self.ch7_param['delta_R'] = [0, 0.2]
         self.ch7_param['b_1'] = [0, 0.6]
-        self.ch7_param['b_value'] = [25, 325]
+        self.ch7_param['b_value'] = [30, 130]
         self.ch7_param['Bhat_alpha'] = [0.1, 0.5]
         self.ch7_param['inflow_share'] = [0, 0.5]
         self.ch7_param['capacity_share'] = [0, 0.5]
         self.ch7_param['High'] = [1, 1]
+        self.ch7_param['e_sig'] = [0, 1]
 
         para_dist = [self.I_K_param, self.SD_I_param, self.rho_param, self.SA_K_param, self.evap_param, self.d_loss_param_a, self.d_loss_param_b,  self.t_cost_param, self.Lambda_high_param, [100, 100], [30, 70], [30, 70], self.theta_mu, self.theta_sig, self.q_bar_limits, self.rho_eps_param, self.sig_eta_param, self.prop_high, self.target_price, self.relative_risk_aversion, self.ch7_param]
 
@@ -654,7 +655,7 @@ class Para:
         #Summer Winter Model parameters - chapter 7
         #################################################
         self.ch7 = {}
-        for para in self.ch7_para:
+        for para in self.ch7_param:
             a = self.ch7_param[para][0]
             b = self.ch7_param[para][1]
             self.ch7[para] = uniform.rvs(loc=a, scale=(b - a))
@@ -723,18 +724,23 @@ class Para:
         profit_bar_low = high_land * (self.theta[0, 1] + self.theta[1, 1]*q_bar_high + self.theta[2, 1]*(q_bar_high**2)+ self.theta[3, 1] + self.theta[4, 1] + self.theta[5, 1]*q_bar_high)
         profit_bar = (profit_bar_low + profit_bar_high) / 2
 
-        self.risk_aversion_low = risk / profit_bar
-        self.risk_aversion_high = risk / profit_bar
-        self.utility = 1
-        risk = uniform.rvs(loc=self.relative_risk_aversion[0], scale=self.relative_risk_aversion[1] - self.relative_risk_aversion[0])
-        self.risk_aversion_low = risk / profit_bar
-        self.risk_aversion_high = risk / profit_bar
+        utility = np.random.rand(1) > 0.5
+        if utility[0]:
+            self.utility = 1
+            risk = uniform.rvs(loc=self.relative_risk_aversion[0], scale=self.relative_risk_aversion[1] - self.relative_risk_aversion[0])
+            self.risk_aversion_low = risk / profit_bar
+            self.risk_aversion_high = risk / profit_bar
+        else:
+            self.utility = 0
+            risk = 0
+            self.risk_aversion_low = 0
+            self.risk_aversion_high = 0
 
         self.t_cost = (np.random.rand() * (self.t_cost_param[1]-self.t_cost_param[0]) + self.t_cost_param[0]) 
         
-        self.Lambda_high = self.max(min(self.prop, 0.95), 0)  #* (np.random.rand() * (self.Lambda_high_param[1]-self.Lambda_high_param[0]) + self.Lambda_high_param[0]),0.95),0)
+        self.Lambda_high = max(min(self.prop, 0.95), 0)  #* (np.random.rand() * (self.Lambda_high_param[1]-self.Lambda_high_param[0]) + self.Lambda_high_param[0]),0.95),0)
         
-        self.para_list = {'I_K' : I_K, 'SD_I' : SD_I, 'Prop_high' :  self.prop, 't_cost' : self.t_cost, 'L' : self.Land,'N_high' : self.N_high, 'rho_I' : self.rho_I, 'SA_K' : SA_K, 'alpha' : self.alpha, 'delta1a' : self.delta1a, 'delta1b' : self.delta1b}
+        self.para_list = {'I_K' : I_K, 'SD_I' : SD_I, 'Prop_high' :  self.prop, 't_cost' : self.t_cost, 'L' : self.Land,'N_high' : self.N_high, 'rho_I' : self.rho_I, 'SA_K' : SA_K, 'alpha' : self.alpha, 'delta1a' : self.delta1a, 'delta1b' : self.delta1b, 'risk' : risk}
         
         print '\n --- Main parameters --- \n'
         print 'Inflow to capacity: ' + str(I_K)
@@ -823,7 +829,7 @@ class Para:
         self.sg_radius1 = 0.02
         self.sg_points1 = 425
 
-        self.sg_points1_ch7 = 1500
+        self.sg_points1_ch7 = 2200
         self.sg_radius1_ch7 = 0.045
 
         # Stage 2 search range
@@ -848,7 +854,8 @@ class Para:
 
         #Proportion of users to update
         self.update_rate = [12] * 5 + [10] * 150 #+ [0.05] * 5
-
+        self.update_rate_ch7 = [4] * 150 #+ [0.05] * 5
+        
         #Proportion of sample size to replace each iteration (< 1 implies rolling batch)
         self.sample_rate = 0.1
 
@@ -857,16 +864,20 @@ class Para:
 
         # Exploration range
         self.d = [0.25] * 4 + [0.2] * 4 + [0.15] * 4 + [0.085] * 150
+        self.envd = [0.3] * 4 + [0.2] * 4 + [0.15] * 4 + [0.1] * 150
 
         # Total sample size, actual sim length = T1 / (2*N_e)
         self.T2 = 500000
+        self.T2_ch7 = 600000
 
         # State sample grid parameters
         self.sg_radius2 = 0.045
-        self.sg_radius2_ch7 = 0.045
+        self.sg_radius2_ch7 = 0.055
         
         self.sg_samp2 = 0.4
+        self.sg_samp2_ch7 = 0.4
         self.sg_prop2 = 0.85 #[0.80]*5 + [0.85]*5 + [0.9]*5 + [0.95]*5
+        self.sg_prop2_ch7 = 0.8
 
         # Number of linear spline knots (for policy and value functions)
         self.linT = 4

@@ -350,7 +350,6 @@ cdef class Users:
 
     def set_shares_ch7(self, double Lambda_high, double env_I, double env_K, unbundled=False, Lambda_K_high=0):
 
-
         self.c_F_low = (1 - env_I) * (1 - Lambda_high) / <double> self.N_low                # Low reliability inflow shares
         self.c_K_low = (1 - env_K) * (1 - Lambda_high) / <double> self.N_low                # Low reliability capacity shares
         self.c_F_high = (1 - env_I) * Lambda_high / <double> self.N_high                  # High reliability inflow shares
@@ -359,11 +358,9 @@ cdef class Users:
         self.c_F = np.zeros(self.N)
         self.c_K = np.zeros(self.N)
 
-
         if unbundled:
             self.c_K_low = (1- Lambda_K_high) / <double> self.N_low         # Low reliability capacity shares
             self.c_K_high = Lambda_K_high / <double> self.N_high            # High reliability capacity shares
-
 
         for i in range(0, self.N_low):
             self.c_F[i] = self.c_F_low
@@ -418,18 +415,20 @@ cdef class Users:
         "User policy function, returns user withdrawal w, given current state: S, s, e, I and M"
         
         cdef int i
-        cdef double[:, :] state = self.state_zero_ch7
+        cdef double[:, :] state = self.state_zero
 
         for i in range(self.N):
             state[i, 0] = S
             state[i, 1] = s[i]
             state[i, 2] = self.e[i]
             state[i, 3] = I
-            state[i, 4] = M
-
-        # Optimal policy
-        self.w = self.policy.get_values(state, self.w)
         
+        # Optimal policy
+        if M == 0:
+            self.w = self.policy0.get_values(state, self.w)
+        else:
+            self.w = self.policy1.get_values(state, self.w)
+
         if self.exploring == 1:
             self.explore(s)
         
@@ -670,6 +669,7 @@ cdef class Users:
         return c_max(P, 0)
 
     cdef double solve_price(self, double Q, double P_guess, double Pmax, double t_cost):
+        
         """
         Solve for exact market clearing price given W
 
@@ -799,6 +799,35 @@ cdef class Users:
 
         self.policy.update(index_low, w_f_low, index_high, w_f_high)
 
+    def update_policy_ch7(self, w_f_low, w_f_high, Np=10, explore=True, N_e=5, d=0):
+        
+        self.N_e = N_e
+        self.d = d
+        
+        if explore:
+            self.exploring = 1
+        else:
+            self.exploring = 0
+
+        if Np == self.N: 
+            index_low = self.I_low
+            index_high = self.I_high
+            self.I_e_l = np.random.choice(np.array(self.I_low), size=self.N_e, replace=False)
+            self.I_e_h = np.random.choice(np.array(self.I_high), size=self.N_e, replace=False)
+        else:
+            index_low = np.random.choice(np.array(self.I_low), size=Np, replace=False)
+            self.I_e_l = index_low[0:self.N_e]
+            if self.share_explore == 1:
+                index_low = np.append(index_low, self.share_e_l)
+
+            index_high = np.random.choice(np.array(self.I_high), size=Np, replace=False)
+            self.I_e_h = index_high[0:self.N_e]
+            if self.share_explore == 1:
+                index_low = np.append(index_high, self.share_e_h)
+
+        self.policy0.update(index_low, w_f_low[0], index_high, w_f_high[0])
+        self.policy1.update(index_low, w_f_low[1], index_high, w_f_high[1])
+
     def set_policy(self, w_f_low, w_f_high):
         
         self.policy = Function_Group(self.N, self.N_low, w_f_low, w_f_high)
@@ -838,7 +867,7 @@ cdef class Users:
 
         return [np.array(Q), np.array(I), np.array(SW)]
 
-    def init_policy(self, Tilecode W_f, Tilecode V_f, Storage storage, Utility utility, linT, CORES, radius):
+    def init_policy(self, Tilecode W_f, Tilecode V_f, Storage storage, linT, CORES, radius):
         
         cdef int i, N = 100000    
         cdef double wplanner = 0
@@ -903,17 +932,22 @@ cdef class Users:
         
         return [[w_f_low, w_f_high], [v_f_low,  v_f_high]]
 
-    def init_policy_ch7(self, Tilecode W_f, Tilecode V_f, Storage storage, Utility utility, linT, CORES, radius):
+    def init_policy_ch7(self, Tilecode W_f, Tilecode V_f, Storage storage, Utility utility, linT, CORES, radius, M):
         
         cdef int i, N = 200000    
         cdef double wplanner = 0
-        cdef double[:] state = np.zeros(4)
-        cdef double s, I, e, S, M
-        cdef double[:,:] X = np.zeros([N, 5])
+        cdef double[:] state = np.zeros(3)
+        cdef double s, I, e, S
+        cdef double[:,:] X = np.zeros([N, 4])
         cdef double[:] w = np.zeros(N)
         cdef double[:] v = np.zeros(N)
         cdef double wp, vp = 0
         cdef double fl
+        
+        if M == 0:
+            fl = utility.fixed_loss
+        else:
+            fl = storage.delta_a[1] * 2
         
         for i in range(N):
             
@@ -921,34 +955,24 @@ cdef class Users:
             X[i, 1] = c_rand() * self.c_F_low * (storage.K - utility.fixed_loss)
             X[i, 2] = c_rand() * 2
             X[i, 3] = c_rand() * storage.Imax / storage.I_bar
-            if i < (N*0.50):
-                X[i, 4] = 0
-            else:
-                X[i, 4] = 1
 
             state[0] = X[i, 1] * (self.c_F_low**-1) + utility.fixed_loss
             state[1] = X[i, 3]    
             state[2] = 1.0
-            state[3] = X[i, 4]
             
             wp = W_f.one_value(state)
             vp = V_f.one_value(state)
             
-            if X[i, 4] == 0:
-                fl = utility.fixed_loss
-            else:
-                fl = storage.delta_a[1] * 2
 
             w[i] = c_max(c_min((wp - fl) * self.c_F_low, X[i, 1]), 0)
             v[i] = vp * self.c_F_low
         
         
         Twv = int((1 / radius) / 2)
-        T = [Twv for t in range(5)]
-        T[4] = 2
+        T = [Twv for t in range(4)]
         L = int(130 / Twv)
-        w_f_low = Tilecode(5, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
-        v_f_low = Tilecode(5, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
+        w_f_low = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
+        v_f_low = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
         w_f_low.fit(X, w)
         v_f_low.fit(X, v)
         
@@ -958,37 +982,29 @@ cdef class Users:
             X[i, 1] = c_rand() * self.c_F_high * (storage.K - utility.fixed_loss)
             X[i, 2] = c_rand() * 2
             X[i, 3] = c_rand() * storage.Imax / storage.I_bar
-            if i < (N*0.50):
-                X[i, 4] = 0
-            else:
-                X[i, 4] = 1
             
             state[0] = X[i, 1] * (self.c_F_high**-1) + utility.fixed_loss
             state[1] = X[i, 3]    
             state[2] = 1.0
-            state[3] = X[i, 4]
 
             wp = W_f.one_value(state)
             vp = V_f.one_value(state)
-            
-            if X[i, 4] == 0:
-                fl = utility.fixed_loss
-            else:
-                fl = storage.delta_a[1] * 2
             
             w[i] = c_max(c_min((wp - fl) * self.c_F_high, X[i, 1]), 0)
             v[i] = vp * self.c_F_high
         
         Twv = int((1 / radius) / 2)
-        T = [Twv for t in range(5)]
-        T[4] = 2
+        T = [Twv for t in range(4)]
         L = int(130 / Twv)
-        w_f_high = Tilecode(5, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
-        v_f_high = Tilecode(5, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
+        w_f_high = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
+        v_f_high = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
         w_f_high.fit(X, w)
         v_f_high.fit(X, v)
         
-        self.policy = Function_Group(self.N, self.N_low, w_f_low, w_f_high)
-        
+        if M == 0:
+            self.policy0 = Function_Group(self.N, self.N_low, w_f_low, w_f_high)
+        else:
+            self.policy1 = Function_Group(self.N, self.N_low, w_f_low, w_f_high)
+
         return [[w_f_low, w_f_high], [v_f_low,  v_f_high]]
 

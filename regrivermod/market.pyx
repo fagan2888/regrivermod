@@ -59,18 +59,18 @@ cdef inline double excess_demand(double P, double Q, double t_cost, int N, doubl
        
         # Environment
 
-        if Q <= min_q:
-            q = 0
+        #if Q <= min_q:
+        #    q = 0
+        #else:
+        if p_e > (P + t_cost):
+            q = c_max(d_c_e + d_b_e * (P + t_cost), 0)
+        elif p_e < P:
+            q = c_max(d_c_e + d_b_e * P, 0)
         else:
-            if p_e > (P + t_cost):
-                q = c_max(d_c_e + d_b_e * (P + t_cost), 0)
-            elif p_e < P:
-                q = c_max(d_c_e + d_b_e * P, 0)
-            else:
-                q = c_max(c_min(a_e, d_c_e), 0)
+            q = c_max(c_min(a_e, d_c_e), 0)
         
-        if q <= min_q:
-            q = 0
+        #if q <= min_q:
+        #    q = 0
 
         Qt += q
         Qt = Qt - Q
@@ -91,8 +91,8 @@ cdef inline double e_demand(double P, double t_cost, double p_e, double d_c_e, d
         else:
             q = c_max(c_min(a_e, d_c_e), 0)
 
-        if q <= min_q:
-            q = 0
+        #if q <= min_q:
+        #    q = 0
 
         return q
 
@@ -150,6 +150,7 @@ cdef class Market:
 
         self.Pmax = c_max(env.Pmax, users.Pmax)
         self.ePmax = env.Pmax
+        self.M = M
 
         if M == 1:
             for i in range(self.N):
@@ -170,7 +171,8 @@ cdef class Market:
         self.d_low.fit(np.array([Qlow, I, B]).T, P)
         self.d_high.fit(np.array([Qhigh, I, B]).T, P)
         self.d_env.fit(np.array([Qenv, I, B]).T, P)
-
+        
+        """
         pylab.figure()
         pylab.clf()
         pylab.title('Effective market demand curve')
@@ -195,7 +197,7 @@ cdef class Market:
         self.d_env.plot(['x', 1, 0.5], showdata=True)
         pylab.show()
 
-        """
+        
         ##################      Estimate perfect market demand curve    ###############
 
         P_perf = np.zeros(points)
@@ -230,6 +232,17 @@ cdef class Market:
         Solve for exact market clearing price given W
 
         """
+
+        cdef double t_cost = self.t_cost
+        if plan == 1:
+            t_cost = 0
+
+        if self.M == 1:
+            if self.d_b_e < 0:
+                return c_max((Q - self.d_c_e)*(self.d_b_e**-1) - t_cost, 0)
+            else:
+                return 0
+
         cdef double[:] state = self.threezeros  
         cdef double P_guess 
         
@@ -251,9 +264,6 @@ cdef class Market:
             self.d_c_e = 0
             self.d_b_e = 0
 
-        cdef double t_cost = self.t_cost
-        if plan == 1:
-            t_cost = 0
 
         cdef double P1 = P_guess
         cdef double tol = 0.01
@@ -344,6 +354,9 @@ cdef class Market:
                 print 'ePmax: ' + str(self.ePmax)
                 print 'EXtemp: ' + str(EXtemp)
                 print 'qetemp: ' + str(qetemp)
+                print 'ae: ' + str(self.ae)
+                print 'tcost: ' + str(t_cost)
+
                 #raise NameError('SpotMarketFail')
         
         self.EX =  excess_demand(P0, Q, t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e)

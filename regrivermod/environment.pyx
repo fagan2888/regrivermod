@@ -48,6 +48,8 @@ cdef class Environment:
         self.q = 0                          # Water consumption
         self.u = 0                          # Payoff
         self.p = 0                          # Marginal value of water (at allocation a)
+    
+        self.t = 0
 
         self.b1 = para.ch7['b_1']                      # Objective function parameters
         self.b_value = para.ch7['b_value']
@@ -76,8 +78,8 @@ cdef class Environment:
         self.min_q = 0
         self.Bhat = 0.5
         self.Pmax = 0
-        self.t = 0
-        self.e_sig = 0.25
+        self.e_sig = para.ch7['e_sig']
+        self.budget = 0
 
         if turn_off:
             self.turn_off = 1
@@ -101,14 +103,19 @@ cdef class Environment:
             np.random.seed(seed)
 
         self.e = np.zeros(T)
-        self.e = truncnorm(-0.5*(self.e_sig**-1), 0.5*(self.e_sig**-1), loc=0.5, scale=self.e_sig).rvs(size=T) 
+        self.e = truncnorm(-1*(self.e_sig**-1), 1*(self.e_sig**-1), loc=1, scale=self.e_sig).rvs(size=T) 
     
-    cdef double consume(self, double P, int planner):
+    def set_shares(self, Lambda):
+
+        self.Lambda_I = Lambda
+        self.Lambda_K = Lambda
+
+    cdef double consume(self, double P, int M, int planner):
 
         # Effective demand
 
         cdef double F3, q = 0
-        cdef t_cost
+        cdef double t_cost = 0
 
         if planner == 1:
             t_cost = 0
@@ -122,25 +129,25 @@ cdef class Environment:
         else:
             q = c_max(c_min(self.a, self.d_c), 0)
         
-        if q <= self.min_q:
-            q = 0
+        if M == 1:
+            self.q = c_max(q, self.a)
+        else:
+            self.q = q
         
-        self.q = q
-
         if planner == 1:
             self.a = q
 
         return q
     
-    cdef allocate(self, double a, double Z, double max_R, double F1_tilde, double F3_tilde, double Pr, int M):
+    cdef void allocate(self, double a, double Z, double max_R, double F1_tilde, double F3_tilde, double Pr, int M):
 
-        cdef double F3 = 0
+        cdef double F1, F3 = 0
         cdef double b1hat, bhat3
         cdef double F1_marg = 0
         cdef double F3_marg = 0
 
-        self.a = a
         self.Bhat *= Pr
+        self.a = a
 
         if self.turn_off == 1:
             self.d_c = 0
@@ -149,27 +156,31 @@ cdef class Environment:
             if M == 0:
                 if F3_tilde > 0:
                     b3hat = (2 * self.b3 * self.b_value * self.Bhat) / F3_tilde
-                    self.min_q = c_max((self.delta_a[M] - Z) / self.DELTA0 , 0)
+                    self.min_q =  0 #c_max((self.delta_a[M] - Z) / self.DELTA0 , 0)
                     
                     # Demand coefficients
-                    self.d_c = (F3_tilde - Z - max_R + self.delta_a[M])*(self.DELTA0**-1)
+                    self.d_c = (F3_tilde - Z - max_R)*(self.DELTA0**-1)
                     self.d_b = -1* (b3hat**-1) * (self.DELTA0**-2) * F3_tilde
                 
                     # Inverse demand
-                    F3 = c_max(Z + self.DELTA0 * a - self.delta_a[0], 0) + max_R
+                    F3 = c_max(Z + self.DELTA0 * a, 0) + max_R
                     self.p = b3hat * self.DELTA0 * (1 - F3 / F3_tilde) 
-                
-                    self.Pmax = (self.min_q - self.d_c)*self.d_b**-1
+                    if self.d_b < 0:
+                        self.Pmax = (self.min_q - self.d_c)*self.d_b**-1
+                    else:
+                        self.Pmax = 0 
                 else:
                     self.d_c = 0
                     self.d_b = 0
                     self.p = 0
                     self.Pmax = 0
+                    self.min_q = 0
 
             elif M == 1:
                 if F1_tilde > 0 and F3_tilde > 0:
                     b1hat = (2 * self.b1 * self.b_value * self.Bhat) / F1_tilde
                     b3hat = (2 * self.b3 * self.b_value * self.Bhat) / F3_tilde
+                    self.min_q = 0
                 
                     # Demand coefficients
                     self.d_c =  (self.DELTA1**-1) * ((b1hat + b3hat - 2*self.delta_a[M]*b1hat*(F1_tilde**-1)) / ((b1hat*F1_tilde**-1) + b3hat*(F3_tilde**-1)) - Z)
@@ -179,18 +190,21 @@ cdef class Environment:
                     F1 = Z + self.DELTA1 * a + 2 * self.delta_a[1] 
                     F3 = F1 - 2 * self.delta_a[1]
                    
-                    F1_marg = (1 - F1 / F1_tilde)
-                    F3_marg = (1 - F3 / F3_tilde)
+                    F1_marg = (1 - F1 * (F1_tilde**-1))
+                    F3_marg = (1 - F3 * (F3_tilde**-1))
                 
                     self.p = c_max(b1hat * self.DELTA1 * F1_marg + b3hat * self.DELTA1 * F3_marg, 0)
 
-                    self.Pmax = (self.min_q - self.d_c)*self.d_b**-1
+                    if self.d_b < 0:
+                        self.Pmax = (self.min_q - self.d_c)*self.d_b**-1
+                    else:
+                        self.Pmax = 0
                 else:
                     self.d_c = 0
                     self.d_b = 0
                     self.min_q = 0
                     self.p = 0
-
+                    self.Pmax = 0
 
     
     @cython.cdivision(True)
@@ -199,6 +213,7 @@ cdef class Environment:
         cdef double u = 0
         cdef double deltaF1
         cdef double deltaF3
+        cdef double trade = 0
 
         if F1_tilde  > 0:
             deltaF1 = c_min(((F1_tilde - F1)/F1_tilde)**2, 1)
@@ -213,15 +228,26 @@ cdef class Environment:
         
         if self.turn_off == 0:
             if self.q > self.a:     # Water buyer
-                self.u += (self.a - self.q) * (P + self.t_cost)
+                trade = (self.a - self.q) * (P + self.t_cost)
             else:                   # Water seller or non-trader
-                self.u += (self.a - self.q) * P
+                trade = (self.a - self.q) * P
         
-        self.Bhat = self.e[self.t]  #self.Bhat_alpha * (self.b1 * deltaF1 + self.b3 * deltaF3) + (1- self.Bhat_alpha) * self.Bhat
-        self.t += 1
+        self.budget = trade 
+        self.u += trade
 
         return self.u
+
+    cdef double update(self):
+
+        self.Bhat = self.e[self.t]  #self.Bhat_alpha * (self.b1 * deltaF1 + self.b3 * deltaF3) + (1- self.Bhat_alpha) * self.Bhat
+        self.t += 1
     
+    def update_policy(self, W_f):
+
+        self.policy0 = W_f[0]
+        self.policy1 = W_f[1]
+        self.budget = 0
+
     cdef double withdraw(self, double S, double s, double I, int M):
         
         cdef double[:] state = self.state_zero  
@@ -231,12 +257,14 @@ cdef class Environment:
         state[1] = s
         state[2] = I
         state[3] = self.Bhat
-        state[4] = M
 
         if self.turn_off == 1:
             self.w = 0
         else:
-            self.w = c_max(c_min(self.policy.one_value(state), s), 0)
+            if M == 0:
+                self.w = c_max(c_min(self.policy0.one_value(state), s), 0)
+            else:
+                self.w = c_max(c_min(self.policy1.one_value(state), s), 0)
 
             if self.explore == 1:
                 U = c_rand()
@@ -249,7 +277,7 @@ cdef class Environment:
         P = np.linspace(0, self.Pmax*1.1, 600)
         Q = np.zeros(600)
         for i in range(600):
-            Q[i] = self.consume(P[i], 1)
+            Q[i] = self.consume(P[i], 0, 1)
         print 'Pmax: ' + str(self.Pmax)
         import pylab
         pylab.plot(Q, P)
@@ -261,15 +289,20 @@ cdef class Environment:
         self.explore = explore
         self.d = d
 
-    def init_policy(self, Tilecode W_f, Tilecode V_f, Storage storage, Utility utility, linT, CORES, radius):
+    def init_policy(self, Tilecode W_f, Tilecode V_f, Storage storage, Utility utility, linT, CORES, radius, m):
 
         cdef int i, N = 200000    
-        cdef double[:] state = np.zeros(4)
-        cdef double[:,:] X = np.zeros([N, 5])
+        cdef double[:] state = np.zeros(3)
+        cdef double[:,:] X = np.zeros([N, 4])
         cdef double[:] w = np.zeros(N)
         cdef double[:] v = np.zeros(N)
         cdef double wp, vp = 0
         cdef double fl = 0
+
+        if m == 0:
+            fl = utility.fixed_loss
+        else:
+            fl = storage.delta_a[1] * 2
 
         for i in range(N):
             
@@ -277,33 +310,28 @@ cdef class Environment:
             X[i, 1] = c_rand() * self.Lambda_K * (storage.K - utility.fixed_loss)
             X[i, 2] = c_rand() * storage.Imax  * (storage.I_bar**-1)
             X[i, 3] = c_rand() * 2
-            if i < (N*0.50):
-                X[i, 4] = 0
-            else:
-                X[i, 4] = 1
             
             state[0] = X[i, 1] * (self.Lambda_I**-1) + utility.fixed_loss
             state[1] = X[i, 2]   
             state[2] = X[i, 3] 
-            state[3] = X[i, 4]    
             
             wp = W_f.one_value(state)
             vp = V_f.one_value(state)
-          
-            if X[i, 4] == 0:
-                fl = utility.fixed_loss
-            else:
-                fl = storage.delta_a[1] * 2
             
             w[i] = c_max(c_min((wp - fl) * self.Lambda_I, X[i, 1]), 0)
             v[i] = vp * self.Lambda_I
         
         Twv = int((1 / radius) / 2)
-        T = [Twv for t in range(5)]
-        T[4] = 2
+        T = [Twv for t in range(4)]
         L = int(130 / Twv)
-        self.policy = Tilecode(5, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
-        self.value = Tilecode(5, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
         
-        self.policy.fit(X, w)
-        self.value.fit(X, v)
+        if m == 0:
+            self.policy0 = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
+            self.value0 = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
+            self.policy0.fit(X, w)
+            self.value0.fit(X, v)
+        else:
+            self.policy1 = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
+            self.value1 = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
+            self.policy1.fit(X, w)
+            self.value1.fit(X, v)

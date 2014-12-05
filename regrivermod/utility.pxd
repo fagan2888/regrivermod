@@ -8,6 +8,7 @@ cdef class Utility:
     cdef int N, N_low, N_high
     cdef int[:] I_low, I_high
     cdef int I_env
+    cdef int fail
 
     cdef double K
     cdef public int sr
@@ -43,8 +44,9 @@ cdef class Utility:
     cdef double[:] temp5
     cdef public double oldS
 
-    cdef public Tilecode policy
-    cdef public double[:] state_zero, three_zeros
+    cdef public Tilecode policy0
+    cdef public Tilecode policy1
+    cdef public double[:] two_zeros, three_zeros
     cdef public double[:] N_zeros
     cdef public int explore
     cdef public double d

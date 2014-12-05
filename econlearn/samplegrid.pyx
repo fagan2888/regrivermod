@@ -5,7 +5,7 @@ import numpy as np
 cimport cython
 cimport numpy as np
 import pylab
-from tile_wrapper import TilecodeSamplegrid
+from tile import TilecodeSamplegrid
 
 from libc.math cimport fmin as c_min
 from libc.math cimport fmax as c_max

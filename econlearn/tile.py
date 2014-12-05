@@ -139,17 +139,8 @@ class TilecodeRegressor:
     Attributes
     -----------
 
-    tile : Tilecode instance
+    tile : Cython Tilecode instance
     
-    Examples
-    --------
-
-    See also
-    --------
-
-    Notes
-    -----
-
     """
 
     def __init__(self, D, T, L, mem_max = 1, min_sample=1, offset='optimal', lin_spline=False, linT=7, cores=4):
@@ -218,6 +209,11 @@ class TilecodeRegressor:
 
     def check_memory(self, ):
         
+        """
+        Provides information on the current memory usage of the tilecoding scheme.
+        If memory usage is an issue call this function after fitting and then consider rebuilding the scheme with a lower `mem_max` parameter.
+        """
+
         print 'Number of Layers: ' + str(self.tile.L)
         print 'Tiles per layer: ' + str(self.tile.SIZE)
         print 'Total tiles: ' + str(self.tile.L * self.tile.SIZE)
@@ -268,10 +264,10 @@ class TilecodeRegressor:
         self.tile.plot(xargs=xargs, showdata=showdata)
         pylab.show()
 
-class TilecodeDensity():
+class TilecodeDensity:
 
     """    
-    Tile coding approximation of the pdf / cdf of X  
+    Tile coding approximation of the pdf of X  
     Fits by averaging. Supports multi-core fit and predict.
     Options for uniform, random or 'optimal' displacement vectors.
 
@@ -339,7 +335,7 @@ class TilecodeDensity():
     def plot(self, xargs=['x']):
 
         """
-        Plot the pdf / cdf on along one dimension, holding others fixed 
+        Plot the pdf along one dimension, holding others fixed 
 
         Parameters
         -----------
@@ -350,3 +346,25 @@ class TilecodeDensity():
 
         self.tile.plot_prob(xargs=xargs)
         pylab.show()
+
+    def sample(self, T):
+
+        """
+        Draw a random sample from the pdf of length T
+
+        Parameters
+        -----------
+        T : int 
+            Sample size
+
+        Returns
+        --------
+    
+        X : array, shape=(T, D)
+            Random sample
+        """
+        idx = np.array(range(self.tile.N))
+        np.random.choice(idx, T, replace=True)
+        X = np.zeros([T, self.tile.D])
+
+
