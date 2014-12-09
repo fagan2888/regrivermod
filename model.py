@@ -59,7 +59,7 @@ class Model:
         SR = self.utility.sr
         self.utility.sr = -1
         
-        self.sim.ITER = 0
+        #self.sim.ITER = 0
         self.sim.simulate(self.users, self.storage, self.utility, simT, self.para.CPU_CORES, planner=True, policy=False, polf=0, delta=0, stats=True, planner_explore=False, t_cost_off=True, seed=seed, myopic=True)
 
         self.utility.sr = SR
@@ -271,8 +271,10 @@ class Model:
         
         #stats, qv = 
         self.multiQV_ch7(ITER=self.para.ITER1, init=True)
-        
+        """
         ##################          Main Q-learning              #################
+        env_lambda = self.env.Lambda_I
+        delta = 0.01 
         
         print '\nSolve decentralised problem, multiple agent fitted QV iteration ...'
         
@@ -287,16 +289,18 @@ class Model:
             self.env.update_policy(qv[2].W_f)
             self.env.d = self.para.envd[i]
             
-            """ 
-            if np.mean(self.series['B']) > 0:
-                env_lambda = min(env.Lambda_I + 0.01, 0.99)
+            money = np.mean(self.sim.series['Budget']) 
+            print 'Mean EWH budget outcome: ' + str(money)
+            if  money > 0:
+                env_lambda = max(min(env_lambda - delta * 0.9, 0.99), 0.01)
             else:
-                env_lambda = min(env.Lambda_I - 0.01, 0.99)
+                env_lambda = max(min(env_lambda + delta * 0.9, 0.99), 0.01)
+            print 'New EWH share: ' + str(env_lambda)
             
             self.env.set_shares(env_lambda) 
-            self.users.set_shares(self.para.Lambda_high, env_lambda, env_lambda):
-            self.utility.set_shares(self.para.Lambda_high, self.users)
-            """
+            self.users.set_shares(self.para.Lambda_high, env_lambda, env_lambda)
+            self.utility.set_shares(self.para.Lambda_high, self.users, self.env)
+            print 'New EWH share: ' + str(self.env.Lambda_I)
 
         self.users.exploring = 0
         self.env.explore = 0
@@ -304,7 +308,7 @@ class Model:
         
         big_toc = time()
         print "Total time (minutes): " + str(round((big_toc - big_tic) / 60, 2))
-
+        """
     def multiQV_ch7(self, ITER, init=False, eta=0.7, partial=False):
         
         tic = time()
@@ -340,7 +344,7 @@ class Model:
             bigT = int(self.para.T2_ch7 / 2)
         
         self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, bigT,self.para.CPU_CORES, partial=partial, stats=False) #
-        
+        """ 
         # Feasibility constraints
         Alow = lambda X: 0              # w > 0
         Ahigh = lambda X: X[1]          # w < s
@@ -368,7 +372,7 @@ class Model:
         toc = time()
         st = toc - tic    
         print 'Total time: ' + str(st)
-        
+        """
         return [self.sim.stats, self.qv_multi]
         
     def multiQV(self, ITER, init=False, type='ASGD', eta=0.7, testing=False, test_idx=0, partial=False):

@@ -146,10 +146,10 @@ cdef class Users:
         #--------------------------------------#
 
         high_c = para.Lambda_high
-        low_c = (1 - para.Lambda_high)
+        low_c = (1 - para.Lambda_high )
+        
         if ch7:
-            high_c *= (1 - para.ch7['inflow_share'])
-            low_c *= (1 - para.ch7['inflow_share'])
+            low_c = low_c - para.ch7['inflow_share']
 
         self.c_F_low = low_c / <double> self.N_low                  # Low reliability inflow shares
         self.c_K_low = low_c / <double> self.N_low                  # Low reliability capacity shares
@@ -348,19 +348,15 @@ cdef class Users:
             self.c_K[i] = self.c_K_high
 
 
-    def set_shares_ch7(self, double Lambda_high, double env_I, double env_K, unbundled=False, Lambda_K_high=0):
+    def set_shares_ch7(self, double Lambda_high, double env_I, double env_K):
 
-        self.c_F_low = (1 - env_I) * (1 - Lambda_high) / <double> self.N_low                # Low reliability inflow shares
-        self.c_K_low = (1 - env_K) * (1 - Lambda_high) / <double> self.N_low                # Low reliability capacity shares
-        self.c_F_high = (1 - env_I) * Lambda_high / <double> self.N_high                  # High reliability inflow shares
-        self.c_K_high = (1 - env_K) * Lambda_high / <double> self.N_high                  # High reliability capacity shares
+        self.c_F_low = (1 - Lambda_high - env_I) / <double> self.N_low                # Low reliability inflow shares
+        self.c_K_low = (1 - Lambda_high - env_K) / <double> self.N_low                # Low reliability capacity shares
+        self.c_F_high = Lambda_high / <double> self.N_high                  # High reliability inflow shares
+        self.c_K_high = Lambda_high / <double> self.N_high                  # High reliability capacity shares
 
         self.c_F = np.zeros(self.N)
         self.c_K = np.zeros(self.N)
-
-        if unbundled:
-            self.c_K_low = (1- Lambda_K_high) / <double> self.N_low         # Low reliability capacity shares
-            self.c_K_high = Lambda_K_high / <double> self.N_high            # High reliability capacity shares
 
         for i in range(0, self.N_low):
             self.c_F[i] = self.c_F_low

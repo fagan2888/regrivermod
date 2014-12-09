@@ -1,4 +1,3 @@
-#!python
 #cython: boundscheck=False, wraparound=False, nonecheck=False, cdivision=True, initializedcheck=False
 
 from __future__ import division
@@ -233,10 +232,15 @@ cdef class Utility:
     def set_shares(self, Lambda_high, users, env=0):
 
         self.Lambda_high = Lambda_high
+        
+        cdef int i 
 
         if self.ch7 == 1:
-            self.c_F = np.array([users.c_F + env.c_F])
-            self.c_K = np.array([users.c_K + env.c_K])
+            for i in range(self.N - 1):
+                self.c_F[i] = users.c_F[i] 
+                self.c_K[i] = users.c_K[i] 
+            self.c_F[self.N - 1] = env.Lambda_I
+            self.c_K[self.N - 1] = env.Lambda_K
         else:
             self.c_F = users.c_F                        # User inflow shares
             self.c_K = users.c_K                        # User capacity shares

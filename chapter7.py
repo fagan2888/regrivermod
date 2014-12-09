@@ -19,7 +19,7 @@ para = Para(rebuild=True)
 # Planner with central parameters
 #==========================================
 
-para.set_property_rights(scenario='SWA')
+para.set_property_rights(scenario='CS')
 para.ch7['inflow_share'] = 0.25
 para.ch7['capacity_share'] = 0.25
 

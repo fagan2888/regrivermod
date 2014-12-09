@@ -1,12 +1,19 @@
 from __future__ import division
 import numpy as np
-from scipy.stats import lognorm, norm, uniform, gamma
+from scipy.stats import lognorm, norm, uniform, gamma, truncnorm
 from scipy.optimize import brentq, newton
 from math import log, exp
 import pandas        
 import pylab
 import pickle
 import multiprocessing as mp
+
+def removekeys(d, keys):
+    r = dict(d)
+    for key in keys:
+        del r[key]
+    return r 
+    
 
 class Para:
 
@@ -470,6 +477,37 @@ class Para:
                 self.Lambda_high = self.prop * 1.5
         else:
             self.Lambda_high = self.prop
+   
+    def aproximate_shares(self, ):
+        
+        home = '/home/nealbob'
+        model = '/Dropbox/Model/'
+        
+        with open(home + model + 'sharemodel.pkl', 'rb') as f:
+           tree = pickle.load(f)
+           f.close()
+
+        temp = removekeys(self.para_list, ['sig_eta', 'rho_eps', 'delta0'])
+
+        X = np.array([temp[p] for p in temp])
+        Y = tree.predict(X)
+        print X
+        print Y
+
+        if self.sr == 'RS':
+            if self.HL == 1:
+                y = Y[0,2]
+            else:
+                y = Y[0,0]
+        else:
+            if self.HL == 1:
+                y = Y[0,3]
+            else:
+                y = Y[0,1]
+
+        print y
+        y = truncnorm((0.001 - y) / 0.025, (0.999 - y) / 0.025, loc=y, scale=0.025).rvs()
+        print y
 
     def central_case(self, N=100, utility=False, printp=True, risk=0):
         
@@ -566,7 +604,7 @@ class Para:
             self.risk_aversion_low = 0
             self.risk_aversion_high = 0
         
-        self.para_list = {'I_K': I_K, 'SD_I' : SD_I, 'Prop_high' :  self.prop, 't_cost' : self.t_cost, 'L' : self.Land,'N_high' : self.N_high, 'rho_I' : self.rho_I, 'SA_K' : SA_K, 'alpha' : self.alpha, 'delta1a' : self.delta1a, 'delta1b' : self.delta1b}
+        self.para_list = {'I_K': I_K, 'SD_I' : SD_I, 'Prop_high' :  self.prop, 't_cost' : self.t_cost, 'L' : self.Land,'N_high' : self.N_high, 'rho_I' : self.rho_I, 'SA_K' : SA_K, 'alpha' : self.alpha, 'delta1a' : self.delta1a, 'delta1b' : self.delta1b, 'risk' : risk, 'rho_eps' : self.rho_eps, 'sig_eta' : self.sig_eta, 'delta0' : self.delta0}
         
         if printp:
             print '\n --- Main parameters --- \n'
@@ -740,7 +778,7 @@ class Para:
         
         self.Lambda_high = max(min(self.prop, 0.95), 0)  #* (np.random.rand() * (self.Lambda_high_param[1]-self.Lambda_high_param[0]) + self.Lambda_high_param[0]),0.95),0)
         
-        self.para_list = {'I_K' : I_K, 'SD_I' : SD_I, 'Prop_high' :  self.prop, 't_cost' : self.t_cost, 'L' : self.Land,'N_high' : self.N_high, 'rho_I' : self.rho_I, 'SA_K' : SA_K, 'alpha' : self.alpha, 'delta1a' : self.delta1a, 'delta1b' : self.delta1b, 'risk' : risk}
+        self.para_list = {'I_K' : I_K, 'SD_I' : SD_I, 'Prop_high' :  self.prop, 't_cost' : self.t_cost, 'L' : self.Land,'N_high' : self.N_high, 'rho_I' : self.rho_I, 'SA_K' : SA_K, 'alpha' : self.alpha, 'delta1a' : self.delta1a, 'delta1b' : self.delta1b, 'risk' : risk, 'rho_eps' : self.rho_eps, 'sig_eta' : self.sig_eta,  'delta0' : self.delta0}
         
         print '\n --- Main parameters --- \n'
         print 'Inflow to capacity: ' + str(I_K)

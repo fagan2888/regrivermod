@@ -13,11 +13,11 @@ def solution(W_f, V_f, SW_f):
     out = '/Dropbox/Thesis/IMG/chapter3/'
     img_ext = '.pdf'
 
-    K = max(W_f.xdata[:,0])
-    X =[np.linspace(0, K, 200), np.ones(200)]
-    X0 =[np.linspace(0, K, 200), np.zeros(200)]
-    W = W_f(X)
-    W0 = W_f(X0)
+    K = max(W_f.X[:,0])
+    X =np.array([np.linspace(0, K, 200), np.ones(200)]).T
+    X0 =np.array([np.linspace(0, K, 200), np.zeros(200)]).T
+    W = W_f.predict(X)
+    W0 = W_f.predict(X0)
 
     # Policy chart
     data0 = []
@@ -25,10 +25,10 @@ def solution(W_f, V_f, SW_f):
         record = {}
         record['Optimal $I_t = E[I_t]$'] = W[i] / 1000
         record['Optimal $I_t = 0$'] = W0[i] / 1000
-        record['Myopic'] = X[0][i] / 1000
+        record['Myopic'] = X[i, 0] / 1000
         data0.append(record)
     data = pandas.DataFrame(data0)
-    data.index = X[0]/1000
+    data.index = X[:,0]/1000
     chart = {'OUTFILE' : (home + out + 'Policy' + img_ext),
       'YLABEL' : 'Withdrawal (GL)',
       'XLABEL' : 'Storage (GL)', 
@@ -37,8 +37,8 @@ def solution(W_f, V_f, SW_f):
     
     build_chart(chart, data, chart_type='date', ylim = True)
     
-    V = V_f(X)
-    V0 = V_f(X0)
+    V = V_f.predict(X)
+    V0 = V_f.predict(X0)
 
     #Value chart
     data0 = []
@@ -48,7 +48,7 @@ def solution(W_f, V_f, SW_f):
         record['Optimal $I_t = 0$'] = V0[i] / 1000000
         data0.append(record)
     data = pandas.DataFrame(data0)
-    data.index = X[0]/1000
+    data.index = X[:,0]/1000
 
     chart = {'OUTFILE' : (home + out + 'Value' + img_ext),
       'YLABEL' : 'Value (\$m)',
@@ -56,13 +56,13 @@ def solution(W_f, V_f, SW_f):
     
     build_chart(chart, data, chart_type='date')
     
-    K = max(SW_f.xdata[:,0])
-    X =[np.linspace(0, K, 200), np.ones(200)]
-    X0 =[np.linspace(0, K, 200), np.ones(200)*0.5]
-    X2 =[np.linspace(0, K, 200), np.ones(200)*2]
-    SW = SW_f(X)
-    SW0 = SW_f(X0)
-    SW2 = SW_f(X2)
+    K = max(SW_f.X[:,0])
+    X =np.array([np.linspace(0, K, 200), np.ones(200)]).T
+    X0 =np.array([np.linspace(0, K, 200), np.ones(200)*0.5]).T
+    X2 =np.array([np.linspace(0, K, 200), np.ones(200)*2]).T
+    SW = SW_f.predict(X)
+    SW0 = SW_f.predict(X0)
+    SW2 = SW_f.predict(X2)
 
     #Social welfare
     #data0 = []
@@ -72,7 +72,7 @@ def solution(W_f, V_f, SW_f):
         #record['$\tilde I_t = 0.5$'] = SW0[i] / 1000000
         #record['$\tilde I_t = 2$'] = SW2[i] / 1000000
     #    data0.append(record)
-    data = [[X[0]/1000, SW/1000000]] #pandas.DataFrame(data0)
+    data = [[X[:,0]/1000, SW/1000000]] #pandas.DataFrame(data0)
 
     chart = {'OUTFILE' : (home + out + 'Welfare_f' + img_ext),
       'YLABEL' : 'Social welfare (\$m)',
@@ -167,9 +167,9 @@ def tables(result=0):
     img_ext = '.pdf'
     table_out = '/Dropbox/Thesis/STATS/chapter3/'       
    
-    with open(home + inf + 'result.pkl', 'rb') as f:
-        result = pickle.load(f)
-        f.close()
+    #with open(home + inf + 'result.pkl', 'rb') as f:
+    #    result = pickle.load(f)
+    #    f.close()
 
     ### Result Tables
 
@@ -217,7 +217,7 @@ def tables(result=0):
         #    f.write(tab.to_latex(float_format =  '{:,.1f}'.format, columns=['Mean', 'SD', '2.5th', '25th', '75th', '97.5th'])) 
         #    f.close()
     
-def sens_results():
+def sens_results(result):
 
     home = '/home/nealbob'
     inf = '/Dropbox/Model/Results/chapter3/'
@@ -225,11 +225,11 @@ def sens_results():
     img_ext = '.pdf'
     table_out = '/Dropbox/Thesis/STATS/chapter3/'       
    
-    import chart
+    import chart3
 
-    with open(home + inf + 'result.pkl', 'rb') as f:
-        result = pickle.load(f)
-        f.close()
+    #with open(home + inf + 'result.pkl', 'rb') as f:
+    #    result = pickle.load(f)
+    #    f.close()
     
     data = {'W' : 0, 'S' : 0, 'SW' : 0, 'Z' : 0}
     data0 = []
@@ -267,7 +267,7 @@ def sens_results():
             myo = myo[SAMP]
             idx = idx[SAMP]
 
-            chart.chart(idx, 0.98*min(idx), 1.02*max(idx), 'Myopic relative to optimal', x + '_' + y + '_index')
+            chart3.chart(idx, 0.98*min(idx), 1.02*max(idx), 'Myopic relative to optimal', x + '_' + y + '_index')
         
             data0 = []
             record = {}
@@ -389,7 +389,7 @@ def sens_results():
                 tab.index = ['Index'] + para_names
                 tab = tab.sort(columns=['Importance'], ascending=False)
                 with open(home + table_out + x + "_sens_table.txt", "w") as f:
-                    f.write(tab.to_latex(float_format =  '{:,.2f}'.format, columns=['Importance', 'Bottom 10%', 'Mean', 'Top 10%'])) 
+                    f.write(tab.to_latex(float_format =  '{:,.2f}'.format, columns=['Importance', '$<$ 10th percentile', 'Mean', '$>$ 90th percentile'])) 
                     f.close()
                 
                 for i in [0,3,8, 7]:

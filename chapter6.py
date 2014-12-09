@@ -136,7 +136,6 @@ for i in range(N):
     para.CPU_CORES = 2
     paralist.append(para)            
 
-    """
     ques = [RetryQueue(), RetryQueue()]
     args = [(para, 'CS-O', ques[0]), (para, 'CS-HL-O', ques[1])]
     jobs = [multiprocessing.Process(target=solve_model, args=(a)) for a in args]
