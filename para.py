@@ -900,7 +900,7 @@ class Para:
         self.update_rate_ch7 = [4] * 150 #+ [0.05] * 5
         
         #Proportion of sample size to replace each iteration (< 1 implies rolling batch)
-        self.sample_rate = 0.20
+        self.sample_rate = 0.15
         
         # Number of exploring agents per class
         #self.N_e = [5] * 4 + [4] * 4 + [3] * 4 + [2] * 150
@@ -913,7 +913,7 @@ class Para:
         self.envd = [0.3] * 4 + [0.2] * 4 + [0.15] * 4 + [0.1] * 150
 
         # Total sample size, actual sim length = T1 / (2*N_e)
-        self.T2 = 750000
+        self.T2 = 500000
         self.T2_ch7 = 600000
 
         # State sample grid parameters
