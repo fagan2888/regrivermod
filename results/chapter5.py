@@ -24,136 +24,116 @@ def main(result = 0, sens = 0):
     table_out = '/Dropbox/Thesis/STATS/chapter5/'
 
     scen = ['CS', 'SWA', 'OA', 'NS']
+    
     if result == 0:
         with open(home + folder + '0_result.pkl', 'rb') as f:
             result = pickle.load(f)
             f.close()
-    if sens > 0:
-        sens_list = [1, 1.25, 1.5, 1.75, 2]
-        temp = np.zeros(5)
-        n = result['CS']['stats'][sens]['SW'].shape[0]
-        data0 = []
-        for i in range(5):
-            record = {}
-            for sr in scen:
-                record[sr] = result[sr]['stats'][i]['SW'][(n - 1)]['Mean'] / 1000000
-
-            temp[i] = result[sr]['paras'][i]['Prop_high'] * sens_list[i]
-            data0.append(record)
-
-        data = pandas.DataFrame(data0)
-        data.index = temp
-        chart = {'OUTFILE': home + out + 'Lambda' + img_ext,
-         'XLABEL': 'Inflow share $\\Lambda_{high}$',
-         'YLABEL': 'Mean social welfare $\\sum_{i=1}^n u_{it}$ (\\$M)'}
-        build_chart(chart, data, chart_type='date')
+    
     data0 = []
     n = result['CS']['VE'][sens].shape[0]
-    for i in range(50, n):
+    for i in range(n):
         record = {}
         for sr in scen:
             record[sr] = max(result[sr]['VE'][sens][i][0], 0.0005)
-
         data0.append(record)
-
     data = pandas.DataFrame(data0)
     chart = {'OUTFILE': home + out + 'VE_low' + img_ext,
      'YLABEL': 'Value function error',
      'XLABEL': 'Iteration'}
     build_chart(chart, data, chart_type='date')
     data0 = []
+
     n = result['CS']['VE'][sens].shape[0]
-    for i in range(50, n):
+    for i in range(n):
         record = {}
         for sr in scen:
             record[sr] = max(result[sr]['VE'][sens][i][1], 0.0005)
-
         data0.append(record)
-
     data = pandas.DataFrame(data0)
     chart = {'OUTFILE': home + out + 'VE_high' + img_ext,
      'YLABEL': 'Value function error',
      'XLABEL': 'Iteration'}
     build_chart(chart, data, chart_type='date')
+    
     data0 = []
     n = result['CS']['PE'][sens].shape[0]
-    for i in range(50, n):
+    for i in range(n):
         record = {}
         for sr in scen:
             record[sr] = abs(result[sr]['PE'][sens][i][0])
-
         data0.append(record)
-
     data = pandas.DataFrame(data0)
     chart = {'OUTFILE': home + out + 'PE_low' + img_ext,
      'YLABEL': 'Policy function error',
      'XLABEL': 'Iteration'}
     build_chart(chart, data, chart_type='date')
     data0 = []
+    
     n = result['CS']['PE'][sens].shape[0]
-    for i in range(50, n):
+    for i in range(n):
         record = {}
         for sr in scen:
             record[sr] = abs(result[sr]['PE'][sens][i][1])
-
         data0.append(record)
-
     data = pandas.DataFrame(data0)
     chart = {'OUTFILE': home + out + 'PE_high' + img_ext,
      'YLABEL': 'Policy function error',
      'XLABEL': 'Iteration'}
     build_chart(chart, data, chart_type='date')
+    
+    
     data0 = []
-    n = result['CS']['stats'][sens]['SW'].shape[0]
+    n = result['CS']['stats'][sens]['SW'].shape[0] - 1
     for i in range(n):
         record = {}
         for sr in scen:
             record[sr] = result[sr]['stats'][sens]['S'][i]['Mean'] / 1000
-
         data0.append(record)
-
     data = pandas.DataFrame(data0)
     chart = {'OUTFILE': home + out + 'Storage' + img_ext,
      'YLABEL': 'Mean storage $S_t$ (GL)',
      'XLABEL': 'Iteration'}
     build_chart(chart, data, chart_type='date')
+    
+    
     data0 = []
-    n = result['CS']['stats'][sens]['S'].shape[0]
+    n = result['CS']['stats'][sens]['S'].shape[0] - 1
     for i in range(n):
         record = {}
         for sr in scen:
             record[sr] = result[sr]['stats'][sens]['S'][i]['Mean'] / 1000 - result[sr]['stats'][sens]['W'][i]['Mean'] / 1000
-
         data0.append(record)
-
     data = pandas.DataFrame(data0)
     chart = {'OUTFILE': home + out + 'Reserve' + img_ext,
      'YLABEL': 'Mean storage reserve $S_t - W_t$ (GL)',
      'XLABEL': 'Iteration'}
     build_chart(chart, data, chart_type='date')
+    
+    
     data0 = []
     for i in range(n):
         record = {}
         for sr in scen:
             record[sr] = result[sr]['stats'][sens]['SW'][i]['Mean'] / 1000000
-
         data0.append(record)
-
     data = pandas.DataFrame(data0)
     chart = {'OUTFILE': home + out + 'Welfare' + img_ext,
      'YLABEL': 'Mean social welfare $\\sum_{i=1}^n u_{it}$ (\\$M)',
      'XLABEL': 'Iteration'}
     build_chart(chart, data, chart_type='date')
+
+    n = result['CS']['stats'][sens]['S'].shape[0] - 2
     pol_low = np.zeros(4)
     i = 0
     for sr in ['CS','SWA', 'OA','NS']:
-        pol_low[i] = result[sr]['stats'][sens]['W_low'][21]['Mean'] / result[sr]['stats'][sens]['S_low'][21]['Mean']
+        pol_low[i] = result[sr]['stats'][sens]['W_low'][n]['Mean'] / result[sr]['stats'][sens]['S_low'][n]['Mean']
         i += 1
 
     pol_high = np.zeros(4)
     i = 0
     for sr in ['CS', 'SWA', 'OA', 'NS']:
-        pol_high[i] = result[sr]['stats'][sens]['W_high'][21]['Mean'] / result[sr]['stats'][sens]['S_high'][21]['Mean']
+        pol_high[i] = result[sr]['stats'][sens]['W_high'][n]['Mean'] / result[sr]['stats'][sens]['S_high'][n]['Mean']
         i += 1
 
     chart = {'OUTFILE': home + out + 'user' + img_ext,
@@ -167,13 +147,13 @@ def main(result = 0, sens = 0):
     pol_low = np.zeros(4)
     i = 0
     for sr in ['CS', 'SWA', 'OA','NS']:
-        pol_low[i] = (result[sr]['stats'][sens]['X_low'][21]['Mean'] - result['CS']['stats'][sens]['X_low'][21]['Min']) / result[sr]['stats'][sens]['S_low'][21]['Mean']
+        pol_low[i] = (result[sr]['stats'][sens]['X_low'][n]['Mean'] ) / result['CS']['stats'][sens]['S_low'][n]['Max']
         i += 1
 
     pol_high = np.zeros(4)
     i = 0
     for sr in ['CS', 'SWA', 'OA', 'NS']:
-        pol_high[i] = (result[sr]['stats'][sens]['X_high'][21]['Mean'] - result['CS']['stats'][sens]['X_high'][21]['Min']) / result[sr]['stats'][sens]['S_high'][21]['Mean']
+        pol_high[i] = (result[sr]['stats'][sens]['X_high'][n]['Mean']) / result['CS']['stats'][sens]['S_high'][n]['Max']
         i += 1
 
     chart = {'OUTFILE': home + out + 'x_share' + img_ext,
@@ -197,23 +177,23 @@ def build_loss(lossresult, result, sens = 2):
     img_ext = '.pdf'
     table_out = '/Dropbox/Thesis/STATS/chapter5/'
     srlist = ['CS', 'SWA']
+    
+    """
     data0 = []
     n = result['CS']['VE'][sens].shape[0]
     for i in range(50, n):
         record = {}
         for sr in srlist:
             record[sr + '-LD'] = result[sr]['VE'][sens][i][0]
-
         for sr in srlist:
             record[sr + '-SL'] = lossresult[sr]['VE'][sens][i][0]
-
         data0.append(record)
-
     data = pandas.DataFrame(data0)
     chart = {'OUTFILE': home + out + 'Loss_VE_low' + img_ext,
      'YLABEL': 'Value function error',
      'XLABEL': 'Iteration'}
     build_chart(chart, data, chart_type='date')
+    
     data0 = []
     n = result['CS']['VE'][sens].shape[0]
     for i in range(50, n):
@@ -223,48 +203,44 @@ def build_loss(lossresult, result, sens = 2):
 
         for sr in srlist:
             record[sr + '-SL'] = lossresult[sr]['VE'][sens][i][1]
-
         data0.append(record)
-
     data = pandas.DataFrame(data0)
     chart = {'OUTFILE': home + out + 'Loss_VE_high' + img_ext,
      'YLABEL': 'Value function error',
      'XLABEL': 'Iteration'}
     build_chart(chart, data, chart_type='date')
+
     data0 = []
     n = result['CS']['PE'][sens].shape[0]
     for i in range(50, n):
         record = {}
         for sr in srlist:
             record[sr + '-LD'] = abs(result[sr]['PE'][sens][i][0])
-
         for sr in srlist:
             record[sr + '-SL'] = abs(lossresult[sr]['PE'][sens][i][0])
-
         data0.append(record)
-
     data = pandas.DataFrame(data0)
     chart = {'OUTFILE': home + out + 'Loss_PE_low' + img_ext,
      'YLABEL': 'Policy function error',
      'XLABEL': 'Iteration'}
     build_chart(chart, data, chart_type='date')
+
     data0 = []
     n = result['CS']['PE'][sens].shape[0]
     for i in range(50, n):
         record = {}
         for sr in srlist:
             record[sr + '-LD'] = abs(result[sr]['PE'][sens][i][1])
-
         for sr in srlist:
             record[sr + '-SL'] = abs(lossresult[sr]['PE'][sens][i][1])
-
         data0.append(record)
-
     data = pandas.DataFrame(data0)
     chart = {'OUTFILE': home + out + 'Loss_PE_high' + img_ext,
      'YLABEL': 'Policy function error',
      'XLABEL': 'Iteration'}
     build_chart(chart, data, chart_type='date')
+    """
+
     data0 = []
     n = result['CS']['stats'][sens]['SW'].shape[0]
     for i in range(n):
@@ -317,19 +293,22 @@ def build_loss(lossresult, result, sens = 2):
     build_chart(chart, data, chart_type='date')
 
 
-def tables(result = 0, sens = 0):
+def tables(result = 0, sens = 0, scen = ['CS', 'CS-SL', 'SWA', 'SWA-SL', 'OA', 'NS']):
+    
     home = '/home/nealbob'
     folder = '/Dropbox/Model/Results/chapter5/'
     table_out = '/Dropbox/Thesis/STATS/chapter5/'
+    
     if result == 0:
         with open(home + folder + '0_result.pkl', 'rb') as f:
             result = pickle.load(f)
             f.close()
+    
     series = ['S', 'SW', 'W', 'Z', 'U_low', 'U_high', 'X_low', 'X_high']
     stats = ['Mean', 'SD', '25th', '75th', '2.5th','97.5th']
-    n = result['CS']['stats'][sens]['S'].shape[0]
-    print result['CS']['stats'][0]['X_low'][(n - 1)]['Mean']
-    scen = ['CS', 'CS-SL', 'SWA', 'SWA-SL', 'OA', 'NS']
+    n = result['CS']['stats'][sens]['S'].shape[0] - 1
+    print result['CS']['stats'][0]['S'][(n - 1)]['Mean']
+    
     adj = 0
     for x in series:
         if x == 'SW' or x == 'U_low' or x == 'U_high':
@@ -381,9 +360,9 @@ def policy_chart(policies):
     for i in range(41):
         record = {}
         for sr in ['CS', 'SWA', 'OA', 'NS']:
-            record[sr] = policies[sr][0][1].vals(X)[i] / 1000
+            record[sr] = policies[sr][0][1].predict(X)[i] / 1000
 
-        record['Planner'] = policies[sr][0][0].vals(X)[i] / 1000
+        record['Planner'] = policies[sr][0][0].predict(X)[i] / 1000
         data0.append(record)
 
     data = pandas.DataFrame(data0)

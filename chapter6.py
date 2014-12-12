@@ -105,8 +105,9 @@ resultlist = []
 def solve_model(para, scen, que):
     
     para.set_property_rights(scenario=scen)
+    para.aproximate_shares()
     mod = Model(para)
-    stats, _, _ = mod.chapter6()
+    stats, _, _ = mod.chapter6(sens=True)
     Lambda = [mod.RSLambda, mod.CSLambda]
     del mod
     
@@ -134,25 +135,24 @@ for i in range(N):
     res = []
     para.randomize()
     para.CPU_CORES = 2
-    paralist.append(para)            
-
+    paralist.append(para.para_list)            
+    
     ques = [RetryQueue(), RetryQueue()]
-    args = [(para, 'CS-O', ques[0]), (para, 'CS-HL-O', ques[1])]
+    args = [(para, 'CS', ques[0]), (para, 'CS-HL', ques[1])]
     jobs = [multiprocessing.Process(target=solve_model, args=(a)) for a in args]
     for j in jobs: j.start()
     for q in ques: res.append(q.get())
     for j in jobs: j.join()
-    """
-
-    resultlist.append(res)
-
-    with open(NCI + 'lambda_para_' + arg1 + '.pkl', 'wb') as f:
-       pickle.dump(paralist, f)
-       f.close()
     
-    with open(NCI + 'lambda_result_' + arg1 +'.pkl', 'wb') as f:
-       pickle.dump(resultlist, f)
-       f.close()
+    resultlist.append(res)
+    
+    #with open(NCI + 'sens_para_' + arg1 + '.pkl', 'wb') as f:
+    #   pickle.dump(paralist, f)
+    #   f.close()
+    
+    #with open(NCI + 'sens_result_' + arg1 +'.pkl', 'wb') as f:
+    #   pickle.dump(resultlist, f)
+    #   f.close()
 
     #except KeyboardInterrupt:
     #    raise

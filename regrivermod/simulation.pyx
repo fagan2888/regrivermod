@@ -1,4 +1,4 @@
-#!pytho
+#!python
 #cython: boundscheck=False, wraparound=False, nonecheck=False, cdivision=True, initializedcheck=False
 
 from __future__ import division 
@@ -1117,9 +1117,10 @@ class Simulation:
                         self.series[x] = np.vstack([self.series[x][N::], temp])  
             else:
                 for x in self.series:
-                    temp =  np.hstack(d[x] for d in data)
-                    N = temp.shape[0]
-                    self.series[x] = np.hstack([self.series[x][N::], temp])  
+                    self.series[x] = np.hstack(d[x] for d in data)
+                    #temp =  np.hstack(d[x] for d in data)
+                    #N = temp.shape[0]
+                    #self.series[x] = np.hstack([self.series[x][N::], temp])  
         for h in range(m):
             XA_t = np.hstack(d['XA' + group[h]] for d in data)
             X_t1 = np.hstack(d['X1' + group[h]] for d in data)
@@ -1282,10 +1283,13 @@ class Simulation:
         
         if self.ITER > 0:
             self.S[self.ITERNEW - 1] = np.mean(self.series['S'])
+            self.W[self.ITERNEW - 1] = np.mean(self.series['SW'])
 
-        #if self.ITER > 1:
-            #pylab.plot(self.S[1:self.ITERNEW])
-            #pylab.show()
+        if self.ITER > 1:
+            pylab.plot(self.S[1:self.ITERNEW])
+            pylab.show()
+            pylab.plot(self.W[1:self.ITERNEW])
+            pylab.show()
 
     def simulate_ch7(self, users, storage, utility, market, env, T, num_process, planner=False, stats=False, initP=False, partial=False):
 

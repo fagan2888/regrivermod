@@ -784,14 +784,10 @@ cdef class Users:
             self.I_e_h = np.random.choice(np.array(self.I_high), size=self.N_e, replace=False)
         else:
             index_low = np.random.choice(np.array(self.I_low), size=Np, replace=False)
-            self.I_e_l = index_low[0:self.N_e]
-            if self.share_explore == 1:
-                index_low = np.append(index_low, self.share_e_l)
+            self.I_e_l = np.random.choice(np.array(self.I_low), size=self.N_e, replace=False) #index_low[0:self.N_e]
 
             index_high = np.random.choice(np.array(self.I_high), size=Np, replace=False)
-            self.I_e_h = index_high[0:self.N_e]
-            if self.share_explore == 1:
-                index_low = np.append(index_high, self.share_e_h)
+            self.I_e_h = np.random.choice(np.array(self.I_high), size=self.N_e, replace=False) #index_high[0:self.N_e]
 
         self.policy.update(index_low, w_f_low, index_high, w_f_high)
 

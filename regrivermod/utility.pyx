@@ -134,6 +134,7 @@ cdef class Utility:
         self.l = np.ones(self.N)
         self.J = np.zeros(self.N)
         self.temp = np.zeros(self.N)
+        self.temp1 = np.zeros(self.N)
         self.temp2 = np.zeros(self.N)
         self.temp3 = np.zeros(self.N)
         self.temp4 = np.zeros(self.N)
@@ -184,7 +185,7 @@ cdef class Utility:
             self.sr = 3
         elif para.sr == 'CS-SWA':
             for i in range(self.N):
-                self.acc_max[i] = self.c_K[i] * (storage.K - self.fixed_loss)
+                self.acc_max[i] = (storage.K - self.fixed_loss)
             self.sr = 4
         elif para.sr == 'RS':
             self.sr = -1
@@ -448,6 +449,7 @@ cdef class Utility:
         cdef double f_loss_ded = 0               # Fixed delivery loss deduction 
         cdef double[:] s = self.temp             # Storage account balance
         cdef double[:] s0 = self.temp5
+        cdef double[:] s00 = self.temp1
         cdef double[:] lamI = self.temp2         # User inflow credits
         cdef double[:] lamI_Spill = self.temp3   # User inflow credits (before spills)
         cdef double[:] s_k = self.temp4          # User account balance less storage share (for CS-SWA)
@@ -465,6 +467,7 @@ cdef class Utility:
             lamI[i] = 0
             lamI_Spill[i] = 0
             s_k[i] = 0
+            s00[i] = 0
         
         if S > self.fixed_loss:   # Normal case: enough water to meet fixed losses
             
@@ -478,7 +481,7 @@ cdef class Utility:
                     f_loss_ded = 0
                     self.fixed_loss_co = self.fixed_loss
                     if self.ch7 == 1:
-                        f_loss_ded = self.delta_a[0] #fixed_loss - self.delta_Ea
+                        f_loss_ded = self.fixed_loss - self.fixed_loss_co
                         self.fixed_loss_co = self.delta_Ea
             if self.M == 1:
                 f_loss_ded = 2 * self.delta_a[1] - self.fixed_loss_co
@@ -495,7 +498,9 @@ cdef class Utility:
                 self.l[i] += f_loss_ded * self.c_F[i]
 
             s = update_accounts(self.N, self.s, w, self.l, self.x, self.acc_max, lamI, s)
-            s0[...] = s
+            
+            for i in range(self.N):
+                s0[i] = s[i]
 
             # Apply spill event rules
             if Spill > 0:
@@ -516,42 +521,43 @@ cdef class Utility:
                     lamI_Spill  = self.allocate(I - Spill, lamI)
                     s = update_accounts(self.N, self.s, w, self.l, self.x, self.acc_max, lamI_Spill, s)
                     for i in range(self.N):
-                        s_k[i] = c_max(s[i] - self.acc_max[i], 0)
+                        s_k[i] = c_max(s[i] - self.c_K[i] * (self.K - self.fixed_loss), 0)
                         sum_s_k += s_k[i]
                     for i in range(self.N):
                         self.x[i] = -1*c_min(Spill, sum_s_k) * (s_k[i] / sum_s_k)
                     s = update_accounts(self.N, self.s, w, self.l, self.x, self.acc_max, lamI, s)
+
+
+            # Prepare for final reconciliation - delete overhang
 
             if self.sr == 3:                        # NS
                 for i in range(self.N):
                     self.s[i] = target * self.c_F[i]
                     self.x[i] = self.s[i] - s[i]
                     s[i] = self.s[i]
-
-            # Prepare for final reconciliation - delete overhang
-
-            diff = target - sum_s
-
-            for i in range(self.N):
-                s0[i] = self.s[i] - w[i] - self.l[i] + lamI[i]
-                if s0[i] < 0:
-                    self.x[i] = -s0[i]
-                if s0[i] > self.acc_max[i]:
-                    self.x[i] = self.acc_max[i] - s0[i]
-
-            # Final reconciliation (including any internal spills)
-            while 1:
                 sum_s = c_sum(self.N, s)
                 diff = (target - sum_s)
+            else:
+                for i in range(self.N):
+                    s00[i] = self.s[i] - w[i] - self.l[i] + lamI[i]
+                    if s00[i] < 0:
+                        self.x[i] = -s00[i]
+                    if s00[i] > self.acc_max[i]:
+                        self.x[i] = self.acc_max[i] - s00[i]
+            
+                # Final reconciliation (including any internal spills)
+                while 1:
+                    sum_s = c_sum(self.N, s)
+                    diff = (target - sum_s)
 
-                if c_abs(diff) < tol or it >= 100:
-                    break
+                    if c_abs(diff) < tol or it >= 100:
+                        break
 
-                self.x = calc_x(self.N, s, self.acc_max, self.c_F, self.x, diff, self.J)
-                s = update_accounts(self.N, self.s, w, self.l, self.x, self.acc_max, lamI, s)
-                it += 1
+                    self.x = calc_x(self.N, s, self.acc_max, self.c_F, self.x, diff, self.J)
+                    s = update_accounts(self.N, self.s, w, self.l, self.x, self.acc_max, lamI, s)
+                    it += 1
 
-            if it == 100:
+            if it == 100 or diff > tol:
                 print 'Accounts failed to reconcile!'
                 self.fail = 1
                 print diff
@@ -583,7 +589,7 @@ cdef class Utility:
             
             self.fixed_loss_co = S      # All water is put aside to meet next period fixed losses
             for i in range(self.N):     # All user accounts are zero
-                self.x[i] = self.s[i]
+                self.x[i] = 0 #self.s[i]
                 self.s[i] = 0
                 self.a[i] = 0
 

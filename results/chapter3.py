@@ -217,19 +217,19 @@ def tables(result=0):
         #    f.write(tab.to_latex(float_format =  '{:,.1f}'.format, columns=['Mean', 'SD', '2.5th', '25th', '75th', '97.5th'])) 
         #    f.close()
     
-def sens_results(result):
+def sens_results():
 
     home = '/home/nealbob'
-    inf = '/Dropbox/Model/Results/chapter3/'
+    inf = '/Dropbox/Model/results/chapter3/'
     out = '/Dropbox/Thesis/IMG/chapter3/'
     img_ext = '.pdf'
     table_out = '/Dropbox/Thesis/STATS/chapter3/'       
    
     import chart3
 
-    #with open(home + inf + 'result.pkl', 'rb') as f:
-    #    result = pickle.load(f)
-    #    f.close()
+    with open(home + inf + 'result.pkl', 'rb') as f:
+        result = pickle.load(f)
+        f.close()
     
     data = {'W' : 0, 'S' : 0, 'SW' : 0, 'Z' : 0}
     data0 = []
@@ -239,6 +239,11 @@ def sens_results(result):
     series_name = {'W' : 'Withdrawals (GL)', 'S' : 'Storage (GL)', 'SW' : 'Social Welfare (\\$m)', 'Z' : 'Spills (GL)'}
     stats = ['Mean', 'SD']
     SAMP = np.ones(n) > 0
+    
+    # ignore dud records 669, 452, 784
+    SAMP[669] = False
+    SAMP[452] = False
+    SAMP[784] = False
 
     for y in stats:
         for x in series:
@@ -260,9 +265,9 @@ def sens_results(result):
                 myo[i] = result['stats'][i][x][y][1] / scale
                 idx[i] = myo[i] / opt[i]
             
-            if x == 'W': 
-                SAMP = opt > 25
-
+            #if x == 'W': 
+            #    SAMP = opt > 25
+            
             opt = opt[SAMP]
             myo = myo[SAMP]
             idx = idx[SAMP]
@@ -315,8 +320,9 @@ def sens_results(result):
                     f.close()
 
             if y == 'Mean':
-                paras = ['I_K', 'L', 'alpha', 'N_high', 'SA_K', 'rho_I', 'delta1b', 'delta1a', 'SD_I']
-                para_names = ['$E[I]/K$', '$\mathcal{L_{low}}$', '$\\alpha$', '$N_{high}$', '$SA_K$', '$\\rho_I$', '$\\delta_{1b}$', '$\\delta_{1a}$', '{$\\sqrt{\\Var[I]} \over E[I]$}']
+                
+                paras = ['I_K', 'L', 'alpha', 'N_high', 'rho_I', 'delta1b', 'delta1a', 'SD_I', 'delta0']
+                para_names = ['$E[I]/K$', '$\mathcal{L_{low}}$', '$\\alpha$', '$N_{high}$', '$\\rho_I$', '$\\delta_{1b}$', '$\\delta_{1a}$', '$c_v$', '$\delta0$']
                 N = sum(np.ones(n)[SAMP])
                 Xpara = np.zeros([N, 9])
                 inn = 0
@@ -325,15 +331,11 @@ def sens_results(result):
                         pn = 0 
                         for p in paras:
                             Xpara[inn, pn] = result['paras'][i][p]
-                            if p =='L':
-                                Xpara[inn, pn] =  result['paras'][i][p] / result['paras'][i]['I_K']
-                            if p =='delta1a':
-                                Xpara[inn, pn] =  result['paras'][i][p] * 1000
 
                             pn = pn + 1
                         inn +=1
 
-                tree = Tree(min_samples_leaf = 2, n_estimators = 150, n_jobs=4)
+                tree = Tree(n_estimators = 300, n_jobs=4)
                 tree.fit(Xpara, idx)
                 rank = tree.feature_importances_ * 100
 
@@ -392,7 +394,7 @@ def sens_results(result):
                     f.write(tab.to_latex(float_format =  '{:,.2f}'.format, columns=['Importance', '$<$ 10th percentile', 'Mean', '$>$ 90th percentile'])) 
                     f.close()
                 
-                for i in [0,3,8, 7]:
+                for i in range(9):
                     X = np.zeros([200, 9])
                     for j in range(9):
                         X[:,j] = np.ones(200) * np.mean(Xpara[:,j])
@@ -412,4 +414,4 @@ def sens_results(result):
                     
                     build_chart(chart_data, data, chart_type='plot')
    
-    print n
+    return result

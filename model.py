@@ -50,7 +50,7 @@ class Model:
 
         self.utility.sr = SR
        
-        #self.p_series = self.sim.series
+        self.p_series = self.sim.series
 
         return [self.sim.stats, self.sdp, st]
 
@@ -344,7 +344,7 @@ class Model:
             bigT = int(self.para.T2_ch7 / 2)
         
         self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, bigT,self.para.CPU_CORES, partial=partial, stats=False) #
-        """ 
+        
         # Feasibility constraints
         Alow = lambda X: 0              # w > 0
         Ahigh = lambda X: X[1]          # w < s
@@ -354,8 +354,8 @@ class Model:
         self.qv_multi[0].iterate([self.sim.XA_t[0], self.sim.XA_t1[0]], [self.sim.X_t1[0], self.sim.X_t11[0]],  [self.sim.u_t[0], self.sim.u_t1[0]],  
                 Alow, Ahigh, ITER=ITER, a = [0, 0, 0, 0.25, 0.25],b = [100, 100, 100, 99.40, 99.40], pc_samp=0.25, 
                 maxT=1200000,eta=eta, tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2_ch7, sgmem_max=0.15, plotiter=False, 
-                xargs=[300000,'x', 1, 1, 1], test=False, plot=False)
-        
+                xargs=[300000,'x', 1, 1, 1], test=True, plot=False)
+        """
      
         print "\nSolving high reliability users problem"
         print "-------------------------------------\n"
@@ -465,7 +465,7 @@ class Model:
 
 
 
-    def chapter6(self, ):
+    def chapter6(self, sens=False):
        
         print '\n --- Scenario --- \n'
         print str(self.para.sr) + ' storage rights, loss deductions = ' + str(self.para.ls) + ', priority = ' + str(self.para.HL) + '\n'
@@ -486,6 +486,10 @@ class Model:
         
         print '\n Solve release sharing problem... '
         
+        if sens:
+            self.users.set_shares(self.para.Lambda_high_RS) 
+            self.utility.set_shares(self.para.Lambda_high_RS, self.users)
+        
         stats, qv, st = self.plannerQV(t_cost_off=False, stage1=True, stage2=True, T1=self.para.T1, T2=self.para.T1, d=self.para.policy_delta, simulate=True)
          
         ITER = 0 
@@ -500,6 +504,8 @@ class Model:
             Lambda[0] = self.para.Lambda_high
             SW_max = SW[0]
             Lambda_max = self.para.Lambda_high
+        else:
+            Lambda_max = self.utility.Lambda_high
 
         for i in range(1, ITER + 1):
                 
@@ -534,7 +540,10 @@ class Model:
 
         #################           Solve storage right problem          #################
         if self.utility.sr >= 0:
-
+            if sens:
+                self.users.set_shares(self.para.Lambda_high) 
+                self.utility.set_shares(self.para.Lambda_high, self.users)
+            
             temp = self.para.ITER2
             self.sim.ITER = 1
             self.sim.ITEROLD = 0
@@ -783,6 +792,9 @@ class Model:
 
     def chapter5(self):
        
+        print '\n --- Scenario --- \n'
+        print str(self.para.sr) + ' storage rights, loss deductions = ' + str(self.para.ls) + ', priority = ' + str(self.para.HL) + '\n'
+
         big_tic = time()
         
         # Planners problem
@@ -824,8 +836,6 @@ class Model:
         big_toc = time()
         print "Total time (minutes): " + str(round((big_toc - big_tic) / 60, 2))
         
-        """
-        
         ################        Build some results      ##########################
 
         stats = self.sim.stats
@@ -835,31 +845,31 @@ class Model:
         from econlearn.tilecode import Tilecode as Tile
 
         W_f_p = Tile(1, [9], 9)
-        X = self.sim.p_series['S'].reshape([self.para.T0, 1])
-        Y = sim.p_series['W']
+        T = self.p_series['S'].shape[0]
+        X = self.p_series['S'].reshape([T, 1])
+        Y = self.p_series['W']
         W_f_p.fit(X,Y)
 
         W_f = Tile(1, [9], 9)
-        X = self.sim.series['S'].reshape([bigT, 1])
+        T = self.sim.series['S'].shape[0]
+        X = self.sim.series['S'].reshape([T, 1])
         Y = self.sim.series['W']
         W_f.fit(X,Y)
         
         W_f_low = Tile(1, [9], 9)
-        X = self.sim.series['S_low'].reshape([bigT, 1])
+        X = self.sim.series['S_low'].reshape([T, 1])
         Y = self.sim.series['W_low']
         W_f_low.fit(X, Y)
         
         W_f_high = Tile(1, [9], 9)
-        X = self.sim.series['S_high'].reshape([bigT, 1])
+        X = self.sim.series['S_high'].reshape([T, 1])
         Y = self.sim.series['W_high']
-        W_f_high.fit(S, Y)
+        W_f_high.fit(X, Y)
 
         policy = [W_f_p, W_f, W_f_low, W_f_high]
 
-        del self
-
         return [V_e, P_e, stats, policy]
-        """
+        
 
     def testing(self, n=6, N=75, stage2=True):
         

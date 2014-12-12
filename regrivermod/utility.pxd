@@ -38,6 +38,7 @@ cdef class Utility:
     cdef double c_pi
 
     cdef double[:] temp
+    cdef double[:] temp1
     cdef double[:] temp2
     cdef double[:] temp3
     cdef double[:] temp4

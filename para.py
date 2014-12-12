@@ -487,13 +487,12 @@ class Para:
            tree = pickle.load(f)
            f.close()
 
-        temp = removekeys(self.para_list, ['sig_eta', 'rho_eps', 'delta0'])
+        temp = removekeys(self.para_list, ['sig_eta', 'rho_eps', 'delta0', 'LL'])
 
         X = np.array([temp[p] for p in temp])
         Y = tree.predict(X)
-        print X
-        print Y
 
+        yRS = 0
         if self.sr == 'RS':
             if self.HL == 1:
                 y = Y[0,2]
@@ -502,12 +501,16 @@ class Para:
         else:
             if self.HL == 1:
                 y = Y[0,3]
+                yRS = Y[0,2]
             else:
                 y = Y[0,1]
+                yRS = Y[0,0]
 
-        print y
-        y = truncnorm((0.001 - y) / 0.025, (0.999 - y) / 0.025, loc=y, scale=0.025).rvs()
-        print y
+        self.Lambda_high = truncnorm((0.001 - y) / 0.025, (0.999 - y) / 0.025, loc=y, scale=0.025).rvs()
+        self.Lambda_high_RS = truncnorm((0.001 - yRS) / 0.025, (0.999 - yRS) / 0.025, loc=yRS, scale=0.025).rvs()
+
+        self.para_list['Lambda_high'] = self.Lambda_high
+        self.para_list['Lambda_high_RS'] = self.Lambda_high_RS
 
     def central_case(self, N=100, utility=False, printp=True, risk=0):
         
@@ -590,7 +593,6 @@ class Para:
         
         if utility:
             self.utility = 1 
-            risk = risk #self.relative_risk_aversion[1]
             
             low_land = self.L
             high_land = self.L * self.high_size
@@ -604,7 +606,7 @@ class Para:
             self.risk_aversion_low = 0
             self.risk_aversion_high = 0
         
-        self.para_list = {'I_K': I_K, 'SD_I' : SD_I, 'Prop_high' :  self.prop, 't_cost' : self.t_cost, 'L' : self.Land,'N_high' : self.N_high, 'rho_I' : self.rho_I, 'SA_K' : SA_K, 'alpha' : self.alpha, 'delta1a' : self.delta1a, 'delta1b' : self.delta1b, 'risk' : risk, 'rho_eps' : self.rho_eps, 'sig_eta' : self.sig_eta, 'delta0' : self.delta0}
+        self.para_list = {'I_K': I_K, 'SD_I' : SD_I, 'Prop_high' :  self.prop, 't_cost' : self.t_cost, 'L' : self.Land,'N_high' : self.N_high, 'rho_I' : self.rho_I, 'SA_K' : SA_K, 'alpha' : self.alpha, 'delta1a' : self.delta1a, 'delta1b' : self.delta1b, 'risk' : risk, 'rho_eps' : self.rho_eps, 'sig_eta' : self.sig_eta, 'delta0' : self.delta0, 'LL' : self.L}
         
         if printp:
             print '\n --- Main parameters --- \n'
@@ -616,6 +618,7 @@ class Para:
             print 'High user inflow share: ' + str(self.Lambda_high)
             print 'Land: ' + str(self.L)
             print 'High Land: ' + str(self.high_size)
+            print 'Risk aversion: ' + str(risk)
     
     def excessp(self, L, target_price):
 
@@ -658,7 +661,7 @@ class Para:
     
         return q
 
-    def randomize(self, N = 100):
+    def randomize(self, N = 100, riskon=False):
         
         ex = 10
         self.L = 1000000
@@ -763,7 +766,7 @@ class Para:
         profit_bar = (profit_bar_low + profit_bar_high) / 2
 
         utility = np.random.rand(1) > 0.5
-        if utility[0]:
+        if riskon and utility[0]:
             self.utility = 1
             risk = uniform.rvs(loc=self.relative_risk_aversion[0], scale=self.relative_risk_aversion[1] - self.relative_risk_aversion[0])
             self.risk_aversion_low = risk / profit_bar
@@ -778,7 +781,7 @@ class Para:
         
         self.Lambda_high = max(min(self.prop, 0.95), 0)  #* (np.random.rand() * (self.Lambda_high_param[1]-self.Lambda_high_param[0]) + self.Lambda_high_param[0]),0.95),0)
         
-        self.para_list = {'I_K' : I_K, 'SD_I' : SD_I, 'Prop_high' :  self.prop, 't_cost' : self.t_cost, 'L' : self.Land,'N_high' : self.N_high, 'rho_I' : self.rho_I, 'SA_K' : SA_K, 'alpha' : self.alpha, 'delta1a' : self.delta1a, 'delta1b' : self.delta1b, 'risk' : risk, 'rho_eps' : self.rho_eps, 'sig_eta' : self.sig_eta,  'delta0' : self.delta0}
+        self.para_list = {'I_K' : I_K, 'SD_I' : SD_I, 'Prop_high' :  self.prop, 't_cost' : self.t_cost, 'L' : self.Land,'N_high' : self.N_high, 'rho_I' : self.rho_I, 'SA_K' : SA_K, 'alpha' : self.alpha, 'delta1a' : self.delta1a, 'delta1b' : self.delta1b, 'risk' : risk, 'rho_eps' : self.rho_eps, 'sig_eta' : self.sig_eta,  'delta0' : self.delta0, 'LL' : self.L}
         
         print '\n --- Main parameters --- \n'
         print 'Inflow to capacity: ' + str(I_K)
@@ -789,6 +792,7 @@ class Para:
         print 'High user inflow share: ' + str(self.Lambda_high)
         print 'Number of high users: ' + str(self.N_high)
         print 'Land: ' + str(self.L)
+        print 'Risk aversion: ' + str(risk)
 
     def check_random(self, num=2000, I = 1):
 
@@ -887,25 +891,29 @@ class Para:
         #======================================================
 
         self.ITER1 = 40             # Initialization stage QV iterations
-        self.ITER2 = 25             # Main learning iterations
+        self.ITER2 = 30             # Main learning iterations
         self.iters = 1              # QV iterations per learning iteration
 
         #Proportion of users to update
-        self.update_rate = [12] * 5 + [10] * 150 #+ [0.05] * 5
+        self.update_rate =  [6] * 5 + [6] * 5 + [5] * 10 + [4]*150 #+ [0.05] * 5
+        #self.update_rate = [12] * 5 + [10] * 150 #+ [0.05] * 5
         self.update_rate_ch7 = [4] * 150 #+ [0.05] * 5
         
         #Proportion of sample size to replace each iteration (< 1 implies rolling batch)
-        self.sample_rate = 0.1
-
+        self.sample_rate = 0.20
+        
         # Number of exploring agents per class
+        #self.N_e = [5] * 4 + [4] * 4 + [3] * 4 + [2] * 150
         self.N_e = [5] * 4 + [4] * 4 + [3] * 4 + [2] * 150
 
         # Exploration range
-        self.d = [0.25] * 4 + [0.2] * 4 + [0.15] * 4 + [0.085] * 150
+        #self.d = [0.25] * 4 + [0.2] * 4 + [0.15] * 4 + [0.085] * 150
+        self.d = [0.065] * 2 + [0.1] * 3 + [0.15] * 3 + [0.2] * 6 + [0.15] * 150 #+ [0.1] * 150 
+        #self.d = [max(0.25 - 0.01 * i, 0.05) for i in range(150)]
         self.envd = [0.3] * 4 + [0.2] * 4 + [0.15] * 4 + [0.1] * 150
 
         # Total sample size, actual sim length = T1 / (2*N_e)
-        self.T2 = 500000
+        self.T2 = 750000
         self.T2_ch7 = 600000
 
         # State sample grid parameters
