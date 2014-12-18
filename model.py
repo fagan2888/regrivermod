@@ -375,7 +375,7 @@ class Model:
         """
         return [self.sim.stats, self.qv_multi]
         
-    def multiQV(self, ITER, init=False, type='ASGD', eta=0.7, testing=False, test_idx=0, partial=False):
+    def multiQV(self, ITER, init=False, type='ASGD', eta=0.7, testing=False, test_idx=0, partial=False, NS=False):
         
         tic = time()
         
@@ -393,6 +393,7 @@ class Model:
             Lb = 25
             minsamp = 3
             asgd = True
+
         
         if init:
             self.HL = [0, 1]
@@ -417,7 +418,7 @@ class Model:
         Ahigh = lambda X: X[1]          # w < s
         
         for h in self.HL:
-            self.qvHL[h].iterate(self.sim.XA_t[h], self.sim.X_t1[h], self.sim.u_t[h], Alow, Ahigh, ITER=ITER, Ascaled=False, plot=False, xargs=[1000000, 'x', 1, 1], a = [0, 0, 0, 0.25, 0.25], b = [100, 100, 100, 99.75, 100], pc_samp=0.25, maxT=500000, eta=eta, tilesg=True, sg_samp=self.para.sg_samp2, sg_prop=self.para.sg_prop2)
+            self.qvHL[h].iterate(self.sim.XA_t[h], self.sim.X_t1[h], self.sim.u_t[h], Alow, Ahigh, ITER=ITER, Ascaled=False, plot=False, xargs=[1000000, 'x', 1, 2.0], a = [0, 0, 0, 0.25, 0.25], b = [100, 100, 100, 99.75, 100], pc_samp=0.25, maxT=500000, eta=eta, tilesg=True, sg_samp=self.para.sg_samp2, sg_prop=self.para.sg_prop2, NS=NS)
 
         toc = time()
         st = toc - tic    
@@ -545,9 +546,9 @@ class Model:
                 self.utility.set_shares(self.para.Lambda_high, self.users)
             
             temp = self.para.ITER2
-            self.sim.ITER = 1
-            self.sim.ITEROLD = 0
-            self.sim.ITERNEW = 1
+            #self.sim.ITER = 1
+            #self.sim.ITEROLD = 0
+            #self.sim.ITERNEW = 1
 
             ### ============================
             if self.para.opt_lam: 
@@ -695,6 +696,7 @@ class Model:
         stats = self.sim.stats
 
         self.CSLambda = Lambda_high
+        print '-------- Final Lambda: ' + str(self.utility.Lambda_high)
 
         return stats, Lambda_high, Lambda_K
 
@@ -794,6 +796,11 @@ class Model:
        
         print '\n --- Scenario --- \n'
         print str(self.para.sr) + ' storage rights, loss deductions = ' + str(self.para.ls) + ', priority = ' + str(self.para.HL) + '\n'
+        
+        if self.para.sr == 'NS':
+            NS = True
+        else:
+            NS = False
 
         big_tic = time()
         
@@ -806,7 +813,7 @@ class Model:
         
         self.users.set_explorers(self.para.N_e[0], self.para.d[0])
      
-        stats, qv = self.multiQV(ITER=self.para.ITER1, init=True, type='ASGD')
+        stats, qv = self.multiQV(ITER=self.para.ITER1, init=True, type='ASGD', NS=NS)
         
         ##################          Main Q-learning              #################
 
@@ -822,7 +829,7 @@ class Model:
             print 'Exploration temperature: ' + str(self.para.d[i])   
             print '-----------------------------------------'
 
-            stats, qv = self.multiQV(ITER=self.para.iters, type='ASGD', partial=True)
+            stats, qv = self.multiQV(ITER=self.para.iters, type='ASGD', partial=True, NS=NS)
             
             for h in range(2):
                 V_e[i, h] = qv[h].ve
@@ -833,6 +840,7 @@ class Model:
         self.users.exploring = 0
         self.sim.simulate(self.users, self.storage, self.utility, self.para.T0, self.para.CPU_CORES, stats = True)
         
+        print '-------- Final Lambda: ' + str(self.utility.Lambda_high)
         big_toc = time()
         print "Total time (minutes): " + str(round((big_toc - big_tic) / 60, 2))
         

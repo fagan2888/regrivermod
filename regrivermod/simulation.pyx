@@ -1198,6 +1198,9 @@ class Simulation:
         self.ITEROLD = self.ITER
         self.ITERNEW = self.ITERNEW + 1
         self.ITER = min(self.ITER + 1, self.ITERMAX - 1 ) 
+
+        print 'ITEROLD: ' + str(self.ITEROLD)
+        print 'ITER: ' + str(self.ITER)
     
     def finalise_stats(self, ):
         

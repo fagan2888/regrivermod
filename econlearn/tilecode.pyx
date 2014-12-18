@@ -8,6 +8,7 @@ import numpy as np
 import time
 cimport cython
 from sklearn.linear_model import LinearRegression as OLS
+from sklearn.linear_model import Lasso 
 from displace import Displace
 from cython.parallel import prange, parallel
 #from cython_gsl cimport *
@@ -290,7 +291,7 @@ cdef class Tilecode:
         return R2
         
     def fit(self, double[:,:] X, double[:] Y, policy=0, pa=-1, pb=-1, unsupervised=False, score=False, copy=True, a=0, b=0, 
-            pc_samp=1, sgd=False, eta=0.01, n_iters=1, scale=0, asgd=False, storeindex=False, samplegrid=False, M=0):
+            pc_samp=1, sgd=False, eta=0.01, n_iters=1, scale=0, asgd=False, storeindex=False, samplegrid=False, M=0, NS=False):
 
         """    
         Fit tilecode function by averaging (then by SGD if sgd=True)
@@ -383,6 +384,7 @@ cdef class Tilecode:
 
         self.extrap = np.zeros(self.N, dtype='int32')
         cdef double[:,:] XS = np.zeros([self.N, self.D])
+        cdef int z = 0
         ###############################################################
         
         XS = self.scale_X(X, self.N, XS)
@@ -413,18 +415,24 @@ cdef class Tilecode:
                 self.fit_sgd(XS, Y, eta, scale, n_iters, self.asgd)
                 self.wav = np.zeros([self.mem_max])
             
-            if self.lin_spline == 1:
-                self.fit_linear(XS, Y)
             
-            if score:
-                self.R2 = self.score(X, Y)
-                print 'R-squared: ' + str(self.R2)
             
             if unsupervised:
                 self.datastruct = np.ones(int(np.sum(self.count) + 10), dtype='int32')
                 self.datahash = np.zeros(self.mem_max, dtype='int32')
                 self.fit_data(XS, np.zeros(self.mem_max, dtype='int32'))
                 self.max_neigh = np.max(self.count) * self.L
+            
+            if self.lin_spline == 1:
+                if NS:
+                    for z in range(self.N):
+                        XS[z, 0] = 0.0
+
+                self.fit_linear(XS, Y)
+            
+            if score:
+                self.R2 = self.score(X, Y)
+                print 'R-squared: ' + str(self.R2)
 
             mem_usage = np.count_nonzero(self.count) / self.mem_max
             if mem_usage < 0.025:
@@ -902,7 +910,7 @@ cdef class Tilecode:
                 for k in range(self.lin_T[j]):
                     Xreg[i, z] = c_max(x - self.lin_width[j] * k, 0)
                     z +=1
-
+        
         ols = OLS(fit_intercept=True).fit(Xreg, Y)
         beta = ols.coef_
         c = ols.intercept_ / self.D

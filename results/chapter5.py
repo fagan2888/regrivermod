@@ -6,6 +6,12 @@ import pickle
 from sklearn.ensemble import ExtraTreesClassifier as Tree_classifier
 from sklearn.ensemble import ExtraTreesRegressor as Tree
 
+def removekeys(d, keys):
+    r = dict(d)
+    for key in keys:
+        del r[key]
+    return r 
+
 def build(results):
 
     zzz = 0
@@ -14,19 +20,18 @@ def build(results):
 def main(result = 0, sens = 0):
 
     """
-        Generate charts and tables for report
+        Generate charts for report
     """
 
     home = '/home/nealbob'
-    folder = '/Dropbox/Model/Results/chapter5/'
+    folder = '/Dropbox/Model/results/chapter5/'
     out = '/Dropbox/Thesis/IMG/chapter5/'
     img_ext = '.pdf'
-    table_out = '/Dropbox/Thesis/STATS/chapter5/'
 
     scen = ['CS', 'SWA', 'OA', 'NS']
     
     if result == 0:
-        with open(home + folder + '0_result.pkl', 'rb') as f:
+        with open(home + folder + '0_0_result.pkl', 'rb') as f:
             result = pickle.load(f)
             f.close()
     
@@ -61,7 +66,7 @@ def main(result = 0, sens = 0):
     for i in range(n):
         record = {}
         for sr in scen:
-            record[sr] = abs(result[sr]['PE'][sens][i][0])
+            record[sr] = result[sr]['PE'][sens][i][0]
         data0.append(record)
     data = pandas.DataFrame(data0)
     chart = {'OUTFILE': home + out + 'PE_low' + img_ext,
@@ -74,7 +79,7 @@ def main(result = 0, sens = 0):
     for i in range(n):
         record = {}
         for sr in scen:
-            record[sr] = abs(result[sr]['PE'][sens][i][1])
+            record[sr] = result[sr]['PE'][sens][i][1]
         data0.append(record)
     data = pandas.DataFrame(data0)
     chart = {'OUTFILE': home + out + 'PE_high' + img_ext,
@@ -110,6 +115,18 @@ def main(result = 0, sens = 0):
      'XLABEL': 'Iteration'}
     build_chart(chart, data, chart_type='date')
     
+    data0 = []
+    n = result['CS']['stats'][sens]['P'].shape[0] - 1
+    for i in range(n):
+        record = {}
+        for sr in scen:
+            record[sr] = result[sr]['stats'][sens]['P'][i]['Mean'] 
+        data0.append(record)
+    data = pandas.DataFrame(data0)
+    chart = {'OUTFILE': home + out + 'Price' + img_ext,
+     'YLABEL': 'Mean water price $P_t$ (\\$ per ML)',
+     'XLABEL': 'Iteration'}
+    build_chart(chart, data, chart_type='date')
     
     data0 = []
     for i in range(n):
@@ -296,11 +313,11 @@ def build_loss(lossresult, result, sens = 2):
 def tables(result = 0, sens = 0, scen = ['CS', 'CS-SL', 'SWA', 'SWA-SL', 'OA', 'NS']):
     
     home = '/home/nealbob'
-    folder = '/Dropbox/Model/Results/chapter5/'
+    folder = '/Dropbox/Model/results/chapter5/'
     table_out = '/Dropbox/Thesis/STATS/chapter5/'
     
     if result == 0:
-        with open(home + folder + '0_result.pkl', 'rb') as f:
+        with open(home + folder + '0_0_result.pkl', 'rb') as f:
             result = pickle.load(f)
             f.close()
     
@@ -347,7 +364,7 @@ def tables(result = 0, sens = 0, scen = ['CS', 'CS-SL', 'SWA', 'SWA-SL', 'OA', '
         tab.index = temp
         with open(home + table_out + x + '_table.txt', 'w') as f:
             f.write(tab.to_latex(float_format='{:,.1f}'.format, columns=['Mean',
-             'SD', '2.5th', '25th', '75th', '97.5th']))
+             'SD', '2.5th', '25th', '75th', '97.5th'], escape=False))
             f.close()
 
 def policy_chart(policies):
@@ -372,8 +389,7 @@ def policy_chart(policies):
      'XLABEL': 'Mean storage $S_t$ (GL)'}
     build_chart(chart, data, chart_type='date')
 
-
-
+"""
 def inflow_share(n = 10):
     home = '/home/nealbob'
     out = '/Dropbox/Thesis/IMG/chapter5/sens/'
@@ -467,35 +483,56 @@ def inflow_share(n = 10):
     pylab.legend(loc='upper center', bbox_to_anchor=(-0.2, 3.55), ncol=4, fancybox=True)
     pylab.show()
     return [maxk_list, data1]
+"""
 
 
-
-def sens(n = 110):
+def sens(n = 20, m=10):
+    
     home = '/home/nealbob'
+    infolder = '/Dropbox/Model/results/chapter5/sens/chapter5/'
     out = '/Dropbox/Thesis/IMG/chapter5/'
     img_ext = '.pdf'
     table_out = '/Dropbox/Thesis/STATS/chapter5/'
     srlist = ['CS', 'SWA', 'OA', 'NS']
-    n = n
-    results = []
-    for j in range(n):
-        try:
-            f = open(str(j) + '_result.pkl', 'rb')
-            results.append(pickle.load(f))
-            f.close()
-        except:
-            pass
 
-    data0 = []
-    n2 = results[0]['CS']['stats'][0]['SW'].shape[0] - 1
+    results = []
+    for j in range(1, n):
+        for k in range(m):
+            try:
+                f = open(home + infolder + str(j) + '_' + str(k) + '_result.pkl', 'rb')
+                results.append(pickle.load(f))
+                f.close()
+            except:
+                print 'FAIL! job number: ' + str(j) + ' , run number: ' + str(k)
+                pass
+   
+    
+
+    n2 = results[0]['CS']['stats'][0]['SW'].shape[0] - 2
+    nfull = len(results)
+    delidx = []
+    for i in range(nfull):
+        if (results[i]['OA']['stats'][0]['W']['Mean'][n2] / results[i]['CS']['stats'][0]['W']['Mean'][n2]) < 0.5 and results[i]['OA']['paras'][0]['LL'] < 3500:
+            delidx.append(i)
+        if (results[i]['OA']['stats'][0]['SW']['Mean'][n2] / results[i]['CS']['stats'][0]['SW']['Mean'][n2]) < 0.5 and results[i]['OA']['paras'][0]['LL'] < 4000:
+            delidx.append(i)
+        if results[i]['CS']['stats'][0]['SW']['Mean'][n2] == float('Inf') or results[i]['SWA']['stats'][0]['SW']['Mean'][n2] == float('Inf') or results[i]['OA']['stats'][0]['SW']['Mean'][n2] == float('Inf') or results[i]['NS']['stats'][0]['SW']['Mean'][n2] == float('Inf'):
+            delidx.append(i)
+        if results[i]['CS']['stats'][0]['SW']['Mean'][0] == float('Inf') or results[i]['SWA']['stats'][0]['SW']['Mean'][0] == float('Inf') or results[i]['OA']['stats'][0]['SW']['Mean'][0] == float('Inf') or results[i]['NS']['stats'][0]['SW']['Mean'][0] == float('Inf'):
+            delidx.append(i)
+
+    results = [i for j, i in enumerate(results) if j not in delidx]
     n = len(results)
+    print str(n) + ' good results of ' + str(nfull) + ' total runs.'
+     
+    data0 = []
     SW = {}
     for sr in srlist:
         array = np.zeros(n)
         for i in range(n):
-            n2 = results[0]['CS']['stats'][0]['SW'].shape[0] - 1
-            if n2 == 21:
-                array[i] = results[i][sr]['stats'][0]['SW'][n2]['Mean'] / 1000000
+            n2 = results[0]['CS']['stats'][0]['SW'].shape[0] - 2
+            #if n2 == 21:
+            array[i] = results[i][sr]['stats'][0]['SW'][n2]['Mean'] / 1000000
 
         SW[sr] = np.round(array, 2)
 
@@ -525,25 +562,35 @@ def sens(n = 110):
         print sr
         print count
 
-    paras = ['I_K', 'SD_I', 'Prop_high', 'P_bar', 't_cost']
-    para_names = ['$E[I]/K$', '$cv\\_i$', '$\\bar Q\\_{high} / \\bar Q$', '$\\bar P$', '$\\tau$']
-    Xpara = np.zeros([n, 5])
+    paralist = results[0]['CS']['paras'][0]  
+    paralist = removekeys(paralist,  ['L', 'Lambda_high_RS', 'risk', 'SA_K', 'Prop_high'])
+    
+    for i in range(n):
+        results[i]['CS']['paras'][0]['Lambda_high'] = results[i]['CS']['paras'][0]['Lambda_high'] / results[i]['CS']['paras'][0]['Prop_high']
+
+    pnum = len(paralist)
+    paras = [i for i in paralist]
+    print paras
+
+    para_names = ['$\delta0$', '$E[I]/K$', '$\rho_e$',  '$\alpha$',  '$\sigma_{\eta}$', '$n_{high}$',
+     '$\Lambda_{high}$', '$\rho_I$', '$\delta_{1b}$', '$\tau$', '$\delta_{1a}$', '$c_v$', '${\aA_{low} \over E[I]/K}$']
+    print len(para_names)
+    
+    Xpara = np.zeros([n, pnum])
     for i in range(n):
         pn = 0
         for p in paras:
             Xpara[i, pn] = results[i]['CS']['paras'][0][p]
-            if p == 'L':
-                Xpara[i, pn] = results[i]['CS']['paras'][0][p] / results[i]['CS']['paras'][0]['I_K']
-            if p == 'delta1a':
-                Xpara[i, pn] = results[i]['CS']['paras'][0][p] * 1000
-            if p == 'SA_K':
-                Xpara[i, pn] = results[i]['CS']['paras'][0][p] * 1000000 ** (1 / 3)
+            if p == 'LL':
+                Xpara[i, pn] = results[i]['CS']['paras'][0]['LL'] / results[i]['CS']['paras'][0]['I_K']
+
             pn = pn + 1
 
-
-    tree = Tree_classifier(min_samples_leaf=2, n_estimators=500, n_jobs=4)
-    tree.fit(Xpara, Y)
-    rank = tree.feature_importances_ * 100
+    treec = Tree_classifier(n_estimators=500, n_jobs=4) #min_samples_split=3, min_samples_leaf=2)
+    treec.fit(Xpara, Y)
+    rank = treec.feature_importances_ * 100
+    print rank
+    
     data0 = []
     inn = 0
     for p in para_names:
@@ -559,7 +606,12 @@ def sens(n = 110):
     tab = pandas.DataFrame(data0)
     tab.index = para_names
     tab = tab.sort(columns=['Importance'], ascending=False)
-    tab_text = tab.to_latex(float_format='{:,.2f}'.format)
+    tab_text = tab.to_latex(float_format='{:,.2f}'.format, escape=False)
+    
+    with open(home + table_out + 'classifier_table.txt', 'w') as f:
+        f.write(tab.to_latex(float_format='{:,.2f}'.format, escape=False))
+        f.close()
+
     pylab.ioff()
     fig_width_pt = 350
     inches_per_pt = 1.0 / 72.27
@@ -578,60 +630,114 @@ def sens(n = 110):
     pylab.rcParams.update(params)
     plot_colors = 'rybg'
     cmap = pylab.cm.RdYlBu
-    (xx, yy,) = np.meshgrid(np.arange(min(Xpara[:, 0]), max(Xpara[:, 0]), 0.02), np.arange(min(Xpara[:, 1]), max(Xpara[:, 1]), 0.02))
-    X = np.array([xx.ravel(),
-     yy.ravel(),
-     np.mean(Xpara[:, 2]) * np.ones(1584),
-     np.mean(Xpara[:, 3]) * np.ones(1584),
-     np.mean(Xpara[:, 4]) * np.ones(1584)]).T
-    print xx.ravel().shape
-    Z = tree.predict(X).reshape(xx.shape)
-    fig = pylab.contourf(xx, yy, Z, cmap=cmap, alpha=0.56)
+    
+    (xx, yy,) = np.meshgrid(np.arange(min(Xpara[:, 1]), max(Xpara[:, 1]), 0.02), np.arange(min(Xpara[:, 11]), max(Xpara[:, 11]), 0.02))
+
+    nnn = xx.ravel().shape[0]
+    Xlist = [np.mean(Xpara[:,i])*np.ones(nnn) for i in range(pnum)]
+
+    Xlist[1] = xx.ravel()
+    Xlist[11] = yy.ravel()
+    X = np.array(Xlist).T
+
+    ############## Check if Z only 1s and zeros
+    Z = treec.predict(X).reshape(xx.shape)
+    fig = pylab.contourf(xx, yy, Z, [0, 0.9999, 1.9999, 2.9999, 3.9999], colors=('red', 'yellow', 'blue', 'green'), alpha=0.5, antialiased=False, extend='both')
     for (i, c,) in zip(xrange(4), plot_colors):
         idx = np.where(Y == i)
-        pylab.scatter(Xpara[idx, 0], Xpara[idx, 1], c=c, cmap=cmap, label=srlist[i])
+        pylab.scatter(Xpara[idx, 1], Xpara[idx, 11], c=c, cmap=cmap, label=srlist[i])
         pylab.legend(bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc=3, ncol=4, mode='expand', borderaxespad=0.0)
 
-    pylab.xlabel('Mean inflow to capacity')
+    pylab.xlabel('Mean inflow over capacity')
     pylab.ylabel('Inflow coefficient of variation')
     OUT = home + out + 'class_fig.pdf'
     pylab.savefig(OUT, bbox_inches='tight')
     pylab.show()
-    return [SWmax,
-     Y,
-     tree,
-     Xpara]
+    
+    (xx, yy,) = np.meshgrid(np.arange(min(Xpara[:, 1]), max(Xpara[:, 1]), 0.02), np.arange(min(Xpara[:, 11]), max(Xpara[:, 11]), 0.02))
 
-def sens_bucket(n = 21):
-    SWmax = []
-    srlist = ['CS', 'SWA', 'OA', 'NS']
-    n = n
-    results = []
-    for j in range(n):
-        try:
-            f = cloud.bucket.getf(str(j) + '_result')
-            results.append(pickle.load(f))
-            f.close()
-        except:
-            pass
+    nnn = xx.ravel().shape[0]
+    Xlist = [np.mean(Xpara[:,i])*np.ones(nnn) for i in range(pnum)]
+    Xlist[5] = np.percentile(Xpara[:,5], 90)*np.ones(nnn)
+    Xlist[1] = xx.ravel()
+    Xlist[11] = yy.ravel()
+    X = np.array(Xlist).T
 
-    return results
+    ############## Check if Z only 1s and zeros
+    Z = treec.predict(X).reshape(xx.shape)
+    fig = pylab.contourf(xx, yy, Z, [0, 0.9999, 1.9999, 2.9999, 3.9999], colors=('red', 'yellow', 'blue', 'green'), alpha=0.5, antialiased=False, extend='both')
+    for (i, c,) in zip(xrange(4), plot_colors):
+        idx = np.where(Y == i)
+        pylab.scatter(Xpara[idx, 1], Xpara[idx, 11], c=c, cmap=cmap, label=srlist[i])
+        pylab.legend(bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc=3, ncol=4, mode='expand', borderaxespad=0.0)
 
-def sens_results(n = 110):
-    home = '/home/nealbob'
-    folder = '/Dropbox/Model/Results/chapter5/'
-    out = '/Dropbox/Thesis/IMG/chapter5/'
-    img_ext = '.pdf'
-    table_out = '/Dropbox/Thesis/STATS/chapter5/'
-    results = []
-    for i in range(n):
-        with open(home + folder + str(i) + '_result.pkl', 'rb') as f:
-            res = pickle.load(f)
-            results.append(res)
-            f.close()
+    pylab.xlabel('Mean inflow over capacity')
+    pylab.ylabel('Inflow coefficient of variation')
+    OUT = home + out + 'class_fig2.pdf'
+    pylab.savefig(OUT, bbox_inches='tight')
+    pylab.show()
+
+    (xx, yy,) = np.meshgrid(np.arange(min(Xpara[:, 1]), max(Xpara[:, 1]), 0.02), np.arange(min(Xpara[:, 11]), max(Xpara[:, 11]), 0.02))
+
+    nnn = xx.ravel().shape[0]
+    Xlist = [np.mean(Xpara[:,i])*np.ones(nnn) for i in range(pnum)]
+    Xlist[5] = np.percentile(Xpara[:,5], 10)*np.ones(nnn)
+    Xlist[1] = xx.ravel()
+    Xlist[11] = yy.ravel()
+    X = np.array(Xlist).T
+
+    ############## Check if Z only 1s and zeros
+    Z = treec.predict(X).reshape(xx.shape)
+    fig = pylab.contourf(xx, yy, Z, [0, 0.9999, 1.9999, 2.9999, 3.9999], colors=('red', 'yellow', 'blue', 'green'), alpha=0.5, antialiased=False, extend='both')
+    for (i, c,) in zip(xrange(4), plot_colors):
+        idx = np.where(Y == i)
+        pylab.scatter(Xpara[idx, 1], Xpara[idx, 11], c=c, cmap=cmap, label=srlist[i])
+        pylab.legend(bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc=3, ncol=4, mode='expand', borderaxespad=0.0)
+
+    pylab.xlabel('Mean inflow over capacity')
+    pylab.ylabel('Inflow coefficient of variation')
+    OUT = home + out + 'class_fig3.pdf'
+    pylab.savefig(OUT, bbox_inches='tight')
+    pylab.show()
+
+    (xx, yy,) = np.meshgrid(np.arange(min(Xpara[:, 1]), max(Xpara[:, 1]), 0.02), np.arange(min(Xpara[:, 11]), max(Xpara[:, 11]), 0.02))
+
+    nnn = xx.ravel().shape[0]
+    Xlist = [np.mean(Xpara[:,i])*np.ones(nnn) for i in range(pnum)]
+    Xlist[10] = np.percentile(Xpara[:,10], 10)*np.ones(nnn)
+    Xlist[5] = np.percentile(Xpara[:,5], 90)*np.ones(nnn)
+    Xlist[1] = xx.ravel()
+    Xlist[11] = yy.ravel()
+    X = np.array(Xlist).T
+
+    ############## Check if Z only 1s and zeros
+    Z = treec.predict(X).reshape(xx.shape)
+    fig = pylab.contourf(xx, yy, Z, [0, 0.9999, 1.9999, 2.9999, 3.9999], colors=('red', 'yellow', 'blue', 'green'), alpha=0.5, antialiased=False, extend='both')
+    for (i, c,) in zip(xrange(4), plot_colors):
+        idx = np.where(Y == i)
+        pylab.scatter(Xpara[idx, 1], Xpara[idx, 11], c=c, cmap=cmap, label=srlist[i])
+        pylab.legend(bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc=3, ncol=4, mode='expand', borderaxespad=0.0)
+
+    pylab.xlabel('Mean inflow over capacity')
+    pylab.ylabel('Inflow coefficient of variation')
+    OUT = home + out + 'class_fig4.pdf'
+    pylab.savefig(OUT, bbox_inches='tight')
+    pylab.show()
+#def sens_results(n = 110):
+#    home = '/home/nealbob'
+#    folder = '/Dropbox/Model/Results/chapter5/'
+#    out = '/Dropbox/Thesis/IMG/chapter5/'
+#    img_ext = '.pdf'
+#    table_out = '/Dropbox/Thesis/STATS/chapter5/'
+#    results = []
+#    for i in range(n):
+#        with open(home + folder + str(i) + '_result.pkl', 'rb') as f:
+#            res = pickle.load(f)
+#            results.append(res)
+#            f.close()
 
     data0 = []
-    n2 = results[0]['CS']['stats'][0]['SW'].shape[0] - 1
+    n2 = results[0]['CS']['stats'][0]['SW'].shape[0] - 2
     miny = 10
     maxy = -10
     srlist = ['CS', 'SWA', 'OA', 'NS']
@@ -641,12 +747,11 @@ def sens_results(n = 110):
         array = np.zeros(n)
         arrayI = np.zeros(n)
         for i in range(n):
-            n2 = results[0]['CS']['stats'][0]['SW'].shape[0] - 1
-            print n2
-            print i
-            if n2 == 21:
-                array[i] = results[i][sr]['stats'][0]['SW'][n2]['Mean'] / 1000000
-                arrayI[i] = results[i][sr]['stats'][0]['SW'][n2]['Mean'] / 1000000 / (results[i]['CS']['stats'][0]['SW'][n2]['Mean'] / 1000000)
+            n2 = results[i][sr]['stats'][0]['SW'].shape[0] - 2
+            #if n2 == 21:
+            #print results[i][sr]['stats'][0]['SW'][n2]['Mean'] / 1000000
+            array[i] = results[i][sr]['stats'][0]['SW'][n2]['Mean'] / 1000000
+            arrayI[i] = results[i][sr]['stats'][0]['SW'][n2]['Mean'] / 1000000 / (results[i]['CS']['stats'][0]['SW'][n2]['Mean'] / 1000000)
 
         SW[sr] = array
         SWI[sr] = arrayI
@@ -661,7 +766,7 @@ def sens_results(n = 110):
     for i in range(n):
         SW_p[i] = results[i][sr]['stats'][0]['SW'][0]['Mean'] / 1000000
 
-    chart.chart(SWI, 0.99 * miny, 1.01 * maxy, 'Social welfare relative to CS', 'Welfare_sens')
+    chart(SWI, 0.99 * miny, 1.01 * maxy, 'Social welfare relative to CS', out, 'Welfare_sens')
     series = ['CS', 'SWA', 'OA', 'NS']
     data0 = []
     for x in series:
@@ -682,14 +787,17 @@ def sens_results(n = 110):
     data0.append(record)
     tab = pandas.DataFrame(data0)
     tab.index = ['CS', 'SWA', 'OA', 'NS', 'Planner']
+    
     with open(home + table_out + 'welfare_sens.txt', 'w') as f:
-        f.write(tab.to_latex(float_format='{:,.2f}'.format, columns=['Mean', 'Min', 'Q1', 'Q3', 'Max']))
+        f.write(tab.to_latex(float_format='{:,.2f}'.format, columns=['Mean', 'Min', 'Q1', 'Q3', 'Max'], escape=False))
         f.close()
+    
     series = ['CS', 'SWA', 'OA', 'NS']
     data0 = []
     for x in series:
         record = {}
         record['Mean'] = np.mean(SWI[x])
+        record['Median'] = np.median(SWI[x])
         record['Min'] = np.min(SWI[x])
         record['Q1'] = np.percentile(SWI[x], 25)
         record['Q3'] = np.percentile(SWI[x], 75)
@@ -699,39 +807,17 @@ def sens_results(n = 110):
     tab = pandas.DataFrame(data0)
     tab.index = series
     with open(home + table_out + 'welfareI_sens.txt', 'w') as f:
-        f.write(tab.to_latex(float_format='{:,.3f}'.format, columns=['Mean', 'Min', 'Q1', 'Q3', 'Max']))
+        f.write(tab.to_latex(float_format='{:,.4f}'.format, columns=['Mean', 'Median', 'Min', 'Q1', 'Q3', 'Max'], escape=False))
         f.close()
-    x = 'SW'
+
+    
     idx = np.array([SWI['SWA'], SWI['OA'], SWI['NS']]).T
-    paras = ['I_K',
-     'SD_I',
-     'Prop_high',
-     'P_bar',
-     't_cost']
-    para_names = ['$E[I]/K$',
-     '{$\\sqrt{\\Var[I]} \\over E[I]$}',
-     '$\\bar Q_{high} / \\bar Q$',
-     '$\\bar P$',
-     '$\\tau$']
-    Xpara = np.zeros([n, 5])
-    for i in range(n):
-        pn = 0
-        for p in paras:
-            Xpara[i, pn] = results[i]['CS']['paras'][0][p]
-            if p == 'L':
-                Xpara[i, pn] = results[i]['CS']['paras'][0][p] / results[i]['CS']['paras'][0]['I_K']
-            if p == 'delta1a':
-                Xpara[i, pn] = results[i]['CS']['paras'][0][p] * 1000
-            if p == 'SA_K':
-                Xpara[i, pn] = results[i]['CS']['paras'][0][p] * 1000000 ** (1 / 3)
-            pn = pn + 1
-
-
-    print Xpara.shape
-    print idx.shape
+    
+    
     tree = Tree(n_estimators=500, n_jobs=4)
     tree.fit(Xpara, idx)
     rank = tree.feature_importances_ * 100
+    
     data0 = []
     inn = 0
     for p in para_names:
@@ -743,21 +829,15 @@ def sens_results(n = 110):
     tab = pandas.DataFrame(data0)
     tab.index = para_names
     tab = tab.sort(columns=['Importance'], ascending=False)
-    tab_text = tab.to_latex(float_format='{:,.2f}'.format)
-    data0 = []
-    inn = 0
-    for p in paras:
-        record = {}
-        record['Importance'] = rank[inn]
-        data0.append(record)
-        inn = inn + 1
+    tab_text = tab.to_latex(float_format='{:,.2f}'.format, escape=False)
+    print tab_text 
+    with open(home + table_out + 'importance.txt', 'w') as f:
+        f.write(tab_text)
+        f.close()
 
-    tab = pandas.DataFrame(data0)
-    tab.index = para_names
-    tab = tab.sort(columns=['Importance'], ascending=False)
-    for i in [0, 1, 2, 4]:
-        X = np.zeros([200, 5])
-        for j in range(5):
+    for i in range(pnum):
+        X = np.zeros([200, pnum])
+        for j in range(pnum):
             X[:, j] = np.ones(200) * np.mean(Xpara[:, j])
 
         X[:, i] = np.linspace(np.min(Xpara[:, i]), np.max(Xpara[:, i]), 200)
@@ -773,10 +853,10 @@ def sens_results(n = 110):
 
         data = pandas.DataFrame(data0)
         data.index = X[:, i]
-        chart_data = {'OUTFILE': home + out + x + '_' + paras[i] + img_ext,
+        chart_data = {'OUTFILE': home + out + 'SW_' + paras[i] + img_ext,
          'XLABEL': '',
          'YLABEL': '',
-         'YMIN': 0.95,
+         'YMIN': 0.94,
          'YMAX': 1.01}
         build_chart(chart_data, data, chart_type='date', ylim=True)
 
@@ -802,6 +882,7 @@ def sens_results(n = 110):
         array = np.zeros(n)
         arrayI = np.zeros(n)
         for i in range(n):
+            n2 = results[i][sr]['stats'][0]['S'].shape[0] - 2
             arrayI[i] = results[i][sr]['stats'][0]['S'][n2]['Mean'] / 1000 / (results[i]['CS']['stats'][0]['S'][n2]['Mean'] / 1000)
             array[i] = results[i][sr]['stats'][0]['S'][n2]['Mean'] / 1000
 
@@ -818,7 +899,8 @@ def sens_results(n = 110):
     for i in range(n):
         S_p[i] = results[i][sr]['stats'][0]['S'][0]['Mean'] / 1000
 
-    chart.chart(SI, 0.99 * miny, 1.01 * maxy, 'Storage relative to CS', 'Storage_sens')
+    chart(SI, 0.99 * miny, 1.01 * maxy, 'Storage relative to CS', out, 'Storage_sens')
+
     series = ['CS', 'SWA', 'OA','NS']
     data0 = []
     for x in series:
@@ -840,7 +922,7 @@ def sens_results(n = 110):
     tab = pandas.DataFrame(data0)
     tab.index = ['CS', 'SWA', 'OA', 'NS', 'Planner']
     with open(home + table_out + 'storage_sens.txt', 'w') as f:
-        f.write(tab.to_latex(float_format='{:,.2f}'.format, columns=['Mean', 'Min', 'Q1', 'Q3', 'Max']))
+        f.write(tab.to_latex(float_format='{:,.2f}'.format, columns=['Mean', 'Min', 'Q1', 'Q3', 'Max'], escape=False))
         f.close()
     series = ['CS', 'SWA', 'OA', 'NS']
     data0 = []
@@ -856,8 +938,9 @@ def sens_results(n = 110):
     tab = pandas.DataFrame(data0)
     tab.index = series
     with open(home + table_out + 'storageI_sens.txt', 'w') as f:
-        f.write(tab.to_latex(float_format='{:,.3f}'.format, columns=['Mean', 'Min', 'Q1', 'Q3', 'Max']))
+        f.write(tab.to_latex(float_format='{:,.3f}'.format, columns=['Mean', 'Min', 'Q1', 'Q3', 'Max'], escape=False))
         f.close()
+    
     miny = 10
     maxy = -10
     Z = {}
@@ -882,7 +965,7 @@ def sens_results(n = 110):
     for i in range(n):
         Z_p[i] = results[i][sr]['stats'][0]['Z'][0]['Mean'] / 1000
 
-    chart.chart(ZI, 0, 1.02 * maxy, 'Spills relative to CS', 'Spills_sens')
+    chart(ZI, 0, 3, 'Spills relative to CS', out, 'Spills_sens')
     series = ['CS', 'SWA', 'OA', 'NS']
     data0 = []
     for x in series:
@@ -904,8 +987,9 @@ def sens_results(n = 110):
     tab = pandas.DataFrame(data0)
     tab.index = ['CS', 'SWA', 'OA', 'NS', 'Planner']
     with open(home + table_out + 'spill_sens.txt', 'w') as f:
-        f.write(tab.to_latex(float_format='{:,.2f}'.format, columns=['Mean', 'Min', 'Q1', 'Q3', 'Max']))
+        f.write(tab.to_latex(float_format='{:,.2f}'.format, columns=['Mean', 'Min', 'Q1', 'Q3', 'Max'], escape=False))
         f.close()
+    
     series = ['CS', 'SWA', 'OA', 'NS']
     data0 = []
     for x in series:
@@ -920,8 +1004,11 @@ def sens_results(n = 110):
     tab = pandas.DataFrame(data0)
     tab.index = series
     with open(home + table_out + 'spillI_sens.txt', 'w') as f:
-        f.write(tab.to_latex(float_format='{:,.3f}'.format, columns=['Mean', 'Min', 'Q1', 'Q3', 'Max']))
+        f.write(tab.to_latex(float_format='{:,.3f}'.format, columns=['Mean', 'Min', 'Q1', 'Q3', 'Max'], escape=False))
         f.close()
+    
+    
+    
     miny = 10
     maxy = -10
     U = {}
@@ -942,7 +1029,8 @@ def sens_results(n = 110):
         if mx > maxy:
             maxy = mx
 
-    chart.chart(UI, 0.99 * miny, 1.01 * maxy, 'High user welfare relative to CS', 'highUI_sens')
+    chart(UI, 0.99 * miny, 1.01 * maxy, 'High user welfare relative to CS', out, 'highUI_sens')
+    
     series = ['CS', 'SWA', 'OA', 'NS']
     data0 = []
     for x in series:
@@ -951,3 +1039,86 @@ def sens_results(n = 110):
         record['Min'] = np.min(U[x])
         record['Q1'] = np.percentile(U[x], 25)
         record['Q3'] = np.percentile(U[x], 75)
+        record['Max'] = np.max(U[x])
+        data0.append(record)
+
+    tab = pandas.DataFrame(data0)
+    tab.index = ['CS', 'SWA', 'OA', 'NS']
+    with open(home + table_out + 'highU_sens.txt', 'w') as f:
+        f.write(tab.to_latex(float_format='{:,.2f}'.format, columns=['Mean', 'Min', 'Q1', 'Q3', 'Max'], escape=False))
+        f.close()
+    
+    series = ['CS', 'SWA', 'OA', 'NS']
+    data0 = []
+    for x in series:
+        record = {}
+        record['Mean'] = np.mean(UI[x])
+        record['Min'] = np.min(UI[x])
+        record['Q1'] = np.percentile(UI[x], 25)
+        record['Q3'] = np.percentile(UI[x], 75)
+        record['Max'] = np.max(UI[x])
+        data0.append(record)
+
+    tab = pandas.DataFrame(data0)
+    tab.index = series
+    with open(home + table_out + 'highUI_sens.txt', 'w') as f:
+        f.write(tab.to_latex(float_format='{:,.3f}'.format, columns=['Mean', 'Min', 'Q1', 'Q3', 'Max'], escape=False))
+        f.close()
+
+    miny = 10
+    maxy = -10
+    U = {}
+    UI = {}
+    for sr in srlist:
+        array = np.zeros(n)
+        arrayI = np.zeros(n)
+        for i in range(n):
+            array[i] = results[i][sr]['stats'][0]['U_low'][n2]['Mean'] / 1000000
+            arrayI[i] = results[i][sr]['stats'][0]['U_low'][n2]['Mean'] / 1000000 / (results[i]['CS']['stats'][0]['U_low'][n2]['Mean'] / 1000000)
+
+        U[sr] = array
+        UI[sr] = arrayI
+        mn = np.min(arrayI)
+        mx = np.max(arrayI)
+        if mn < miny:
+            miny = mn
+        if mx > maxy:
+            maxy = mx
+
+    chart(UI, 0.8, 1.01 * maxy, 'Low user welfare relative to CS', out, 'lowUI_sens')
+    
+    series = ['CS', 'SWA', 'OA', 'NS']
+    data0 = []
+    for x in series:
+        record = {}
+        record['Mean'] = np.mean(U[x])
+        record['Min'] = np.min(U[x])
+        record['Q1'] = np.percentile(U[x], 25)
+        record['Q3'] = np.percentile(U[x], 75)
+        record['Max'] = np.max(U[x])
+        data0.append(record)
+
+    tab = pandas.DataFrame(data0)
+    tab.index = ['CS', 'SWA', 'OA', 'NS']
+    with open(home + table_out + 'lowU_sens.txt', 'w') as f:
+        f.write(tab.to_latex(float_format='{:,.2f}'.format, columns=['Mean', 'Min', 'Q1', 'Q3', 'Max'], escape=False))
+        f.close()
+    
+    series = ['CS', 'SWA', 'OA', 'NS']
+    data0 = []
+    for x in series:
+        record = {}
+        record['Mean'] = np.mean(UI[x])
+        record['Min'] = np.min(UI[x])
+        record['Q1'] = np.percentile(UI[x], 25)
+        record['Q3'] = np.percentile(UI[x], 75)
+        record['Max'] = np.max(UI[x])
+        data0.append(record)
+
+    tab = pandas.DataFrame(data0)
+    tab.index = series
+    with open(home + table_out + 'lowUI_sens.txt', 'w') as f:
+        f.write(tab.to_latex(float_format='{:,.3f}'.format, columns=['Mean', 'Min', 'Q1', 'Q3', 'Max'], escape=False))
+        f.close()
+
+    #return results

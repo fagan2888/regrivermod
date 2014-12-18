@@ -470,15 +470,15 @@ class Para:
             self.opt_lam = 1
             self.unbundled = True
         
-        if self.opt_lam == 1:
-            if self.HL == 1:
-                self.Lambda_high = self.prop * 1
-            else:
-                self.Lambda_high = self.prop * 1.5
-        else:
-            self.Lambda_high = self.prop
+        #if self.opt_lam == 1:
+        #    if self.HL == 1:
+        #        self.Lambda_high = self.prop * 1
+        #    else:
+        #        self.Lambda_high = self.prop * 1.5
+        #else:
+        #    self.Lambda_high = self.prop
    
-    def aproximate_shares(self, ):
+    def aproximate_shares(self, nonoise=False):
         
         home = '/home/nealbob'
         model = '/Dropbox/Model/'
@@ -505,9 +505,13 @@ class Para:
             else:
                 y = Y[0,1]
                 yRS = Y[0,0]
-
-        self.Lambda_high = truncnorm((0.001 - y) / 0.025, (0.999 - y) / 0.025, loc=y, scale=0.025).rvs()
-        self.Lambda_high_RS = truncnorm((0.001 - yRS) / 0.025, (0.999 - yRS) / 0.025, loc=yRS, scale=0.025).rvs()
+        
+        if nonoise:
+            self.Lambda_high = y
+            self.Lambda_high_RS = yRS
+        else:
+            self.Lambda_high = truncnorm((0.001 - y) / 0.025, (0.999 - y) / 0.025, loc=y, scale=0.025).rvs()
+            self.Lambda_high_RS = truncnorm((0.001 - yRS) / 0.025, (0.999 - yRS) / 0.025, loc=yRS, scale=0.025).rvs()
 
         self.para_list['Lambda_high'] = self.Lambda_high
         self.para_list['Lambda_high_RS'] = self.Lambda_high_RS
@@ -891,7 +895,7 @@ class Para:
         #======================================================
 
         self.ITER1 = 40             # Initialization stage QV iterations
-        self.ITER2 = 30             # Main learning iterations
+        self.ITER2 = 40             # Main learning iterations
         self.iters = 1              # QV iterations per learning iteration
 
         #Proportion of users to update
@@ -900,7 +904,7 @@ class Para:
         self.update_rate_ch7 = [4] * 150 #+ [0.05] * 5
         
         #Proportion of sample size to replace each iteration (< 1 implies rolling batch)
-        self.sample_rate = 0.15
+        self.sample_rate = 0.125
         
         # Number of exploring agents per class
         #self.N_e = [5] * 4 + [4] * 4 + [3] * 4 + [2] * 150
@@ -908,7 +912,7 @@ class Para:
 
         # Exploration range
         #self.d = [0.25] * 4 + [0.2] * 4 + [0.15] * 4 + [0.085] * 150
-        self.d = [0.065] * 2 + [0.1] * 3 + [0.15] * 3 + [0.2] * 6 + [0.15] * 150 #+ [0.1] * 150 
+        self.d = [0.1] * 5 + [0.15] * 5 + [0.2] * 10 + [0.15] * 150# + [0.1] * 150 
         #self.d = [max(0.25 - 0.01 * i, 0.05) for i in range(150)]
         self.envd = [0.3] * 4 + [0.2] * 4 + [0.15] * 4 + [0.1] * 150
 

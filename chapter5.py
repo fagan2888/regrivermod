@@ -17,7 +17,7 @@ para.solve_para()
 home = '/home/nealbob'
 folder = '/Dropbox/Model/results/chapter5/'
 
-scenarios = ['OA', 'CS', 'SWA', 'NS'] #['CS', 'SWA', 'OA', 'NS', 'CS-SL', 'SWA-SL', 'CS-SWA']
+scenarios = ['CS', 'SWA', 'OA', 'NS', 'CS-SL', 'SWA-SL', 'CS-SWA']
 results = {scen: 0 for scen in scenarios}
 policies = {scen: 0 for scen in scenarios}
 
@@ -25,10 +25,10 @@ for i in range(1):
     #try:
 
     para.central_case(N = 100)
-    para.aproximate_shares()
-    if i > 0:
-        para.randomize(N = 100)
-        para.aproximate_shares()
+    para.aproximate_shares(nonoise=True)
+    #if i > 0:
+    #    para.randomize(N = 100)
+    #    para.aproximate_shares()
 
     for scen in scenarios:
         para.set_property_rights(scenario=scen)
@@ -47,9 +47,7 @@ for i in range(1):
         results[scen] = res
         policies[scen] = pol
 
-        del mod
- 
-    with open(home + folder + str(i) + '_result_demo2.pkl', 'wb') as f:
+    with open(home + folder + str(i) + '_result_demo.pkl', 'wb') as f:
         pickle.dump(results, f)
         f.close()
     
@@ -142,3 +140,4 @@ for i in range(N):
     except:
         pass
 """
+

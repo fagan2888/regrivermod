@@ -130,7 +130,7 @@ def chart(SW, a, b, label, folder, FILE):
     img_ext = '.pdf'
 
     pylab.figure()
-    pylab.boxplot([SW['SWA'], SW['OA'], SW['NS']], whis=100)
+    pylab.boxplot([SW['SWA'], SW['OA'], SW['NS']], whis=5)
     pylab.ylim(a, b)
     pylab.ylabel(label)
     pylab.tick_params(axis='x', which = 'both', labelbottom='off')

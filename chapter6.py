@@ -19,32 +19,33 @@ out = '/Dropbox/Thesis/IMG/chapter6/'
 
 para = Para()
 
-scenarios = ['RS-HL-O', 'RS-HL', 'RS-O', 'RS', 'CS', 'CS-O', 'CS-HL', 'CS-HL-O', 'CS-U']
+scenarios = ['CS'] #['RS-HL-O', 'RS-HL', 'RS-O', 'RS', 'CS', 'CS-O', 'CS-HL', 'CS-HL-O', 'CS-U']
 results = {scen: 0 for scen in scenarios}
 Lambda = {scen: 0 for scen in scenarios}
 LambdaK = {scen: 0 for scen in scenarios}
 
-"""
 #==========================================
 # Central case (with trade)
 #==========================================
 
 for scen in scenarios:
     para.set_property_rights(scenario=scen)
+    para.aproximate_shares(nonoise=True)
 
     mod = Model(para)
 
-    results[scen], Lambda[scen], LambdaK[scen] = mod.chapter6()
+    results[scen], Lambda[scen], LambdaK[scen] = mod.chapter6(sens=True)
         
     del mod
 
-chapter6.tables(results, scenarios, Lambda, LambdaK, label='central')
 
-with open(home + folder + 'central_result.pkl', 'wb') as f:
-    pickle.dump(results, f)
-    f.close()
+#chapter6.tables(results, scenarios, Lambda, LambdaK, label='central')
 
+#with open(home + folder + 'central_result.pkl', 'wb') as f:
+#    pickle.dump(results, f)
+#    f.close()
 
+"""
 #==========================================
 # No trade case
 #==========================================
@@ -87,6 +88,7 @@ with open(home + folder + 'risk1_result.pkl', 'wb') as f:
     f.close()
 
 """
+"""
 #==========================================
 # Inflow share search 
 #==========================================
@@ -124,7 +126,6 @@ def retry_on_eintr(function, *args, **kw):
                 raise    
 
 class RetryQueue(Queue):
-    """Queue which will retry if interrupted with EINTR."""
 
     def get(self, block=True, timeout=None):
         return retry_on_eintr(Queue.get, self, block, timeout)
@@ -158,7 +159,7 @@ for i in range(N):
     #    raise
     #except:
     #    pass
-
+"""
 
 """
 #==========================================
