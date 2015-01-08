@@ -265,7 +265,7 @@ class Model:
         
         print 'Starting values, fitted QV iteration ...'
         
-        self.users.set_explorers(2, 0.3)#.3)
+        self.users.set_explorers(3, 0.3)#.3)
         self.env.explore = 1
         self.env.d = 0.3
         
@@ -369,19 +369,19 @@ class Model:
         print "-------------------------------------\n"
         self.qv_multi[0].iterate([self.sim.XA_t[0], self.sim.XA_t1[0]], [self.sim.X_t1[0], self.sim.X_t11[0]],  [self.sim.u_t[0], self.sim.u_t1[0]],  
                 Alow, Ahigh, ITER=ITER, a = [0, 0, 0, 0.25, 0.25],b = [100, 100, 100, 99.40, 99.40], pc_samp=0.25, 
-                maxT=1200000,eta=eta, tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2_ch7, sgmem_max=0.15, plotiter=False, 
+                maxT=2400000,eta=eta, tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2_ch7, sgmem_max=0.15, plotiter=False, 
                 xargs=[300000,'x', 1, 1, 1], test=False, plot=False)
      
         print "\nSolving high reliability users problem"
         print "-------------------------------------\n"
         self.qv_multi[1].iterate([self.sim.XA_t[1], self.sim.XA_t1[1]], [self.sim.X_t1[1], self.sim.X_t11[1]], [self.sim.u_t[1], self.sim.u_t1[1]],
                 Alow, Ahigh, ITER=ITER, a = [0, 0, 0, 0.25, 0.25], b = [100, 100, 100, 99.40, 99.40], pc_samp=0.25, 
-                maxT=1200000, eta=eta, tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2, sgmem_max=0.15, plotiter=False, 
+                maxT=2400000, eta=eta, tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2, sgmem_max=0.15, plotiter=False, 
                 xargs=[300000,'x', 1, 1, 1], plot=False)
         
         print "\nSolving the EWHs problem"
         print "-------------------------------------\n"
-        self.qv_multi[2].iterate(self.sim.XA_e, self.sim.X1_e, self.sim.u_e, Alow, Ahigh, ITER=ITER, maxT=1200000, eta=eta,
+        self.qv_multi[2].iterate(self.sim.XA_e, self.sim.X1_e, self.sim.u_e, Alow, Ahigh, ITER=ITER, maxT=1000000, eta=eta,
                 tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2, sgmem_max= 0.15, plotiter=False, xargs=[1000000,'x', 1, 2, 1], plot=False)
 
         toc = time()
