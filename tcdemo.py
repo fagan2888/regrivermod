@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import pylab
 import results.chartbuilder as cb
 import sklearn.linear_model as sk 
-
+"""
 x = np.random.rand(150)
 y = np.maximum(-0.5 + x, 0) + np.random.rand(150)*.2
 X = x.reshape([150, 1])
@@ -71,6 +71,27 @@ plt.plot(XS, yhat)
 plt.ylim(0, 0.7)
 pylab.savefig(home + out + 'lineartile' + img_ext, bbox_inches='tight')
 plt.show()
+"""
 
+from econlearn import TilecodeRegressor as TR
+tr = TR(2, [10,10], 15, offset='uniform')
+X = np.array(tr.tile.offset)
+x1 = X[:, 0]
+x2 = X[:, 1]
+pylab.scatter(x1, x2)
+pylab.xlim(0, 1)
+pylab.ylim(0, 1)
+pylab.savefig('/home/nealbob/Dropbox/Thesis/IMG/appendixB/uniform.pdf', bbox_inches='tight')
 
+pylab.show()
+
+tr = TR(2, [10,10], 15, offset='optimal')
+X = np.array(tr.tile.offset)
+x1 = X[:, 0]
+x2 = X[:, 1]
+pylab.scatter(x1, x2)
+pylab.xlim(0, 1)
+pylab.ylim(0, 1)
+pylab.savefig('/home/nealbob/Dropbox/Thesis/IMG/appendixB/optimal.pdf', bbox_inches='tight')
+pylab.show()
 

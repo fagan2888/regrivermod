@@ -257,7 +257,7 @@ class QVtile_ch7:
         self.W_f = [0,0]
         self.V_f = [0,0]
 
-        self.Q_f = [Tilecode(D + 1, T, L, mem_max, min_sample=ms, cores=para.CPU_CORES) for m in M]
+        self.Q_f = [Tilecode(D + 1, T[m], L, mem_max, min_sample=ms, cores=para.CPU_CORES) for m in M]
         
         self.radius = radius
         
@@ -280,7 +280,7 @@ class QVtile_ch7:
 
     def resetQ(self, D, T, L, mem_max, ms):
 
-        self.Q_f = [Tilecode(D + 1, T, L, mem_max, min_sample=ms, cores=self.CORES) for m in self.M]
+        self.Q_f = [Tilecode(D + 1, T[m], L, mem_max, min_sample=ms, cores=self.CORES) for m in self.M]
     
     def iterate(self, XA, X1, u, A_low, A_high, ITER=50, plot=True, xargs=[], output=True, a = 0, b = 0, pc_samp=1, maxT=60000, eta=0.8, tilesg=False, sg_prop=0.96, sg_samp=1, sg_points=100, sgmem_max=0.4, plotiter=False, test=False):
 

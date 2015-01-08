@@ -16,6 +16,9 @@ cdef class Environment:
     cdef public double Lambda_I, Lambda_K
     cdef public double e_sig
     cdef public double budget 
+    cdef public double budget_in
+    cdef public double budget_out 
+    cdef public double budget_tc
     cdef public double delta_R, delta_Eb
     cdef public double[:] delta_a 
     cdef public double[:] e

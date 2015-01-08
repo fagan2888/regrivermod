@@ -965,7 +965,10 @@ cdef class Users:
         L = int(130 / Twv)
         w_f_low = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
         v_f_low = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
-        w_f_low.fit(X, w)
+        if M == 0:
+            w_f_low.fit(X, w)
+        else:
+            w_f_low.fit(X, np.zeros(N))
         v_f_low.fit(X, v)
         
         for i in range(N):
@@ -990,7 +993,12 @@ cdef class Users:
         L = int(130 / Twv)
         w_f_high = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
         v_f_high = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
-        w_f_high.fit(X, w)
+        
+        if M == 0:
+            w_f_high.fit(X, w)
+        else:
+            w_f_high.fit(X, np.zeros(N))
+
         v_f_high.fit(X, v)
         
         if M == 0:

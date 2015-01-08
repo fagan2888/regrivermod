@@ -83,8 +83,13 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
     cdef double[:,:] Q_low_sim = np.zeros([T, 2])
     cdef double[:,:] Q_high_sim = np.zeros([T, 2])
     cdef double[:,:] Q_env_sim = np.zeros([T, 2])
+    cdef double[:,:] A_low_sim = np.zeros([T, 2])
+    cdef double[:,:] A_high_sim = np.zeros([T, 2])
     cdef double[:,:] A_env_sim = np.zeros([T, 2])
     cdef double[:,:] Budget_sim = np.zeros([T, 2])
+    cdef double[:,:] Budget_in = np.zeros([T, 2])
+    cdef double[:,:] Budget_out = np.zeros([T, 2])
+    cdef double[:,:] Budget_tc = np.zeros([T, 2])
     cdef double[:,:] A_sim = np.zeros([T, 2])
     cdef double[:,:] SW_sim = np.zeros([T, 2])
     cdef double[:,:] S_sim = np.zeros([T, 2])
@@ -247,12 +252,14 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
         Profit_sim[t, 0] = users.consume(P_sim[t, 0], storage.I_tilde, plan)
         Q_sim[t, 0] = c_sum(users.N, users.q)
         
-        if stats == 1:
-            users.user_stats(utility.s, utility.x)
-            Q_low_sim[t, 0] = users.Q_low
-            Q_high_sim[t, 0] = users.Q_high
-            Q_env_sim[t, 0] = qe
-            A_env_sim[t, 0] = env.a 
+        #if stats == 1:
+        users.user_stats(utility.s, utility.x)
+        Q_low_sim[t, 0] = users.Q_low
+        Q_high_sim[t, 0] = users.Q_high
+        Q_env_sim[t, 0] = qe
+        A_low_sim[t, 0] = users.A_low
+        A_high_sim[t, 0] = users.A_high
+        A_env_sim[t, 0] = env.a 
 
         # Calculate actual river flows
         storage.river_flow(W_sim[t,0], E_sim[t, 0], 0, 0)
@@ -431,6 +438,12 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
             P_sim[t, 1] = 0
 
         Q_env_sim[t, 1] = env.q 
+        
+        users.user_stats(utility.s, utility.x)
+        Q_low_sim[t, 1] = users.Q_low
+        Q_high_sim[t, 1] = users.Q_high
+        A_low_sim[t, 1] = users.A_low
+        A_high_sim[t, 1] = users.A_high
 
         # Calculate actual river flows
         storage.river_flow(W_sim[t,1], E_sim[t, 1], 1, 0)
@@ -521,7 +534,6 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
             print 'Env Welfare: ' + str(env.u)
             print 'Env budget: ' + str(env.budget)
         
-
     data = {'W': np.asarray(W_sim),
             'SW': np.asarray(SW_sim),
             'Profit' : np.asarray(Profit_sim),
@@ -537,7 +549,14 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
             'F1_tilde' : np.asarray(F1_tilde),
             'F3_tilde' : np.asarray(F3_tilde),
             'B' : np.asarray(B_sim), 
-            'Budget' : np.asarray(Budget_sim)}
+            'Budget' : np.asarray(Budget_sim),
+            'Q_low' : np.asarray(Q_low_sim),
+            'Q_high' : np.asarray(Q_high_sim),
+            'Q_env' : np.asarray(Q_env_sim),
+            'Bhat' : np.asarray(Bhat_sim),
+            'A_low' : np.asarray(A_low_sim),
+            'A_high' : np.asarray(A_high_sim),
+            'A_env' : np.asarray(A_env_sim)}
     
     if plan == 1: 
         data['XA1'] = np.asarray(XA1)
@@ -571,12 +590,6 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
             data['X1_e1'] = np.asarray(X1_e1) 
             data['u_e1'] = np.asarray(u_e1) 
     
-    if stats == 1:
-        data['Q_low'] = np.asarray(Q_low_sim)
-        data['Q_high'] = np.asarray(Q_high_sim)
-        data['Q_env'] = np.asarray(Q_env_sim)
-        data['Bhat'] = np.asarray(Bhat_sim)
-        data['A_env'] = np.asarray(A_env_sim)
     
     if multi:
         que.put(data)
@@ -938,7 +951,7 @@ class Simulation:
         names  = ['Mean', 'SD', '25th', '75th', '2.5th', '97.5th', 'Min', 'Max']
         formats = ['f4','f4','f4','f4','f4','f4','f4','f4']
         vars = ['S', 'W', 'I', 'SW', 'Z', 'U_low', 'U_high', 'A_low', 'A_high', 'Q_low', 'Q_high', 'W_low', 'W_high', 'S_low', 'S_high',
-                 'X_low', 'X_high', 'trade', 'P', 'Q', 'F1', 'F3', 'F1_tilde', 'F3_tilde', 'E', 'Profit', 'trade_low', 'trade_high', 'A', 'Q_env', 'Bhat', 'B', 'Budget', 'A_env']
+                 'X_low', 'X_high', 'trade', 'P', 'Q', 'F1', 'F3', 'F1_tilde', 'F3_tilde', 'E', 'Profit', 'trade_low', 'trade_high', 'A', 'Q_env', 'Bhat', 'B', 'Budget', 'A_env', 'A_low', 'A_high']
         if ch7:
             for var in vars:
                 self.stats[var] = { 'Summer' : np.zeros(self.ITERMAX, dtype={'names':names, 'formats':formats}),
@@ -1331,8 +1344,7 @@ class Simulation:
 
         if planner: 
             series = ['W','SW','S','I','Z','P','E','Q', 'A', 'F1','F3','F1_tilde','F3_tilde', 'Profit', 'B', 'Budget']
-            if stats:
-                series = series + ['Q_low', 'Q_high', 'Q_env', 'Bhat', 'A_env'] 
+            series = series + ['Q_low', 'Q_high', 'Q_env', 'Bhat', 'A_env', 'A_low', 'A_high'] 
             self.series = dict.fromkeys(series)
             
             self.XA = [np.vstack(d['XA0'] for d in datalist), np.vstack(d['XA1'] for d in datalist)]
@@ -1348,8 +1360,7 @@ class Simulation:
         else:
             if not(partial):
                 series = ['W','SW','S','I','Z','P','E','Q', 'A', 'F1','F3','F1_tilde','F3_tilde', 'Profit', 'B', 'Budget']
-                if stats:
-                    series = series + ['Q_low', 'Q_high', 'Q_env', 'Bhat', 'A_env'] 
+                series = series + ['Q_low', 'Q_high', 'Q_env', 'Bhat', 'A_env', 'A_low', 'A_high'] 
                 self.series = dict.fromkeys(series)
                 self.XA_e = [0,0] 
                 self.X1_e = [0,0] 
@@ -1425,10 +1436,10 @@ class Simulation:
             self.B[self.ITERNEW - 1] = np.mean(self.series['Budget'])
 
 
-        if self.ITER > 2:
-            pylab.plot(self.S[4:self.ITERNEW])
-            pylab.plot(self.W[4:self.ITERNEW])
-            pylab.plot(self.E[4:self.ITERNEW])
-            pylab.show()
-            pylab.plot(self.B[4:self.ITERNEW])
-            pylab.show()
+        #if self.ITER > 2:
+        #pylab.plot(self.S[4:self.ITERNEW])
+        #pylab.plot(self.W[4:self.ITERNEW])
+        #pylab.plot(self.E[4:self.ITERNEW])
+        #pylab.show()
+        #pylab.plot(self.B[4:self.ITERNEW])
+        #pylab.show()

@@ -508,10 +508,10 @@ def sens(n = 20, m=10):
    
     
 
-    n2 = results[0]['CS']['stats'][0]['SW'].shape[0] - 2
     nfull = len(results)
     delidx = []
     for i in range(nfull):
+        n2 = results[i]['CS']['stats'][0]['SW'].shape[0] - 2
         if (results[i]['OA']['stats'][0]['W']['Mean'][n2] / results[i]['CS']['stats'][0]['W']['Mean'][n2]) < 0.5 and results[i]['OA']['paras'][0]['LL'] < 3500:
             delidx.append(i)
         if (results[i]['OA']['stats'][0]['SW']['Mean'][n2] / results[i]['CS']['stats'][0]['SW']['Mean'][n2]) < 0.5 and results[i]['OA']['paras'][0]['LL'] < 4000:
@@ -565,15 +565,32 @@ def sens(n = 20, m=10):
     paralist = results[0]['CS']['paras'][0]  
     paralist = removekeys(paralist,  ['L', 'Lambda_high_RS', 'risk', 'SA_K', 'Prop_high'])
     
+    #m = len(results[0]['CS']['paras'][0]) - 6
+    #Xx = np.zeros([n, m])
+    #for i in range(n):
+    #    temp = results[i]['CS']['paras'][0] 
+    #    temp = removekeys(temp, ['sig_eta', 'rho_eps', 'delta0', 'LL', 'Lambda_high', 'Lambda_high_RS'])
+    #    Xx[i,:] = np.array([temp[p] for p in temp])
+    
+    home = '/home/nealbob'
+    fold = '/Dropbox/Model/results/chapter5/'
+    #with open(home + fold + 'xX.pkl', 'wb') as f:
+    #   pickle.dump(Xx, f)
+    #   f.close()
+     
+    with open(home + fold + 'Yy.pkl', 'rb') as f:
+       Yy = pickle.load(f)
+       f.close()
+
     for i in range(n):
-        results[i]['CS']['paras'][0]['Lambda_high'] = results[i]['CS']['paras'][0]['Lambda_high'] / results[i]['CS']['paras'][0]['Prop_high']
+        results[i]['CS']['paras'][0]['Lambda_high'] = results[i]['CS']['paras'][0]['Lambda_high'] - Yy[i, 1] #/ results[i]['CS']['paras'][0]['Prop_high']
 
     pnum = len(paralist)
     paras = [i for i in paralist]
     print paras
 
     para_names = ['$\delta0$', '$E[I]/K$', '$\rho_e$',  '$\alpha$',  '$\sigma_{\eta}$', '$n_{high}$',
-     '$\Lambda_{high}$', '$\rho_I$', '$\delta_{1b}$', '$\tau$', '$\delta_{1a}$', '$c_v$', '${\aA_{low} \over E[I]/K}$']
+     '$\Lambda_{high} - \hat \Lambda_{high}$', '$\rho_I$', '$\delta_{1b}$', '$\tau$', '$\delta_{1a}$', '$c_v$', '${\aA_{low} \over E[I]/K}$']
     print len(para_names)
     
     Xpara = np.zeros([n, pnum])
@@ -609,7 +626,7 @@ def sens(n = 20, m=10):
     tab_text = tab.to_latex(float_format='{:,.2f}'.format, escape=False)
     
     with open(home + table_out + 'classifier_table.txt', 'w') as f:
-        f.write(tab.to_latex(float_format='{:,.2f}'.format, escape=False))
+        f.write(tab.to_latex(float_format='{:,.2f}'.format, escape=False, columns=['Importance', 'CS', 'SWA', 'OA', 'NS']))
         f.close()
 
     pylab.ioff()
@@ -645,12 +662,25 @@ def sens(n = 20, m=10):
     fig = pylab.contourf(xx, yy, Z, [0, 0.9999, 1.9999, 2.9999, 3.9999], colors=('red', 'yellow', 'blue', 'green'), alpha=0.5, antialiased=False, extend='both')
     for (i, c,) in zip(xrange(4), plot_colors):
         idx = np.where(Y == i)
-        pylab.scatter(Xpara[idx, 1], Xpara[idx, 11], c=c, cmap=cmap, label=srlist[i])
+        pylab.scatter(Xpara[idx, 1], Xpara[idx, 11], c=c, cmap=cmap, label=srlist[i], s = 12, lw=0.5)
         pylab.legend(bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc=3, ncol=4, mode='expand', borderaxespad=0.0)
 
     pylab.xlabel('Mean inflow over capacity')
     pylab.ylabel('Inflow coefficient of variation')
     OUT = home + out + 'class_fig.pdf'
+    pylab.savefig(OUT, bbox_inches='tight')
+    pylab.show()
+    
+    for (i, c,) in zip(xrange(4), plot_colors):
+        idx = np.where(Y == i)
+        pylab.scatter(Xpara[idx, 1], Xpara[idx, 11], c=c, cmap=cmap, label=srlist[i], s=10, lw=0)
+        pylab.legend(bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc=3, ncol=4, mode='expand', borderaxespad=0.0)
+    
+    pylab.xlim(0.2, 1.2)
+    pylab.ylim(0.4, 1.0)
+    pylab.xlabel('Mean inflow over capacity')
+    pylab.ylabel('Inflow coefficient of variation')
+    OUT = home + out + 'class_fig0.pdf'
     pylab.savefig(OUT, bbox_inches='tight')
     pylab.show()
     
@@ -666,10 +696,10 @@ def sens(n = 20, m=10):
     ############## Check if Z only 1s and zeros
     Z = treec.predict(X).reshape(xx.shape)
     fig = pylab.contourf(xx, yy, Z, [0, 0.9999, 1.9999, 2.9999, 3.9999], colors=('red', 'yellow', 'blue', 'green'), alpha=0.5, antialiased=False, extend='both')
-    for (i, c,) in zip(xrange(4), plot_colors):
-        idx = np.where(Y == i)
-        pylab.scatter(Xpara[idx, 1], Xpara[idx, 11], c=c, cmap=cmap, label=srlist[i])
-        pylab.legend(bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc=3, ncol=4, mode='expand', borderaxespad=0.0)
+    #for (i, c,) in zip(xrange(4), plot_colors):
+    #    idx = np.where(Y == i)
+    #    pylab.scatter(Xpara[idx, 1], Xpara[idx, 11], c=c, cmap=cmap, label=srlist[i])
+    #    pylab.legend(bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc=3, ncol=4, mode='expand', borderaxespad=0.0)
 
     pylab.xlabel('Mean inflow over capacity')
     pylab.ylabel('Inflow coefficient of variation')
@@ -689,10 +719,10 @@ def sens(n = 20, m=10):
     ############## Check if Z only 1s and zeros
     Z = treec.predict(X).reshape(xx.shape)
     fig = pylab.contourf(xx, yy, Z, [0, 0.9999, 1.9999, 2.9999, 3.9999], colors=('red', 'yellow', 'blue', 'green'), alpha=0.5, antialiased=False, extend='both')
-    for (i, c,) in zip(xrange(4), plot_colors):
-        idx = np.where(Y == i)
-        pylab.scatter(Xpara[idx, 1], Xpara[idx, 11], c=c, cmap=cmap, label=srlist[i])
-        pylab.legend(bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc=3, ncol=4, mode='expand', borderaxespad=0.0)
+    #for (i, c,) in zip(xrange(4), plot_colors):
+    #    idx = np.where(Y == i)
+    #    pylab.scatter(Xpara[idx, 1], Xpara[idx, 11], c=c, cmap=cmap, label=srlist[i])
+    #    pylab.legend(bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc=3, ncol=4, mode='expand', borderaxespad=0.0)
 
     pylab.xlabel('Mean inflow over capacity')
     pylab.ylabel('Inflow coefficient of variation')
@@ -704,8 +734,7 @@ def sens(n = 20, m=10):
 
     nnn = xx.ravel().shape[0]
     Xlist = [np.mean(Xpara[:,i])*np.ones(nnn) for i in range(pnum)]
-    Xlist[10] = np.percentile(Xpara[:,10], 10)*np.ones(nnn)
-    Xlist[5] = np.percentile(Xpara[:,5], 90)*np.ones(nnn)
+    Xlist[9] = np.percentile(Xpara[:,9], 10)*np.ones(nnn)
     Xlist[1] = xx.ravel()
     Xlist[11] = yy.ravel()
     X = np.array(Xlist).T
@@ -713,14 +742,35 @@ def sens(n = 20, m=10):
     ############## Check if Z only 1s and zeros
     Z = treec.predict(X).reshape(xx.shape)
     fig = pylab.contourf(xx, yy, Z, [0, 0.9999, 1.9999, 2.9999, 3.9999], colors=('red', 'yellow', 'blue', 'green'), alpha=0.5, antialiased=False, extend='both')
-    for (i, c,) in zip(xrange(4), plot_colors):
-        idx = np.where(Y == i)
-        pylab.scatter(Xpara[idx, 1], Xpara[idx, 11], c=c, cmap=cmap, label=srlist[i])
-        pylab.legend(bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc=3, ncol=4, mode='expand', borderaxespad=0.0)
+    #for (i, c,) in zip(xrange(4), plot_colors):
+    #    idx = np.where(Y == i)
+    #    pylab.scatter(Xpara[idx, 1], Xpara[idx, 11], c=c, cmap=cmap, label=srlist[i])
+    #    pylab.legend(bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc=3, ncol=4, mode='expand', borderaxespad=0.0)
 
     pylab.xlabel('Mean inflow over capacity')
     pylab.ylabel('Inflow coefficient of variation')
     OUT = home + out + 'class_fig4.pdf'
+    pylab.savefig(OUT, bbox_inches='tight')
+    pylab.show()
+
+    nnn = xx.ravel().shape[0]
+    Xlist = [np.mean(Xpara[:,i])*np.ones(nnn) for i in range(pnum)]
+    Xlist[9] = np.percentile(Xpara[:,9], 90)*np.ones(nnn)
+    Xlist[1] = xx.ravel()
+    Xlist[11] = yy.ravel()
+    X = np.array(Xlist).T
+
+    ############## Check if Z only 1s and zeros
+    Z = treec.predict(X).reshape(xx.shape)
+    fig = pylab.contourf(xx, yy, Z, [0, 0.9999, 1.9999, 2.9999, 3.9999], colors=('red', 'yellow', 'blue', 'green'), alpha=0.5, antialiased=False, extend='both')
+    #for (i, c,) in zip(xrange(4), plot_colors):
+    #    idx = np.where(Y == i)
+    #    pylab.scatter(Xpara[idx, 1], Xpara[idx, 11], c=c, cmap=cmap, label=srlist[i])
+    #    pylab.legend(bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc=3, ncol=4, mode='expand', borderaxespad=0.0)
+
+    pylab.xlabel('Mean inflow over capacity')
+    pylab.ylabel('Inflow coefficient of variation')
+    OUT = home + out + 'class_fig5.pdf'
     pylab.savefig(OUT, bbox_inches='tight')
     pylab.show()
 #def sens_results(n = 110):
@@ -766,7 +816,8 @@ def sens(n = 20, m=10):
     for i in range(n):
         SW_p[i] = results[i][sr]['stats'][0]['SW'][0]['Mean'] / 1000000
 
-    chart(SWI, 0.99 * miny, 1.01 * maxy, 'Social welfare relative to CS', out, 'Welfare_sens')
+    chart(SWI, 0.85, 1.01 * maxy, 'Social welfare relative to CS', out, 'Welfare_sens')
+
     series = ['CS', 'SWA', 'OA', 'NS']
     data0 = []
     for x in series:
@@ -899,7 +950,7 @@ def sens(n = 20, m=10):
     for i in range(n):
         S_p[i] = results[i][sr]['stats'][0]['S'][0]['Mean'] / 1000
 
-    chart(SI, 0.99 * miny, 1.01 * maxy, 'Storage relative to CS', out, 'Storage_sens')
+    chart(SI, 0.99 * miny, 1.6, 'Storage relative to CS', out, 'Storage_sens')
 
     series = ['CS', 'SWA', 'OA','NS']
     data0 = []
@@ -949,6 +1000,7 @@ def sens(n = 20, m=10):
         array = np.zeros(n)
         arrayI = np.zeros(n)
         for i in range(n):
+            n2 = results[i][sr]['stats'][0]['Z'].shape[0] - 2
             array[i] = results[i][sr]['stats'][0]['Z'][n2]['Mean'] / 1000
             arrayI[i] = results[i][sr]['stats'][0]['Z'][n2]['Mean'] / 1000 / (results[i]['CS']['stats'][0]['Z'][n2]['Mean'] / 1000)
 
@@ -1017,6 +1069,7 @@ def sens(n = 20, m=10):
         array = np.zeros(n)
         arrayI = np.zeros(n)
         for i in range(n):
+            n2 = results[i][sr]['stats'][0]['U_high'].shape[0] - 2
             array[i] = results[i][sr]['stats'][0]['U_high'][n2]['Mean'] / 1000000
             arrayI[i] = results[i][sr]['stats'][0]['U_high'][n2]['Mean'] / 1000000 / (results[i]['CS']['stats'][0]['U_high'][n2]['Mean'] / 1000000)
 
@@ -1029,7 +1082,7 @@ def sens(n = 20, m=10):
         if mx > maxy:
             maxy = mx
 
-    chart(UI, 0.99 * miny, 1.01 * maxy, 'High user welfare relative to CS', out, 'highUI_sens')
+    chart(UI, 0.8, 1.01 * maxy, 'High user welfare relative to CS', out, 'highUI_sens')
     
     series = ['CS', 'SWA', 'OA', 'NS']
     data0 = []
@@ -1073,6 +1126,7 @@ def sens(n = 20, m=10):
         array = np.zeros(n)
         arrayI = np.zeros(n)
         for i in range(n):
+            n2 = results[i][sr]['stats'][0]['U_low'].shape[0] - 2
             array[i] = results[i][sr]['stats'][0]['U_low'][n2]['Mean'] / 1000000
             arrayI[i] = results[i][sr]['stats'][0]['U_low'][n2]['Mean'] / 1000000 / (results[i]['CS']['stats'][0]['U_low'][n2]['Mean'] / 1000000)
 
@@ -1085,7 +1139,7 @@ def sens(n = 20, m=10):
         if mx > maxy:
             maxy = mx
 
-    chart(UI, 0.8, 1.01 * maxy, 'Low user welfare relative to CS', out, 'lowUI_sens')
+    chart(UI, 0.8, 1.15, 'Low user welfare relative to CS', out, 'lowUI_sens')
     
     series = ['CS', 'SWA', 'OA', 'NS']
     data0 = []
@@ -1120,5 +1174,3 @@ def sens(n = 20, m=10):
     with open(home + table_out + 'lowUI_sens.txt', 'w') as f:
         f.write(tab.to_latex(float_format='{:,.3f}'.format, columns=['Mean', 'Min', 'Q1', 'Q3', 'Max'], escape=False))
         f.close()
-
-    #return results

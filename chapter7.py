@@ -22,6 +22,7 @@ para = Para(rebuild=True)
 para.set_property_rights(scenario='CS')
 para.ch7['inflow_share'] = 0.25
 para.ch7['capacity_share'] = 0.25
+para.t_cost = 1000000000
 
 """
 para.sg_radius1_ch7 = 0.02

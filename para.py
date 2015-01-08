@@ -515,7 +515,7 @@ class Para:
 
         self.para_list['Lambda_high'] = self.Lambda_high
         self.para_list['Lambda_high_RS'] = self.Lambda_high_RS
-
+    
     def central_case(self, N=100, utility=False, printp=True, risk=0):
         
         self.K = 1000000
@@ -901,7 +901,7 @@ class Para:
         #Proportion of users to update
         self.update_rate =  [6] * 5 + [6] * 5 + [5] * 10 + [4]*150 #+ [0.05] * 5
         #self.update_rate = [12] * 5 + [10] * 150 #+ [0.05] * 5
-        self.update_rate_ch7 = [4] * 150 #+ [0.05] * 5
+        self.update_rate_ch7 = [3] * 150 #+ [0.05] * 5
         
         #Proportion of sample size to replace each iteration (< 1 implies rolling batch)
         self.sample_rate = 0.125

@@ -186,14 +186,14 @@ class Model:
         tic = time()
         
         if envoff:
-            Tiles = [6, 5, 4]
+            Tiles = [[6, 5, 4], [6,5,4]]
             D = 2
             a = [0, 0, 0.25]
             b = [100, 100, 99.75]
             pc_samp = 0.5
             xarg = ['x', 1]
         else:
-            Tiles = [6, 6, 6, 5]
+            Tiles = [[6, 6, 6, 5], [6, 6, 6, 5]]
             D = 3
             xarg = ['x', 1, 1]
             a = [0, 0, 0.25, 0]
@@ -217,11 +217,11 @@ class Model:
         self.qv.iterate(self.sim.XA, self.sim.X1, self.sim.U, Alow, Ahigh, ITER=self.para.QV_ITER1, 
                             plot=False, eta=0.8, sg_points=self.para.sg_points1_ch7/2, maxT=250000, a=a, b=b, pc_samp=pc_samp, plotiter=False, xargs=xarg)
         
-        for m in range(2): 
-            self.qv.W_f[m].plot(xarg)
-            pylab.show()
-            self.qv.V_f[m].plot(xarg)
-            pylab.show()
+        #for m in range(2): 
+        #    self.qv.W_f[m].plot(xarg)
+        #    pylab.show()
+        #    self.qv.V_f[m].plot(xarg)
+        #    pylab.show()
         
         self.utility.policy0 = self.qv.W_f[0]
         self.utility.policy1 = self.qv.W_f[1]
@@ -271,14 +271,14 @@ class Model:
         
         #stats, qv = 
         self.multiQV_ch7(ITER=self.para.ITER1, init=True)
-        """
+        
         ##################          Main Q-learning              #################
         env_lambda = self.env.Lambda_I
         delta = 0.01 
         
         print '\nSolve decentralised problem, multiple agent fitted QV iteration ...'
         
-        for i in range(self.para.ITER2):
+        for i in range(20): #self.para.ITER2):
             
             print '\n  ---  Iteration: ' + str(i) + '  ---\n'
             print '-----------------------------------------'
@@ -289,18 +289,34 @@ class Model:
             self.env.update_policy(qv[2].W_f)
             self.env.d = self.para.envd[i]
             
-            money = np.mean(self.sim.series['Budget']) 
-            print 'Mean EWH budget outcome: ' + str(money)
-            if  money > 0:
-                env_lambda = max(min(env_lambda - delta * 0.9, 0.99), 0.01)
-            else:
-                env_lambda = max(min(env_lambda + delta * 0.9, 0.99), 0.01)
-            print 'New EWH share: ' + str(env_lambda)
+            print '------- Summer --------'
+            print 'Mean A low: ' + str(np.mean(self.sim.series['A_low'][:,0]))
+            print 'Mean A high: ' + str(np.mean(self.sim.series['A_high'][:,0]))
+            print 'Mean A env: ' + str(np.mean(self.sim.series['A_env'][:,0]))
+            print 'Mean Q low: ' + str(np.mean(self.sim.series['Q_low'][:,0]))
+            print 'Mean Q high: ' + str(np.mean(self.sim.series['Q_high'][:,0]))
+            print 'Mean Q env: ' + str(np.mean(self.sim.series['Q_env'][:,0]))
+            print 'Mean EWH budget outcome: ' + str(np.mean(self.sim.series['Budget'][:, 0]))
+            print '------- Winter --------'
+            print 'Mean A low: ' + str(np.mean(self.sim.series['A_low'][:,1]))
+            print 'Mean A high: ' + str(np.mean(self.sim.series['A_high'][:,1]))
+            print 'Mean A env: ' + str(np.mean(self.sim.series['A_env'][:,1]))
+            print 'Mean Q low: ' + str(np.mean(self.sim.series['Q_low'][:,1]))
+            print 'Mean Q high: ' + str(np.mean(self.sim.series['Q_high'][:,1]))
+            print 'Mean Q env: ' + str(np.mean(self.sim.series['Q_env'][:,1]))
+            print 'Mean EWH budget outcome: ' + str(np.mean(self.sim.series['Budget'][:, 1]))
+
+            #money = np.mean(self.sim.series['Budget']) 
+            #if  money > 0:
+            #    env_lambda = max(min(env_lambda - delta * 0.9, 0.99), 0.01)
+            #else:
+            #    env_lambda = max(min(env_lambda + delta * 0.9, 0.99), 0.01)
             
-            self.env.set_shares(env_lambda) 
-            self.users.set_shares(self.para.Lambda_high, env_lambda, env_lambda)
-            self.utility.set_shares(self.para.Lambda_high, self.users, self.env)
-            print 'New EWH share: ' + str(self.env.Lambda_I)
+            #self.env.set_shares(env_lambda) 
+            #self.users.set_shares_ch7(self.para.Lambda_high, env_lambda, env_lambda)
+            #self.utility.set_shares(self.para.Lambda_high, self.users, self.env)
+            #print 'New EWH share: ' + str(self.env.Lambda_I)
+            #print 'Sum of all shares ' + str(np.sum(self.utility.c_F))
 
         self.users.exploring = 0
         self.env.explore = 0
@@ -308,17 +324,17 @@ class Model:
         
         big_toc = time()
         print "Total time (minutes): " + str(round((big_toc - big_tic) / 60, 2))
-        """
+        
     def multiQV_ch7(self, ITER, init=False, eta=0.7, partial=False):
         
         tic = time()
         
         if init:
-            Tuser = [6, 5, 6, 4, 4]
+            Tuser = [[6, 5, 6, 3, 4], [6, 5, 6, 1, 3]]
             Luser = 25
             minsamp = 3
             asgd = True
-            Tenv = [5, 4, 5, 4, 4]
+            Tenv = [[5, 4, 5, 4, 4], [5, 4, 5, 4, 4]]
             Lenv = 25
 
 
@@ -354,8 +370,7 @@ class Model:
         self.qv_multi[0].iterate([self.sim.XA_t[0], self.sim.XA_t1[0]], [self.sim.X_t1[0], self.sim.X_t11[0]],  [self.sim.u_t[0], self.sim.u_t1[0]],  
                 Alow, Ahigh, ITER=ITER, a = [0, 0, 0, 0.25, 0.25],b = [100, 100, 100, 99.40, 99.40], pc_samp=0.25, 
                 maxT=1200000,eta=eta, tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2_ch7, sgmem_max=0.15, plotiter=False, 
-                xargs=[300000,'x', 1, 1, 1], test=True, plot=False)
-        """
+                xargs=[300000,'x', 1, 1, 1], test=False, plot=False)
      
         print "\nSolving high reliability users problem"
         print "-------------------------------------\n"
@@ -372,7 +387,7 @@ class Model:
         toc = time()
         st = toc - tic    
         print 'Total time: ' + str(st)
-        """
+        
         return [self.sim.stats, self.qv_multi]
         
     def multiQV(self, ITER, init=False, type='ASGD', eta=0.7, testing=False, test_idx=0, partial=False, NS=False):

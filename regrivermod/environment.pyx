@@ -124,7 +124,7 @@ cdef class Environment:
 
         if self.p > (P + t_cost):
             q = c_max(self.d_c + self.d_b * (P + t_cost), 0)
-        elif self.p <= P:
+        elif self.p < P:
             q = c_max(self.d_c + self.d_b * P, 0)
         else:
             q = c_max(c_min(self.a, self.d_c), 0)
@@ -328,7 +328,10 @@ cdef class Environment:
         if m == 0:
             self.policy0 = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
             self.value0 = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
-            self.policy0.fit(X, w)
+
+            #Env default is to withdraw no water in summer
+            self.policy0.fit(X, np.zeros(N))   
+            #self.policy0.fit(X, w)
             self.value0.fit(X, v)
         else:
             self.policy1 = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
