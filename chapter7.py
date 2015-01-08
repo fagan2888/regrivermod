@@ -13,7 +13,7 @@ home = '/home/nealbob'
 folder = '/Dropbox/Model/results/chapter7/'
 out = '/Dropbox/Thesis/IMG/chapter7/'
 
-para = Para(rebuild=True)
+para = Para()
 
 #==========================================
 # Planner with central parameters
