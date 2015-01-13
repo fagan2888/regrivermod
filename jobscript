@@ -1,10 +1,4 @@
 #!/bin/bash
-#PBS -P fr3 
-#PBS -q normal
-#PBS -l walltime=00:05:00
-#PBS -l mem=3500MB
-#PBS -l ncpus=8
-#PBS -l wd
-module load python/2.7.3
-module load python/2.7.3-matplotlib
-python chapter3.py
+for i in {1..110}; do
+    qsub -v PBS_ARRAY_INDEX=$i ch5jobs
+done
