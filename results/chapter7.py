@@ -166,3 +166,117 @@ def duration_curve(data, bins=100, XMAX=0, OUTFILE=''):
     pylab.savefig(OUTFILE, bbox_inches='tight')
     pylab.show()
 
+
+def simple_share_model(n=10):
+
+    home = '/home/nealbob'
+    folder = '/Dropbox/Model/results/chapter6/lambda/'
+    model = '/Dropbox/Model/'
+    out = '/Dropbox/Thesis/IMG/chapter7/'
+    img_ext = '.pdf'
+    table_out = '/Dropbox/Thesis/STATS/chapter7/'
+   
+    results = []
+    paras = []
+
+    for i in range(n):
+        if i != 9:
+            with open(home + folder + 'lambda_result_' + str(i) +'.pkl', 'rb') as f:
+                results.extend(pickle.load(f))
+                f.close()
+
+            with open(home + folder + 'lambda_para_' + str(i) + '.pkl', 'rb') as f:
+                paras.extend(pickle.load(f))
+                f.close()
+    
+    nn = (n - 1) * 10
+
+    Y = np.zeros([nn, 4])
+    X = np.zeros([nn, 12])
+
+    for i in range(nn):
+       
+        Y[i, 0] = results[i][0][1][0]
+        Y[i, 1] = results[i][0][1][1]
+        Y[i, 2] = results[i][1][1][0]
+        Y[i, 3] = results[i][1][1][1]
+        
+        X[i, :] = np.array([paras[i][p] for p in paras[i]])
+
+    """    
+    tree = Tree(min_samples_split=3, min_samples_leaf=2, n_estimators = 300)
+    tree.fit(X, Y)
+    
+    with open(home + model + 'sharemodel.pkl', 'wb') as f:
+       pickle.dump(tree, f)
+       f.close()
+    
+    scen = ['RS-O', 'CS-O', 'RS-HL-O', 'CS-HL-O']
+
+    for i in range(4):
+    
+        chart = {'OUTFILE' : (home + out + 'lambda_' + scen[i] + img_ext),
+                 'XLABEL' : 'Optimal flow share',
+                 'XMIN' : min(Y[:,i]),
+                 'XMAX' : max(Y[:,i]),
+                 'BINS' : 10}
+        data = [Y[:,i]]
+        build_chart(chart, data, chart_type='hist')
+
+        chart = {'OUTFILE' : (home + out + 'lambda_scat_' + scen[i] + img_ext),
+                 'XLABEL' : 'Number of high reliability users',
+                 'YLABEL' : 'Optimal flow share'}
+        data = [[X[:, 2], Y[:,i]]]
+        build_chart(chart, data, chart_type='scatter')
+    
+    
+    rank = tree.feature_importances_ * 100
+    
+    data0 = []
+    for i in range(len(paras[0])):
+        record = {}
+        record['Importance'] = rank[i]
+        data0.append(record)
+
+    tab = pandas.DataFrame(data0)
+    tab.index = [p for p in paras[i]]
+    tab = tab.sort(columns=['Importance'], ascending=False)
+    
+    with open(home + table_out + 'lambda' + '.txt', 'w') as f:
+        f.write(tab.to_latex(float_format='{:,.2f}'.format))
+        f.close()
+    """  
+
+    from sklearn.linear_model import LinearRegression as OLS
+    ols = OLS()
+    
+    ols.fit(X[:,2].reshape([190, 1]), Y[:,1])
+    CS_c = ols.intercept_
+    CS_b = ols.coef_[0]
+    xp = np.linspace(30, 70, 300)
+    yp = CS_c + CS_b * xp
+    
+    chart_params() 
+    pylab.plot(X[:,2], Y[:, 1], 'o') 
+    pylab.plot(xp, yp)
+    pylab.xlabel('Number of high reliability users')
+    pylab.ylabel('Optimal flow share')
+    pylab.ylim(0, 0.8)
+    pylab.show()
+    
+    ols.fit(X[:,2].reshape([190, 1]), Y[:,3])
+    CSHL_c = ols.intercept_
+    CSHL_b = ols.coef_[0]
+    xp = np.linspace(30, 70, 300)
+    yp = CSHL_c + CSHL_b * xp
+    
+    chart_params() 
+    pylab.plot(X[:,2], Y[:, 3], 'o') 
+    pylab.plot(xp, yp)
+    pylab.xlabel('Number of high reliability users')
+    pylab.ylabel('Optimal flow share')
+    pylab.ylim(0, 0.8)
+    pylab.show()
+
+    return [CS_c, CS_b, CSHL_c, CSHL_b]
+

@@ -284,8 +284,6 @@ class Model:
         self.para.ch7['capacity_share'] = E_lambda
         self.para.t_cost = self.para.t_cost/2.0
         
-        import pdb; pdb.set_trace()
-
         self.plannerQV_ch7(T=200000, stage2=False, d=0.2, simulate=True, envoff=False)
         
         big_tic = time()

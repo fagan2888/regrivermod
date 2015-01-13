@@ -55,6 +55,14 @@ class Para:
 
         self.set_property_rights()
 
+        ### chapter 7 inflow share model
+
+        self.CS_c = -0.153007555
+        self.CS_b = 0.00930613
+        self.CSHL_c = -0.0891846
+        self.CSHL_b = 0.0047009
+        
+
     def build_para(self, charts=False):
 
         home = '/home/nealbob'
@@ -515,6 +523,25 @@ class Para:
 
         self.para_list['Lambda_high'] = self.Lambda_high
         self.para_list['Lambda_high_RS'] = self.Lambda_high_RS
+    
+    def aproximate_shares_ch7(self, nonoise=False):
+        
+        home = '/home/nealbob'
+        model = '/Dropbox/Model/'
+        
+        if self.HL == 1:
+            y = self.CSHL_c + self.CSHL_b * self.N_high
+        else:
+            y = self.CS_c + self.CS_b * self.N_high
+        
+        if nonoise:
+            self.Lambda_high = y
+        else:
+            self.Lambda_high = truncnorm((0.001 - y) / 0.05, (0.999 - y) / 0.05, loc=y, scale=0.05).rvs()
+
+        self.para_list['Lambda_high'] = self.Lambda_high
+
+        print 'Lambda_high_hat: ' + str(y) + ', Lambda high: ' + str(self.Lambda_high)
     
     def central_case(self, N=100, utility=False, printp=True, risk=0):
         
