@@ -38,7 +38,7 @@ cdef inline double c_sum(int N, double[:] x):
 
     return sumx
 
-cdef inline double excess_demand(double P, double Q, double t_cost, int N, double[:] p, double[:] d_c, double[:] d_b, double[:] a, double p_e, double d_c_e, double d_b_e, double min_q, double a_e) nogil:
+cdef inline double excess_demand(double P, double Q, double t_cost, int N, double[:] p, double[:] d_c, double[:] d_b, double[:] a, double p_e, double d_c_e, double d_b_e, double min_q, double a_e, double P_adj) nogil:
         
         "Calculate excess demand given P and Q"
 
@@ -52,8 +52,8 @@ cdef inline double excess_demand(double P, double Q, double t_cost, int N, doubl
             
             if p[i] > (P + t_cost):
                 Qt += c_max(d_c[i] + d_b[i] * (P + t_cost), 0)
-            elif p[i] < P:
-                Qt += c_max(d_c[i] + d_b[i] * P, 0)
+            elif p[i] < (P - t_cost):
+                Qt += c_max(d_c[i] + d_b[i] * (P - t_cost), 0)
             else:
                 Qt += c_max(c_min(a[i], d_c[i]), 0)
        
@@ -62,10 +62,11 @@ cdef inline double excess_demand(double P, double Q, double t_cost, int N, doubl
         #if Q <= min_q:
         #    q = 0
         #else:
+        P = c_max(P + P_adj, 0)
         if p_e > (P + t_cost):
             q = c_max(d_c_e + d_b_e * (P + t_cost), 0)
-        elif p_e < P:
-            q = c_max(d_c_e + d_b_e * P, 0)
+        elif p_e < (P - t_cost):
+            q = c_max(d_c_e + d_b_e * (P - t_cost), 0)
         else:
             q = c_max(c_min(a_e, d_c_e), 0)
         
@@ -77,17 +78,19 @@ cdef inline double excess_demand(double P, double Q, double t_cost, int N, doubl
         
         return Qt 
 
-cdef inline double e_demand(double P, double t_cost, double p_e, double d_c_e, double d_b_e, double min_q, double a_e) nogil:
+cdef inline double e_demand(double P, double t_cost, double p_e, double d_c_e, double d_b_e, double min_q, double a_e, double P_adj) nogil:
+
 
         "Calculate excess demand given P and Q"
 
         cdef int i = 0
         cdef double q = 0
-
+        
+        P = c_max(P + P_adj, 0)
         if p_e > (P + t_cost):
             q = c_max(d_c_e + d_b_e * (P + t_cost), 0)
-        elif p_e < P:
-            q = c_max(d_c_e + d_b_e * P, 0)
+        elif p_e < (P - t_cost):
+            q = c_max(d_c_e + d_b_e * (P - t_cost), 0)
         else:
             q = c_max(c_min(a_e, d_c_e), 0)
 
@@ -113,7 +116,7 @@ cdef class Market:
         self.users_Pmax = users.theta[self.N-1,1] * 2                      
         self.Pmax = self.users_Pmax
         self.t_cost = para.t_cost		                           
-       
+        self.P_adj = 0
         self.nat = 0
 
         #Environment
@@ -256,8 +259,8 @@ cdef class Market:
             P_guess = self.market_d.one_value(state)
         
         
-        cdef double qetemp = e_demand(self.ePmax-0.01, 0, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e)
-        cdef double EXtemp = excess_demand(self.ePmax-0.01, Q, 0, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e)
+        cdef double qetemp = e_demand(self.ePmax-0.01, 0, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e, self.P_adj)
+        cdef double EXtemp = excess_demand(self.ePmax-0.01, Q, 0, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e, self.P_adj)
 
         if EXtemp > 0:          # Environment exits the market
             'Env has left the building'
@@ -271,8 +274,8 @@ cdef class Market:
         cdef double P2 = P1*0.9
         cdef double P0 = 0
 
-        cdef double EX2 = excess_demand(P2, Q, t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e)
-        cdef double EX1 = excess_demand(P1, Q, t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e)
+        cdef double EX2 = excess_demand(P2, Q, t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e, self.P_adj)
+        cdef double EX1 = excess_demand(P1, Q, t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e, self.P_adj)
         cdef double EX0 = EX1
         cdef int iters = 0
 
@@ -285,7 +288,7 @@ cdef class Market:
                     P0 = P1 * (1.1)
             else:
                 P0 = c_min(c_max(P1 - (EX1 * (P1 - P2) * ((EX1 - EX2)**-1)), 0), self.Pmax)
-            EX0 = excess_demand(P0, Q, t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e)
+            EX0 = excess_demand(P0, Q, t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e, self.P_adj)
 
             if P0 == 0 and EX0 <= 0:
                 EX0 = 0
@@ -322,7 +325,7 @@ cdef class Market:
             while c_abs(EX2) > tol2 and iters < 100:
                 
                 P2 = (P1 + P0)*0.5
-                EX2 = excess_demand(P2, Q, t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e)
+                EX2 = excess_demand(P2, Q, t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e, self.P_adj)
                 if EX2 > 0:
                     P0 = P2
                 else:
@@ -347,18 +350,18 @@ cdef class Market:
                 #print 'EX2: ' + str(EX2)
                 #print 'EX0: ' + str(EX0)
                 print 'Pmax: ' + str(self.Pmax)
-                print 'q_e: ' + str(e_demand(P0, t_cost, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e))
+                print 'q_e: ' + str(e_demand(P0, t_cost, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e, self.P_adj))
                 print 'min q: ' + str(self.min_q)
                 print 'd_c_e: ' + str(self.d_c_e)
                 print 'd_b_e: ' + str(self.d_b_e)
                 print 'ePmax: ' + str(self.ePmax)
                 print 'EXtemp: ' + str(EXtemp)
                 print 'qetemp: ' + str(qetemp)
-                print 'ae: ' + str(self.ae)
+                print 'ae: ' + str(self.a_e)
                 print 'tcost: ' + str(t_cost)
 
                 #raise NameError('SpotMarketFail')
         
-        self.EX =  excess_demand(P0, Q, t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e)
+        self.EX =  excess_demand(P0, Q, t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e, self.P_adj)
         return P0
     

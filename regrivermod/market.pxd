@@ -19,7 +19,7 @@ cdef class Market:
 
     cdef public double[:] d_beta, d_cons, p, a
 
-    cdef public double Pmax, t_cost, users_Pmax, EX, ePmax
+    cdef public double Pmax, t_cost, P_adj, users_Pmax, EX, ePmax
     
     cdef public double min_q, d_b_e, d_c_e, p_e, a_e
 

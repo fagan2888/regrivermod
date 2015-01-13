@@ -254,10 +254,39 @@ class Model:
             self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, self.para.T0, self.para.CPU_CORES, planner=True, stats=True)
         
         return [self.sim.stats, self.qv, st]
+    
+    def chapter7_initialise(self, ):
 
-    def chapter7(self, ):
+        self.para.sg_radius1_ch7 = 0.02
+        self.para.sg_points1_ch7 = 750
+        stats, _, _ = self.plannerQV_ch7(T=200000, stage2=False, d=0.2, simulate=True, envoff=True)
 
-        self.plannerQV_ch7(T=150000, stage2=False, d=0.2, simulate=True, envoff=False)
+        E_cons = stats['E']['Summer']['Mean'][self.sim.ITEROLD-1]
+
+        self.env.turn_off = 0 
+        self.sim.ITER = 0
+        self.sim.ITERNEW = 0
+        self.sim.ITEROLD = 0
+        self.para.sg_radius1_ch7 = 0.045
+        self.para.sg_points1_ch7 = 2500
+        stats, _, _ = self.plannerQV_ch7(T=200000, stage2=False, d=0.2, simulate=True, envoff=False)
+        
+        E_opt = stats['E']['Summer']['Mean'][self.sim.ITEROLD-1]
+        E_lambda = 1 - E_opt / E_cons 
+
+        print 'E_cons: ' + str(E_cons) + ', E_opt: ' + str(E_opt) + ', % change: ' + str(E_lambda)
+        
+        return E_lambda
+
+    def chapter7(self, E_lambda):
+        
+        self.para.ch7['inflow_share'] = E_lambda
+        self.para.ch7['capacity_share'] = E_lambda
+        self.para.t_cost = self.para.t_cost/2.0
+        
+        import pdb; pdb.set_trace()
+
+        self.plannerQV_ch7(T=200000, stage2=False, d=0.2, simulate=True, envoff=False)
         
         big_tic = time()
         
@@ -265,7 +294,7 @@ class Model:
         
         print 'Starting values, fitted QV iteration ...'
         
-        self.users.set_explorers(3, 0.3)#.3)
+        self.users.set_explorers(2, 0.3)#.3)
         self.env.explore = 1
         self.env.d = 0.3
         
@@ -274,18 +303,20 @@ class Model:
         
         ##################          Main Q-learning              #################
         env_lambda = self.env.Lambda_I
-        delta = 0.01 
+        delta = 0.02 
         
         print '\nSolve decentralised problem, multiple agent fitted QV iteration ...'
-        
-        for i in range(20): #self.para.ITER2):
+        P_adj = 0
+        counter  = 0
+        scale = 1
+        for i in range(self.para.ITER2):
             
             print '\n  ---  Iteration: ' + str(i) + '  ---\n'
             print '-----------------------------------------'
 
             stats, qv = self.multiQV_ch7(ITER=1, partial=True)
             
-            self.users.update_policy_ch7(qv[0].W_f, qv[1].W_f, Np=self.para.update_rate_ch7[i], N_e=3, d=0.2)
+            self.users.update_policy_ch7(qv[0].W_f, qv[1].W_f, Np=self.para.update_rate_ch7[i], N_e=2, d=0.2)
             self.env.update_policy(qv[2].W_f)
             self.env.d = self.para.envd[i]
             
@@ -305,18 +336,28 @@ class Model:
             print 'Mean Q high: ' + str(np.mean(self.sim.series['Q_high'][:,1]))
             print 'Mean Q env: ' + str(np.mean(self.sim.series['Q_env'][:,1]))
             print 'Mean EWH budget outcome: ' + str(np.mean(self.sim.series['Budget'][:, 1]))
-
-            #money = np.mean(self.sim.series['Budget']) 
-            #if  money > 0:
-            #    env_lambda = max(min(env_lambda - delta * 0.9, 0.99), 0.01)
-            #else:
-            #    env_lambda = max(min(env_lambda + delta * 0.9, 0.99), 0.01)
             
-            #self.env.set_shares(env_lambda) 
-            #self.users.set_shares_ch7(self.para.Lambda_high, env_lambda, env_lambda)
-            #self.utility.set_shares(self.para.Lambda_high, self.users, self.env)
-            #print 'New EWH share: ' + str(self.env.Lambda_I)
-            #print 'Sum of all shares ' + str(np.sum(self.utility.c_F))
+            counter += 1 
+            if counter > 6:
+                if  np.mean(self.sim.series['Budget']) > 0:
+                    P_adj -= 25 * scale 
+                    #env_lambda = max(min(env_lambda - delta * scale, 0.99), 0.01)
+                else:
+                    #env_lambda = max(min(env_lambda + delta * scale, 0.99), 0.01)
+                    P_adj += 25 * scale
+
+                self.env.P_adj = P_adj
+                self.market.P_adj = P_adj
+                print 'P_adj: ' + str(self.market.P_adj) 
+                print 'Budget: ' + str(np.mean(self.sim.series['Budget']))
+                counter = 0
+                scale *= 0.8
+
+                #self.env.set_shares(env_lambda) 
+                #self.users.set_shares_ch7(self.para.Lambda_high, env_lambda, env_lambda)
+                #self.utility.set_shares(self.para.Lambda_high, self.users, self.env)
+                #print 'New EWH share: ' + str(self.env.Lambda_I)
+                #print 'Sum of all shares ' + str(np.sum(self.utility.c_F))
 
         self.users.exploring = 0
         self.env.explore = 0
@@ -325,6 +366,10 @@ class Model:
         big_toc = time()
         print "Total time (minutes): " + str(round((big_toc - big_tic) / 60, 2))
         
+        return [sim.stats, P_adj]
+
+        
+
     def multiQV_ch7(self, ITER, init=False, eta=0.7, partial=False):
         
         tic = time()
@@ -369,19 +414,19 @@ class Model:
         print "-------------------------------------\n"
         self.qv_multi[0].iterate([self.sim.XA_t[0], self.sim.XA_t1[0]], [self.sim.X_t1[0], self.sim.X_t11[0]],  [self.sim.u_t[0], self.sim.u_t1[0]],  
                 Alow, Ahigh, ITER=ITER, a = [0, 0, 0, 0.25, 0.25],b = [100, 100, 100, 99.40, 99.40], pc_samp=0.25, 
-                maxT=2400000,eta=eta, tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2_ch7, sgmem_max=0.15, plotiter=False, 
+                maxT=1200000,eta=eta, tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2_ch7, sgmem_max=0.15, plotiter=False, 
                 xargs=[300000,'x', 1, 1, 1], test=False, plot=False)
      
         print "\nSolving high reliability users problem"
         print "-------------------------------------\n"
         self.qv_multi[1].iterate([self.sim.XA_t[1], self.sim.XA_t1[1]], [self.sim.X_t1[1], self.sim.X_t11[1]], [self.sim.u_t[1], self.sim.u_t1[1]],
                 Alow, Ahigh, ITER=ITER, a = [0, 0, 0, 0.25, 0.25], b = [100, 100, 100, 99.40, 99.40], pc_samp=0.25, 
-                maxT=2400000, eta=eta, tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2, sgmem_max=0.15, plotiter=False, 
+                maxT=1200000, eta=eta, tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2, sgmem_max=0.15, plotiter=False, 
                 xargs=[300000,'x', 1, 1, 1], plot=False)
         
         print "\nSolving the EWHs problem"
         print "-------------------------------------\n"
-        self.qv_multi[2].iterate(self.sim.XA_e, self.sim.X1_e, self.sim.u_e, Alow, Ahigh, ITER=ITER, maxT=1000000, eta=eta,
+        self.qv_multi[2].iterate(self.sim.XA_e, self.sim.X1_e, self.sim.u_e, Alow, Ahigh, ITER=ITER, maxT=600000, eta=eta,
                 tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2, sgmem_max= 0.15, plotiter=False, xargs=[1000000,'x', 1, 2, 1], plot=False)
 
         toc = time()

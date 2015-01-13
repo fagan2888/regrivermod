@@ -46,8 +46,10 @@ cdef inline double[:] demand(double P, double t_cost, int N, double[:] mv, doubl
         
         if mv[i] > (P + t_cost):
             q[i] = c_max(d_c[i] + d_b[i] * (P + t_cost), 0)
-        elif mv[i] < P:
-            q[i] = c_max(d_c[i] + d_b[i] * P, 0)
+        elif mv[i] < (P - t_cost):
+            q[i] = c_max(d_c[i] + d_b[i] * (P - t_cost), 0)
+        #elif mv[i] < P:
+        #    q[i] = c_max(d_c[i] + d_b[i] * P, 0)
         else:
             q[i] = c_max(c_min(a[i], d_c[i]), 0)
     
@@ -88,7 +90,8 @@ cdef double[:] payoff(int N, double P, double t_cost, double[:] q, double[:]  a,
             if q[i] > a[i]:    # Water buyer
                 pi[i] = utemp + (a[i] - q[i]) * (P + t_cost)
             else:              # Water seller or non-trader
-                pi[i] = utemp + (a[i] - q[i]) * P
+                pi[i] = utemp + (a[i] - q[i]) * c_max(P - t_cost, 0)
+                #pi[i] = utemp + (a[i] - q[i]) * P
     
     if utility == 1:
         for i in range(N):
@@ -629,7 +632,7 @@ cdef class Users:
         for i in range(self.N):
             self.a[i] = a[i]
             self.q[i] = 0
-            self.profit[i] = self.a[i] * P 
+            self.profit[i] = self.a[i] * (P - self.t_cost) 
 
         self.U_low = 0
         self.U_high = 0

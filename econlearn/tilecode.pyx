@@ -1070,7 +1070,7 @@ cdef class Tilecode:
         cdef double v = 0
         cdef double A = 0
         cdef int i, h, j, k
-        cdef double[:] v_opt = np.ones(N)*-1000000
+        cdef double[:] v_opt = np.ones(N)*-10e100
         cdef double[:] A_opt = np.zeros(N)
         cdef int GRID = c_int((self.T[0] + 1) * self.L * 1.3)
         cdef double step =  (self.b[0] - self.a[0]) / GRID
@@ -1080,6 +1080,7 @@ cdef class Tilecode:
         cdef double AS
         cdef int[:] extrap = np.zeros(N, dtype = 'int32')
         cdef int[:] somedata = np.zeros(N, dtype = 'int32')
+        cdef int thisdata = 0
         cdef int idx, nosample
         cdef int temp = 0
 
@@ -1090,7 +1091,7 @@ cdef class Tilecode:
             if extrap[i] == 0:
                 A = c_max(self.a[0], Al[i])
                 while A <= Ah[i]:
-                    
+                    thisdata = 0
                     # Scale A
                     AS = ((A - self.a[0]) * self.d[0]) * self.T[0]
                     XS[i, 0] = AS 
@@ -1122,9 +1123,10 @@ cdef class Tilecode:
                         v =  v * self.Linv
                         if temp == self.L:
                             somedata[i] = 1
+                            thisdata = 1
                         #========================================================================
                     
-                    if v > v_opt[i]:
+                    if v > v_opt[i] and thisdata == 1:
                         v_opt[i] = v
                         A_opt[i] = A
                     
@@ -1146,6 +1148,137 @@ cdef class Tilecode:
 
         return [actions, values, state, index]
 
+    def opt_test(self, double[:,:] X, double[:] Al, double[:] Ah):
+        
+        """    
+        Optimise the function over the first dimension (e.g., actions) for a subset of points.
+
+        Subject to feasibility constraints Al <= A* <= Ah
+
+        Parameters
+        -----------
+        X : array, shape=(N, D) 
+            Input points to optimise over (unscaled)
+        
+        Al : array, shape=(N) 
+            Action lower bound
+        
+        Ah : array, shape=(N) 
+            Action upped bound
+        
+        Returns
+        --------
+    
+        actions : array, shape=(<N,)
+            Optimal actions  (e.g. argmax Q(a, s))
+
+        values : array, shape=(<N)
+            Optimal Q values, (e.g. max Q(a, s))
+        
+        points : array, shape(<N, D)
+            Points actually used: some points may be ignored if count < min_sample
+        
+        index : array, shape(<N, D)
+            index of points actually used
+        """
+        
+        cdef int N = X.shape[0]
+        cdef double v = 0
+        cdef double A = 0
+        cdef int i, h, j, k
+        cdef double[:] v_opt = np.ones(N)*-10e100
+        cdef double[:] A_opt = np.zeros(N)
+        cdef int GRID = c_int((self.T[0] + 1) * self.L * 1.3)
+        cdef double step =  (self.b[0] - self.a[0]) / GRID
+        cdef double A_old
+        cdef double xt = 0
+        cdef double[:,:] XS = np.zeros([N, self.D])
+        cdef double AS
+        cdef int[:] extrap = np.zeros(N, dtype = 'int32')
+        cdef int[:] somedata = np.zeros(N, dtype = 'int32')
+        cdef int idx, nosample
+        cdef int temp = 0
+
+        XS = self.scale_X(X, N, XS)
+        extrap = self.check_extrap(XS, N, extrap)
+
+        for i in range(N): 
+            if extrap[i] == 0:
+                print 'no extrap'
+                A = c_max(self.a[0], Al[i])
+                while A <= Ah[i]:
+                    print 'A: ' + str(A)
+                    
+                    # Scale A
+                    AS = ((A - self.a[0]) * self.d[0]) * self.T[0]
+                    XS[i, 0] = AS 
+                    
+                    print 'AS: ' + str(AS)
+                    
+                    if AS < -0.0001 or AS > self.T[0] + 0.0001:
+                        v = 0
+                    else:
+                        print 'predict y'
+                        print 'somedata: ' + str(somedata[i])
+                        # Predict y
+                        #========================================================================
+                        v = 0
+                        """
+                        v = predict(self.D, i, XS, 0, self.Tinv, self.offset, self.flat, self.Linv, self.w, self.count, self.min_sample, 
+                        self.lin_spline, self.lin_w, self.lin_c, self.lin_T, self.SIZE, self.L, self.dohash, self.mem_max, self.key)
+                        """
+                        idx = 0
+                        j = 0
+                        temp = 0
+                        for j in range(self.L): 
+                        
+                            idx = getindex(j, i, XS, self.D, self.offset, self.flat, self.SIZE, self.dohash, self.mem_max, self.key)
+                           
+                            if self.count[idx] >= self.min_sample:
+                                v += self.w[idx]
+                                temp = temp + 1
+                            else:
+                                v = 0
+                                break
+                        print 'v: ' + str(v)
+                        print 'temp: ' + str(temp)
+                        print 'L: ' + str(self.L)
+
+                        print 'somedata: ' + str(somedata[i])
+                        v =  v * self.Linv
+                        if temp == self.L:
+                            somedata[i] = 1
+                            print 'somedata = 1'
+                        
+                        print 'somedata: ' + str(somedata[i])
+                        #========================================================================
+                    
+                    if somedata[i] == 1:
+                        if v > v_opt[i]:
+                            v_opt[i] = v
+                            A_opt[i] = A
+                            print 'update optimal'
+
+                    print 'v_opt: ' + str(v_opt[i])
+                    print 'A_opt: ' + str(A_opt[i])
+
+                    A_old = A
+                    A = A + step
+                    if A > Ah[i]:
+                        A = Ah[i]
+                    if A_old == Ah[i]:
+                        break
+            else:
+                v_opt[i] = 0
+       
+        # return values
+        index = np.array(somedata).astype(bool)
+        #index = np.array(v_opt) > 0
+        values = np.array(v_opt)[index]
+        actions = np.array(A_opt)[index]
+        state = np.array(X)[index, 1::]
+
+        return [actions, values, state, index]
     def plot(self, xargs=0, showdata=True, label='', showplot=True, quad=False, returndata=False):
 
         """

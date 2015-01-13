@@ -25,6 +25,8 @@ cdef class Environment:
 
     cdef public double DELTA0, DELTA1
     cdef public double t_cost
+    cdef public double P_adj
+
     cdef public int t
 
     cdef public double k_I, theta_I

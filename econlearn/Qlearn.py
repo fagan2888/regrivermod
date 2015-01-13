@@ -294,7 +294,7 @@ class QVtile_ch7:
         self.value_error = np.zeros(ITER)
         
         grid = [0,0] 
-        
+        tile = [0,0] 
         if not(tilesg):
             grid[0], _ = buildgrid(X1[0], sg_points, self.radius, scale=True, stopnum=X1[0].shape[0])
             grid[1], _ = buildgrid(X1[1], sg_points, self.radius, scale=True, stopnum=X1[1].shape[0])
@@ -302,11 +302,12 @@ class QVtile_ch7:
             for m in range(2):
                 nn = int(X1[m].shape[0]*sg_samp)
                 tic = time()
-                tile = TilecodeSamplegrid(X1[m].shape[1], 25, mem_max=sgmem_max, cores=self.CORES)
-                grid[m] = tile.fit(X1[m][0:nn], self.radius, prop=sg_prop)
+                tile[m] = TilecodeSamplegrid(X1[m].shape[1], 25, mem_max=sgmem_max, cores=self.CORES)
+                grid[m] = tile[m].fit(X1[m][0:nn], self.radius, prop=sg_prop)
                 toc = time()
-                print 'State grid points: ' + str(grid[m].shape[0]) + ', of maximum: ' + str(tile.max_points) + ', Time taken: ' + str(toc - tic)
-                del tile
+                print 'State grid points: ' + str(grid[m].shape[0]) + ', of maximum: ' + str(tile[m].max_points) + ', Time taken: ' + str(toc - tic)
+            del tile
+        #import pdb; pdb.set_trace()
         points = [grid[m].shape[0] for m in M]
 
         ticfit = time()

@@ -1437,9 +1437,9 @@ class Simulation:
 
 
         #if self.ITER > 2:
-        #pylab.plot(self.S[4:self.ITERNEW])
-        #pylab.plot(self.W[4:self.ITERNEW])
-        #pylab.plot(self.E[4:self.ITERNEW])
-        #pylab.show()
-        #pylab.plot(self.B[4:self.ITERNEW])
-        #pylab.show()
+        #    pylab.plot(self.S[4:self.ITERNEW])
+        #    pylab.plot(self.W[4:self.ITERNEW])
+        #    pylab.plot(self.E[4:self.ITERNEW])
+        #    pylab.show()
+        #    pylab.plot(self.B[4:self.ITERNEW])
+        #    pylab.show()

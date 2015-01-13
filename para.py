@@ -846,7 +846,7 @@ class Para:
 
         """
 
-        self.CPU_CORES = 8 #mp.cpu_count()
+        self.CPU_CORES = 4 #mp.cpu_count()
 
         # Evaluation simulation size (for generating model results)
         self.T0 = 500000
@@ -875,7 +875,7 @@ class Para:
         self.sg_radius1 = 0.02
         self.sg_points1 = 425
 
-        self.sg_points1_ch7 = 2200
+        self.sg_points1_ch7 = 2500
         self.sg_radius1_ch7 = 0.045
 
         # Stage 2 search range
@@ -895,7 +895,7 @@ class Para:
         #======================================================
 
         self.ITER1 = 40             # Initialization stage QV iterations
-        self.ITER2 = 40             # Main learning iterations
+        self.ITER2 = 70             # Main learning iterations
         self.iters = 1              # QV iterations per learning iteration
 
         #Proportion of users to update
@@ -918,7 +918,7 @@ class Para:
 
         # Total sample size, actual sim length = T1 / (2*N_e)
         self.T2 = 500000
-        self.T2_ch7 = 800000
+        self.T2_ch7 = 600000
 
         # State sample grid parameters
         self.sg_radius2 = 0.045

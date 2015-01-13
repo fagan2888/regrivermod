@@ -116,16 +116,20 @@ cdef class Environment:
 
         cdef double F3, q = 0
         cdef double t_cost = 0
+        cdef double P_adj = 0
 
         if planner == 1:
             t_cost = 0
         else:
             t_cost = self.t_cost
-
+            P_adj = self.P_adj
+        
+        P = c_max(P + P_adj, 0)
+        
         if self.p > (P + t_cost):
             q = c_max(self.d_c + self.d_b * (P + t_cost), 0)
-        elif self.p < P:
-            q = c_max(self.d_c + self.d_b * P, 0)
+        elif self.p < (P - t_cost):
+            q = c_max(self.d_c + self.d_b * (P - t_cost), 0)
         else:
             q = c_max(c_min(self.a, self.d_c), 0)
         
@@ -230,7 +234,7 @@ cdef class Environment:
             if self.q > self.a:     # Water buyer
                 trade = (self.a - self.q) * (P + self.t_cost)
             else:                   # Water seller or non-trader
-                trade = (self.a - self.q) * P
+                trade = (self.a - self.q) * c_max(P - self.t_cost, 0)
         
         self.budget = trade 
         self.u += trade
@@ -330,8 +334,8 @@ cdef class Environment:
             self.value0 = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
 
             #Env default is to withdraw no water in summer
-            self.policy0.fit(X, np.zeros(N))   
-            #self.policy0.fit(X, w)
+            #self.policy0.fit(X, np.zeros(N))   
+            self.policy0.fit(X, w)
             self.value0.fit(X, v)
         else:
             self.policy1 = Tilecode(4, T, L, mem_max = 1, lin_spline=True, linT=linT, cores=CORES)
