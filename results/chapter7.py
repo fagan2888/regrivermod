@@ -256,12 +256,14 @@ def simple_share_model(n=10):
     xp = np.linspace(30, 70, 300)
     yp = CS_c + CS_b * xp
     
-    chart_params() 
+    chart_params()
+    pylab.figure()
     pylab.plot(X[:,2], Y[:, 1], 'o') 
     pylab.plot(xp, yp)
     pylab.xlabel('Number of high reliability users')
     pylab.ylabel('Optimal flow share')
     pylab.ylim(0, 0.8)
+    pylab.savefig(home + out + 'sharemodel1.pdf')
     pylab.show()
     
     ols.fit(X[:,2].reshape([190, 1]), Y[:,3])
@@ -271,11 +273,13 @@ def simple_share_model(n=10):
     yp = CSHL_c + CSHL_b * xp
     
     chart_params() 
+    pylab.figure()
     pylab.plot(X[:,2], Y[:, 3], 'o') 
     pylab.plot(xp, yp)
     pylab.xlabel('Number of high reliability users')
     pylab.ylabel('Optimal flow share')
     pylab.ylim(0, 0.8)
+    pylab.savefig(home + out + 'sharemodel2.pdf')
     pylab.show()
 
     return [CS_c, CS_b, CSHL_c, CSHL_b]
