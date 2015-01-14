@@ -1341,7 +1341,6 @@ class Simulation:
 
         tic1 = time.time()
 
-
         if planner: 
             series = ['W','SW','S','I','Z','P','E','Q', 'A', 'F1','F3','F1_tilde','F3_tilde', 'Profit', 'B', 'Budget']
             series = series + ['Q_low', 'Q_high', 'Q_env', 'Bhat', 'A_env', 'A_low', 'A_high'] 
@@ -1393,6 +1392,8 @@ class Simulation:
 
         if stats:
             self.summary_stats(sample=0.5, percentiles=True, ch7=True)
+        else:
+            self.summary_stats(sample=0.5, percentiles=False, ch7=True)
 
         self.ITEROLD = self.ITER
         self.ITERNEW = self.ITERNEW + 1

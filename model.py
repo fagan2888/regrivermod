@@ -292,7 +292,7 @@ class Model:
         
         print 'Starting values, fitted QV iteration ...'
         
-        self.users.set_explorers(2, 0.3)#.3)
+        self.users.set_explorers(2, self.para.d[0])#.3)
         self.env.explore = 1
         self.env.d = 0.3
         
@@ -301,7 +301,6 @@ class Model:
         
         ##################          Main Q-learning              #################
         env_lambda = self.env.Lambda_I
-        delta = 0.02 
         
         print '\nSolve decentralised problem, multiple agent fitted QV iteration ...'
         P_adj = 0
@@ -314,7 +313,7 @@ class Model:
 
             stats, qv = self.multiQV_ch7(ITER=1, partial=True)
             
-            self.users.update_policy_ch7(qv[0].W_f, qv[1].W_f, Np=self.para.update_rate_ch7[i], N_e=2, d=0.2)
+            self.users.update_policy_ch7(qv[0].W_f, qv[1].W_f, Np=self.para.update_rate_ch7[i], N_e=2, d=self.para.d[i])
             self.env.update_policy(qv[2].W_f)
             self.env.d = self.para.envd[i]
             

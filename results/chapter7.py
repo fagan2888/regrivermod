@@ -284,3 +284,41 @@ def simple_share_model(n=10):
 
     return [CS_c, CS_b, CSHL_c, CSHL_b]
 
+def central_case():
+
+    home = '/home/nealbob'
+    folder = '/Dropbox/Model/results/chapter7/'
+    out = '/Dropbox/Thesis/IMG/chapter7/'
+    img_ext = '.pdf'
+    table_out = '/Dropbox/Thesis/STATS/chapter7/'
+    
+    with open(home + folder + 'results.pkl', 'rb') as f:
+        results = pickle.load(f)
+        f.close()
+    
+    stats, P_adj = results['CS']
+
+    ###### Summary results #####
+    
+    cols = ['Mean', 'SD', '2.5th', '25th', '75th', '97.5th']
+    rows = ['CS']#, 'SWA', 'CS-HL', 'SWA-HL', 'OA', 'NS']
+    series = ['SW', 'Profit', 'B', 'S', 'W', 'E']
+    scale = {'SW' : 1000000, 'Profit' : 1000000, 'S' : 1000, 'W' : 1000, 'E' : 1000, 'B' : 1000000}
+
+    m = len(results['CS'][0]['S']['Annual']['Mean']) - 1
+
+    for x in series:
+        data0 = []
+        for row in rows:
+            record = {}
+            for col in cols:
+                record[col] = results[row][0][x]['Annual'][col][m] / scale[x]
+            data0.append(record)
+
+        data = pandas.DataFrame(data0)
+        data.index = rows
+
+        with open(home + table_out + 'central_' + x + '.txt', 'w') as f:
+            f.write(data.to_latex(float_format='{:,.2f}'.format, columns=cols))
+            f.close()
+    

@@ -29,7 +29,7 @@ mod = Model(para, ch7=True, turn_off_env=True)
 E_lambda = mod.chapter7_initialise()
 del mod
 
-scenarios = ['CS']#, 'SWA', 'CS-HL', 'SWA-HL', 'OA', 'NS']
+scenarios = ['CS', 'SWA'] #, 'CS-HL', 'SWA-HL', 'OA', 'NS']
 results = {scen: 0 for scen in scenarios}
 
 for scen in scenarios:
