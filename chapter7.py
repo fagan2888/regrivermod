@@ -77,7 +77,7 @@ for i in range(N):
         ques = [RetryQueue() for i in range(2)]
         #['CS', 'CS-HL', 'SWA']
         #['SWA-HL', 'OA', 'NS']
-        args = [(para, ['CS'], E_lambda, nonoise, ques[0]), para, ['SWA'], E_lambda, nonoise, ques[1])]
+        args = [(para, ['CS'], E_lambda, nonoise, ques[0]), (para, ['SWA'], E_lambda, nonoise, ques[1])]
         jobs = [multiprocessing.Process(target=solve_model, args=(a)) for a in args]
         for j in jobs: j.start()
         for q in ques: temp.append(q.get())
