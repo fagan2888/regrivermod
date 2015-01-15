@@ -71,7 +71,7 @@ cdef class Storage:
 
         self.pi = math.pi
         self.X = np.zeros(2)
-
+        
         if ch7:
             self.omega_mu = para.ch7['omega_mu']        # Summer-Winter inflow split
             self.omega_sig = para.ch7['omega_sig']
@@ -185,7 +185,6 @@ cdef class Storage:
 
     @cython.cdivision(True) 
     cdef void estimate_cdf(self, int T, para):
-
         cdef double[:, :] I0 = np.zeros([T, 1])
         cdef double[:, :] I1 = np.zeros([T, 1])
         
@@ -201,9 +200,10 @@ cdef class Storage:
         I0 = np.sort(I0, axis=0)
         I1 = np.sort(I1, axis=0)
         Pr = np.array(range(T)) * ((<double> T)**-1)
-        self.I0_cdf = Tilecode(1, [15], 20, offset='uniform', cores=para.CPU_CORES)
+
+        self.I0_cdf = Tilecode(1, [15], 20, offset='uniform', cores=1)
         self.I0_cdf.fit(I0, Pr)
-        self.I1_cdf = Tilecode(1, [15], 20, offset='uniform', cores=para.CPU_CORES)
+        self.I1_cdf = Tilecode(1, [15], 20, offset='uniform', cores=1)
         self.I1_cdf.fit(I1, Pr)
     
     @cython.cdivision(True) 

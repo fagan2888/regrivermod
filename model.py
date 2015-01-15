@@ -20,7 +20,6 @@ class Model:
         self.storage = Storage(para, ch7)
         self.users = Users(para, ch7)
         self.sim = Simulation(para, ch7)
-         
         if ch7:
             self.env = Environment(para, turn_off=turn_off_env)
             self.market = Market(para, self.users)
@@ -28,6 +27,7 @@ class Model:
             self.learn_market_demand()
         else:
             self.utility = Utility(self.users, self.storage, para)
+
 
     def plannerSDP(self, seed=0, plot=False):
         
