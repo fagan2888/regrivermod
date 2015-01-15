@@ -19,33 +19,6 @@ out = '/Dropbox/Thesis/IMG/chapter7/'
 NCIhome = '/short/fr3/ndh401'
 NCIfolder = '/chapter7/'
 
-#==========================================
-# NCI central case - decentralised
-#==========================================
-
-para = Para()
-para.set_property_rights(scenario='CS')
-mod = Model(para, ch7=True, turn_off_env=True)
-E_lambda = mod.chapter7_initialise()
-del mod
-
-scenarios = ['CS', 'SWA'] #, 'CS-HL', 'SWA-HL', 'OA', 'NS']
-results = {scen: 0 for scen in scenarios}
-
-for scen in scenarios:
-    para.set_property_rights(scenario=scen)
-    para.aproximate_shares_ch7(nonoise=True)
-    mod = Model(para, ch7=True, turn_off_env=False)
-    results[scen] = mod.chapter7(E_lambda)
-
-with open(NCIhome + NCIfolder +  'results.pkl', 'wb') as f: #str(arg1) + '_' + str(i) +  '_result.pkl', 'wb') as f:
-    pickle.dump(results, f)
-    f.close()
-
-#==========================================
-# Decentralised NCI sensitivity
-#==========================================
-"""
 def retry_on_eintr(function, *args, **kw):
     while True:
         try:
@@ -61,24 +34,22 @@ class RetryQueue(Queue):
     def get(self, block=True, timeout=None):
         return retry_on_eintr(Queue.get, self, block, timeout)
 
+def solve_model(para, scenarios, E_lambda, nonoise, que):
+    
+    results = {scen: 0 for scen in scenarios}
+    
+    for scen in scenarios:
+        para.set_property_rights(scenario=scen)
+        para.aproximate_shares_ch7(nonoise=nonoise)
+        mod = Model(para, ch7=True, turn_off_env=False)
+        results[scen] = mod.chapter7(E_lambda)
+        del mod
+        
+    que.put([results])
 
-def solve_model(para, scen, que):
-    
-    para.set_property_rights(scenario=scen)
-    para.aproximate_shares()
-    res = {'paras' : [], 'stats' : [], 'VE': [], 'PE' : []}
-    pol = []
-    mod = Model(para)
-    VE, PE, stats, policy = mod.chapter5()
-    res['stats'].append(stats)
-    res['paras'].append(para.para_list)
-    res['VE'].append(VE)
-    res['PE'].append(PE)
-    pol.append(policy)
-    
-    del mod
-    
-    que.put([res, pol])
+#==========================================
+# NCI central case - decentralised
+#==========================================
 
 try:
     arg1 = sys.argv[1]
@@ -86,6 +57,7 @@ try:
 except IndexError:
     print "Provide arguments <runnum> <numofjobs>"
 
+para = Para()
 N = int(arg2)
 for i in range(N):
     
@@ -94,28 +66,29 @@ for i in range(N):
     E_lambda = mod.chapter7_initialise()
     del mod
 
-    scenarios = ['CS', 'SWA', 'CS-HL', 'SWA-HL', 'OA', 'NS']
-    results = {scen: 0 for scen in scenarios}
-    policies = {scen: 0 for scen in scenarios}
-
     try:
         para.central_case(N = 100)
+        nonoise = True
         if i > 0:
             para.randomize(N = 100)
-        para.CPU_CORES = 4
+            nonoise = False
+        para.CPU_CORES = 8
         temp = []
-        ques = [RetryQueue() for i in range(4)]
-        args = [(para, scenarios[i], ques[i], E_lambda) for i in range(4)]
+        ques = [RetryQueue() for i in range(2)]
+        #['CS', 'CS-HL', 'SWA']
+        #['SWA-HL', 'OA', 'NS']
+        args = [(para, ['CS'], E_lambda, nonoise, ques[0]), para, ['SWA'], E_lambda, nonoise, ques[1])]
         jobs = [multiprocessing.Process(target=solve_model, args=(a)) for a in args]
         for j in jobs: j.start()
         for q in ques: temp.append(q.get())
         for j in jobs: j.join()
-        
-        for i in range(4):
-            results[scenarios[i]] = temp[i]
+    
+        results = {}
+        for i in range(2):
+            for scen in temp[i]:
+                results[scen] = temp[i][scen]
 
-     
-        with open(home + folder + str(arg1) + '_' + str(i) +  '_result.pkl', 'wb') as f:
+        with open(NCIhome + NCIfolder + str(arg1) + '_' + str(i) +  '_result.pkl', 'wb') as f:
             pickle.dump(results, f)
             f.close()
     
@@ -123,7 +96,7 @@ for i in range(N):
         raise
     except:
         pass
-"""
+
 
 #==========================================
 # Planner with central parameters

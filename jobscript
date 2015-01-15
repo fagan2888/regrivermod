@@ -1,4 +1,7 @@
 #!/bin/bash
-for i in {1..110}; do
-    qsub -v PBS_ARRAY_INDEX=$i ch5jobs
-done
+
+qsub -v PBS_ARRAY_INDEX=0 ch7jobs
+
+#for i in {0..110}; do
+#    qsub -v PBS_ARRAY_INDEX=$i ch7jobs
+#done

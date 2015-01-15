@@ -296,12 +296,10 @@ def central_case():
         results = pickle.load(f)
         f.close()
     
-    stats, P_adj = results['CS']
-
     ###### Summary results #####
     
     cols = ['Mean', 'SD', '2.5th', '25th', '75th', '97.5th']
-    rows = ['CS']#, 'SWA', 'CS-HL', 'SWA-HL', 'OA', 'NS']
+    rows = ['CS', 'SWA'] #, 'CS-HL', 'SWA-HL', 'OA', 'NS']
     series = ['SW', 'Profit', 'B', 'S', 'W', 'E']
     scale = {'SW' : 1000000, 'Profit' : 1000000, 'S' : 1000, 'W' : 1000, 'E' : 1000, 'B' : 1000000}
 
@@ -322,3 +320,4 @@ def central_case():
             f.write(data.to_latex(float_format='{:,.2f}'.format, columns=cols))
             f.close()
     
+    return results
