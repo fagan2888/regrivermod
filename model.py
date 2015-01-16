@@ -334,27 +334,36 @@ class Model:
             print 'Mean Q env: ' + str(np.mean(self.sim.series['Q_env'][:,1]))
             print 'Mean EWH budget outcome: ' + str(np.mean(self.sim.series['Budget'][:, 1]))
             
-            counter += 1 
-            if counter > 6:
-                if  np.mean(self.sim.series['Budget']) > 0:
-                    P_adj -= 25 * scale 
-                    #env_lambda = max(min(env_lambda - delta * scale, 0.99), 0.01)
-                else:
-                    #env_lambda = max(min(env_lambda + delta * scale, 0.99), 0.01)
-                    P_adj += 25 * scale
+
+            self.users.exploring = 0
+            self.env.explore = 0
+            budget = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 40000,self.para.CPU_CORES, stats=True, budgetonly=True) 
+            self.users.exploring = 1
+            self.env.explore = 1
+
+            if budget > 0:
+                P_adj -= 10 * scale 
+            else:
+                P_adj += 10 * scale
 
                 self.env.P_adj = P_adj
                 self.market.P_adj = P_adj
                 print 'P_adj: ' + str(self.market.P_adj) 
-                print 'Budget: ' + str(np.mean(self.sim.series['Budget']))
-                counter = 0
-                scale *= 0.8
+                scale *= 0.95
+            #counter += 1 
+            #if counter > 6:
+            #    if  np.mean(self.sim.series['Budget']) > 0:
+            #        P_adj -= 25 * scale 
+            #    else:
+            #        P_adj += 25 * scale
 
-                #self.env.set_shares(env_lambda) 
-                #self.users.set_shares_ch7(self.para.Lambda_high, env_lambda, env_lambda)
-                #self.utility.set_shares(self.para.Lambda_high, self.users, self.env)
-                #print 'New EWH share: ' + str(self.env.Lambda_I)
-                #print 'Sum of all shares ' + str(np.sum(self.utility.c_F))
+            #    self.env.P_adj = P_adj
+            #    self.market.P_adj = P_adj
+            #    print 'P_adj: ' + str(self.market.P_adj) 
+            #    print 'Budget: ' + str(np.mean(self.sim.series['Budget']))
+            #    counter = 0
+            #    scale *= 0.8
+
 
         self.users.exploring = 0
         self.env.explore = 0

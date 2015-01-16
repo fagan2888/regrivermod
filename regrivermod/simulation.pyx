@@ -64,7 +64,7 @@ class RetryQueue(Queue):
     def get(self, block=True, timeout=None):
         return retry_on_eintr(Queue.get, self, block, timeout)
 
-def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, Market market, Environment env, int init, int stats, int nat, que, multi=True, planner=False):
+def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, Market market, Environment env, int init, int stats, int nat, que, multi=True, planner=False, budgetonly=False):
 
     users.seed(job)
     utility.seed(job)
@@ -533,63 +533,65 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
             print 'Social Welfare: ' + str(SW_sim[t, 1])
             print 'Env Welfare: ' + str(env.u)
             print 'Env budget: ' + str(env.budget)
-        
-    data = {'W': np.asarray(W_sim),
-            'SW': np.asarray(SW_sim),
-            'Profit' : np.asarray(Profit_sim),
-            'S': np.asarray(S_sim),
-            'I': np.asarray(I_sim),
-            'Z': np.asarray(Z_sim),
-            'P' : np.asarray(P_sim),
-            'E' : np.asarray(E_sim),
-            'Q' : np.asarray(Q_sim),
-            'A' : np.asarray(A_sim),
-            'F1' : np.asarray(F1),
-            'F3' : np.asarray(F3),
-            'F1_tilde' : np.asarray(F1_tilde),
-            'F3_tilde' : np.asarray(F3_tilde),
-            'B' : np.asarray(B_sim), 
-            'Budget' : np.asarray(Budget_sim),
-            'Q_low' : np.asarray(Q_low_sim),
-            'Q_high' : np.asarray(Q_high_sim),
-            'Q_env' : np.asarray(Q_env_sim),
-            'Bhat' : np.asarray(Bhat_sim),
-            'A_low' : np.asarray(A_low_sim),
-            'A_high' : np.asarray(A_high_sim),
-            'A_env' : np.asarray(A_env_sim)}
     
-    if plan == 1: 
-        data['XA1'] = np.asarray(XA1)
-        data['X11'] = np.asarray(X11)
-        data['U1'] = np.asarray(U1) 
-        data['XA0'] = np.asarray(XA0)
-        data['X10'] = np.asarray(X10)
-        data['U0'] = np.asarray(U0) 
+    if budgetonly:
+        data = np.mean(Budget_sim)
     else:
-        if stats == 0:
-            data['XA_l'] = np.asarray(XA_l0)
-            data['X1_l' ] = np.asarray(X1_l0)
-            data['u_t_l'] = np.asarray(u_t_l0) 
-            data['XA_h'] = np.asarray(XA_h0)
-            data['X1_h'] = np.asarray(X1_h0)
-            data['u_t_h'] = np.asarray(u_t_h0) 
+        data = {'W': np.asarray(W_sim),
+                'SW': np.asarray(SW_sim),
+                'Profit' : np.asarray(Profit_sim),
+                'S': np.asarray(S_sim),
+                'I': np.asarray(I_sim),
+                'Z': np.asarray(Z_sim),
+                'P' : np.asarray(P_sim),
+                'E' : np.asarray(E_sim),
+                'Q' : np.asarray(Q_sim),
+                'A' : np.asarray(A_sim),
+                'F1' : np.asarray(F1),
+                'F3' : np.asarray(F3),
+                'F1_tilde' : np.asarray(F1_tilde),
+                'F3_tilde' : np.asarray(F3_tilde),
+                'B' : np.asarray(B_sim), 
+                'Budget' : np.asarray(Budget_sim),
+                'Q_low' : np.asarray(Q_low_sim),
+                'Q_high' : np.asarray(Q_high_sim),
+                'Q_env' : np.asarray(Q_env_sim),
+                'Bhat' : np.asarray(Bhat_sim),
+                'A_low' : np.asarray(A_low_sim),
+                'A_high' : np.asarray(A_high_sim),
+                'A_env' : np.asarray(A_env_sim)}
+        
+        if plan == 1: 
+            data['XA1'] = np.asarray(XA1)
+            data['X11'] = np.asarray(X11)
+            data['U1'] = np.asarray(U1) 
+            data['XA0'] = np.asarray(XA0)
+            data['X10'] = np.asarray(X10)
+            data['U0'] = np.asarray(U0) 
+        else:
+            if stats == 0:
+                data['XA_l'] = np.asarray(XA_l0)
+                data['X1_l' ] = np.asarray(X1_l0)
+                data['u_t_l'] = np.asarray(u_t_l0) 
+                data['XA_h'] = np.asarray(XA_h0)
+                data['X1_h'] = np.asarray(X1_h0)
+                data['u_t_h'] = np.asarray(u_t_h0) 
 
-            data['1'] = { 
-            'XA_l' : np.asarray(XA_l1),
-            'X1_l' : np.asarray(X1_l1),
-            'u_t_l' : np.asarray(u_t_l1), 
-            'XA_h' : np.asarray(XA_h1),
-            'X1_h' : np.asarray(X1_h1),
-            'u_t_h' : np.asarray(u_t_h1), 
-            }
-            
-            data['XA_e0'] = np.asarray(XA_e0) 
-            data['X1_e0'] = np.asarray(X1_e0) 
-            data['u_e0'] = np.asarray(u_e0) 
-            data['XA_e1'] = np.asarray(XA_e1) 
-            data['X1_e1'] = np.asarray(X1_e1) 
-            data['u_e1'] = np.asarray(u_e1) 
-    
+                data['1'] = { 
+                'XA_l' : np.asarray(XA_l1),
+                'X1_l' : np.asarray(X1_l1),
+                'u_t_l' : np.asarray(u_t_l1), 
+                'XA_h' : np.asarray(XA_h1),
+                'X1_h' : np.asarray(X1_h1),
+                'u_t_h' : np.asarray(u_t_h1), 
+                }
+                
+                data['XA_e0'] = np.asarray(XA_e0) 
+                data['X1_e0'] = np.asarray(X1_e0) 
+                data['u_e0'] = np.asarray(u_e0) 
+                data['XA_e1'] = np.asarray(XA_e1) 
+                data['X1_e1'] = np.asarray(X1_e1) 
+                data['u_e1'] = np.asarray(u_e1) 
     
     if multi:
         que.put(data)
@@ -1307,7 +1309,7 @@ class Simulation:
             pylab.plot(self.W[1:self.ITERNEW])
             pylab.show()
 
-    def simulate_ch7(self, users, storage, utility, market, env, T, num_process, planner=False, stats=False, initP=False, partial=False):
+    def simulate_ch7(self, users, storage, utility, market, env, T, num_process, planner=False, stats=False, initP=False, partial=False, budgetonly=False):
 
         tic = time.time()
 
@@ -1324,12 +1326,12 @@ class Simulation:
             init = 1
          
         if num_process == 1:
-            datalist = [run_ch7_sim(0, T, users, storage, utility, market, env, init, st, nat, 0, False, planner)]
+            datalist = [run_ch7_sim(0, T, users, storage, utility, market, env, init, st, nat, 0, False, planner, budgetonly)]
         else:
             T = int(T / num_process)
             datalist = []
             ques = [RetryQueue() for i in range(num_process)]
-            args = [(i, T, users, storage, utility, market, env, init, st, nat, ques[i], True, planner) for i in range(num_process)]
+            args = [(i, T, users, storage, utility, market, env, init, st, nat, ques[i], True, planner, budgetonly) for i in range(num_process)]
             jobs = [multiprocessing.Process(target=run_ch7_sim, args=(a)) for a in args]
             for j in jobs: j.start()
             for q in ques: datalist.append(q.get())
@@ -1340,107 +1342,116 @@ class Simulation:
         print 'Simulation time: ' + str(round(toc - tic,2))
 
         tic1 = time.time()
-
-        if planner: 
-            series = ['W','SW','S','I','Z','P','E','Q', 'A', 'F1','F3','F1_tilde','F3_tilde', 'Profit', 'B', 'Budget']
-            series = series + ['Q_low', 'Q_high', 'Q_env', 'Bhat', 'A_env', 'A_low', 'A_high'] 
-            self.series = dict.fromkeys(series)
+        if budgetonly:
+            budget = np.mean(np.array(datalist))
             
-            self.XA = [np.vstack(d['XA0'] for d in datalist), np.vstack(d['XA1'] for d in datalist)]
-            self.X1 = [np.vstack(d['X10'] for d in datalist), np.vstack(d['X11'] for d in datalist)]
-            self.U = [np.hstack(d['U0'] for d in datalist), np.hstack(d['U1'] for d in datalist)]
-            for x in self.series:
-                self.series[x] = np.vstack(d[x] for d in datalist)
-
-            for m in range(2):
-                if env.turn_off == 1:
-                    self.X1[m] = np.delete(self.X1[m], 2, axis=1)
-                    self.XA[m] = np.delete(self.XA[m], 3, axis=1)
+            print '--------------------------------------------------------'
+            print '--------------------------------------------------------'
+            print 'Env trade surplus mean: ' + str(budget)
+            print '--------------------------------------------------------'
+            print '--------------------------------------------------------'
+            return budget
         else:
-            if not(partial):
+            if planner: 
                 series = ['W','SW','S','I','Z','P','E','Q', 'A', 'F1','F3','F1_tilde','F3_tilde', 'Profit', 'B', 'Budget']
                 series = series + ['Q_low', 'Q_high', 'Q_env', 'Bhat', 'A_env', 'A_low', 'A_high'] 
                 self.series = dict.fromkeys(series)
-                self.XA_e = [0,0] 
-                self.X1_e = [0,0] 
-                self.u_e = [0,0] 
-            
-            if stats:
+                
+                self.XA = [np.vstack(d['XA0'] for d in datalist), np.vstack(d['XA1'] for d in datalist)]
+                self.X1 = [np.vstack(d['X10'] for d in datalist), np.vstack(d['X11'] for d in datalist)]
+                self.U = [np.hstack(d['U0'] for d in datalist), np.hstack(d['U1'] for d in datalist)]
                 for x in self.series:
                     self.series[x] = np.vstack(d[x] for d in datalist)
-            else:
-                self.stack_user_samples(datalist, partial, ch7=True)
-                datalist2 = [d['1'] for d in datalist]
-                self.stack_user_samples(datalist2, partial=partial, summer=True, ch7=True)
-                
+
                 for m in range(2):
-                    # Stack environmental samples
-                    XA_e = np.vstack(d['XA_e' + str(m)] for d in datalist)
-                    X1_e = np.vstack(d['X1_e'+ str(m)] for d in datalist)
-                    u_e = np.hstack(d['u_e' + str(m)] for d in datalist)
-                    if partial:
-                        N1 = self.u_e[m].shape[0]
-                        N2 = u_e.shape[0]
-                        sample = np.random.choice(range(N1), size=N2, replace=False)
-                        self.XA_e[m][sample, :] = XA_e 
-                        self.X1_e[m][sample, :] = X1_e 
-                        self.u_e[m][sample] = u_e
-                    else: 
-                        self.XA_e[m] = XA_e
-                        self.X1_e[m] = X1_e
-                        self.u_e[m] = u_e
+                    if env.turn_off == 1:
+                        self.X1[m] = np.delete(self.X1[m], 2, axis=1)
+                        self.XA[m] = np.delete(self.XA[m], 3, axis=1)
+            else:
+                if not(partial):
+                    series = ['W','SW','S','I','Z','P','E','Q', 'A', 'F1','F3','F1_tilde','F3_tilde', 'Profit', 'B', 'Budget']
+                    series = series + ['Q_low', 'Q_high', 'Q_env', 'Bhat', 'A_env', 'A_low', 'A_high'] 
+                    self.series = dict.fromkeys(series)
+                    self.XA_e = [0,0] 
+                    self.X1_e = [0,0] 
+                    self.u_e = [0,0] 
+                
+                if stats:
+                    for x in self.series:
+                        self.series[x] = np.vstack(d[x] for d in datalist)
+                else:
+                    self.stack_user_samples(datalist, partial, ch7=True)
+                    datalist2 = [d['1'] for d in datalist]
+                    self.stack_user_samples(datalist2, partial=partial, summer=True, ch7=True)
+                    
+                    for m in range(2):
+                        # Stack environmental samples
+                        XA_e = np.vstack(d['XA_e' + str(m)] for d in datalist)
+                        X1_e = np.vstack(d['X1_e'+ str(m)] for d in datalist)
+                        u_e = np.hstack(d['u_e' + str(m)] for d in datalist)
+                        if partial:
+                            N1 = self.u_e[m].shape[0]
+                            N2 = u_e.shape[0]
+                            sample = np.random.choice(range(N1), size=N2, replace=False)
+                            self.XA_e[m][sample, :] = XA_e 
+                            self.X1_e[m][sample, :] = X1_e 
+                            self.u_e[m][sample] = u_e
+                        else: 
+                            self.XA_e[m] = XA_e
+                            self.X1_e[m] = X1_e
+                            self.u_e[m] = u_e
 
-        if stats:
-            self.summary_stats(sample=0.5, percentiles=True, ch7=True)
-        else:
-            self.summary_stats(sample=0.5, percentiles=False, ch7=True)
+            if stats:
+                self.summary_stats(sample=0.5, percentiles=True, ch7=True)
+            else:
+                self.summary_stats(sample=0.5, percentiles=False, ch7=True)
 
-        self.ITEROLD = self.ITER
-        self.ITERNEW = self.ITERNEW + 1
-        self.ITER = min(self.ITER + 1, self.ITERMAX - 1 ) 
-        
-        toc1 = time.time()
+            self.ITEROLD = self.ITER
+            self.ITERNEW = self.ITERNEW + 1
+            self.ITER = min(self.ITER + 1, self.ITERMAX - 1 ) 
+            
+            toc1 = time.time()
 
-        print 'Processing results time: ' + str(toc1 - tic1)
+            print 'Processing results time: ' + str(toc1 - tic1)
 
-        print ' ----- Summer ----- '
-        print 'Storage mean: ' + str(np.mean(self.series['S'][:, 0]))
-        print 'Inflow mean: ' + str(np.mean(self.series['I'][:, 0]))
-        print 'Withdrawal mean: ' + str(np.mean(self.series['W'][:, 0]))
-        print 'Welfare mean: ' + str(np.mean(self.series['SW'][:,0]))
-        print 'Extraction mean: ' + str(np.mean(self.series['E'][:,0]))
-        print 'Price mean: ' + str(np.mean(self.series['P'][:,0]))
-        print 'Env trade surplus mean: ' + str(np.mean(self.series['Budget'][:,0]))
+            print ' ----- Summer ----- '
+            print 'Storage mean: ' + str(np.mean(self.series['S'][:, 0]))
+            print 'Inflow mean: ' + str(np.mean(self.series['I'][:, 0]))
+            print 'Withdrawal mean: ' + str(np.mean(self.series['W'][:, 0]))
+            print 'Welfare mean: ' + str(np.mean(self.series['SW'][:,0]))
+            print 'Extraction mean: ' + str(np.mean(self.series['E'][:,0]))
+            print 'Price mean: ' + str(np.mean(self.series['P'][:,0]))
+            print 'Env trade surplus mean: ' + str(np.mean(self.series['Budget'][:,0]))
 
-        print ' ----- Winter ----- '
-        print 'Storage mean: ' + str(np.mean(self.series['S'][:, 1]))
-        print 'Inflow mean: ' + str(np.mean(self.series['I'][:, 1]))
-        print 'Withdrawal mean: ' + str(np.mean(self.series['W'][:, 1]))
-        print 'Welfare mean: ' + str(np.mean(self.series['SW'][:,1]))
-        print 'Extraction mean: ' + str(np.mean(self.series['E'][:,1]))
-        print 'Price mean: ' + str(np.mean(self.series['P'][:,1]))
-        print 'Env trade surplus mean: ' + str(np.mean(self.series['Budget'][:,1]))
+            print ' ----- Winter ----- '
+            print 'Storage mean: ' + str(np.mean(self.series['S'][:, 1]))
+            print 'Inflow mean: ' + str(np.mean(self.series['I'][:, 1]))
+            print 'Withdrawal mean: ' + str(np.mean(self.series['W'][:, 1]))
+            print 'Welfare mean: ' + str(np.mean(self.series['SW'][:,1]))
+            print 'Extraction mean: ' + str(np.mean(self.series['E'][:,1]))
+            print 'Price mean: ' + str(np.mean(self.series['P'][:,1]))
+            print 'Env trade surplus mean: ' + str(np.mean(self.series['Budget'][:,1]))
 
-        print ' ----- Annual ----- ' 
-        print 'Storage mean: ' + str(self.stats['S']['Annual']['Mean'][self.ITEROLD])
-        print 'Inflow mean: ' + str(self.stats['I']['Annual']['Mean'][self.ITEROLD])
-        print 'Withdrawal mean: ' + str(self.stats['W']['Annual']['Mean'][self.ITEROLD])
-        print 'Welfare mean: ' + str(self.stats['SW']['Annual']['Mean'][self.ITEROLD])
-        print 'Extraction mean: ' + str(self.stats['E']['Annual']['Mean'][self.ITEROLD])
-        print 'Price mean: ' + str(self.stats['P']['Annual']['Mean'][self.ITEROLD])
-        print 'Env trade surplus mean: ' + str(self.stats['Budget']['Annual']['Mean'][self.ITEROLD])
+            print ' ----- Annual ----- ' 
+            print 'Storage mean: ' + str(self.stats['S']['Annual']['Mean'][self.ITEROLD])
+            print 'Inflow mean: ' + str(self.stats['I']['Annual']['Mean'][self.ITEROLD])
+            print 'Withdrawal mean: ' + str(self.stats['W']['Annual']['Mean'][self.ITEROLD])
+            print 'Welfare mean: ' + str(self.stats['SW']['Annual']['Mean'][self.ITEROLD])
+            print 'Extraction mean: ' + str(self.stats['E']['Annual']['Mean'][self.ITEROLD])
+            print 'Price mean: ' + str(self.stats['P']['Annual']['Mean'][self.ITEROLD])
+            print 'Env trade surplus mean: ' + str(self.stats['Budget']['Annual']['Mean'][self.ITEROLD])
 
-        if self.ITER > 0:
-            self.S[self.ITERNEW - 1] = np.mean(self.series['S'])
-            self.W[self.ITERNEW - 1] = np.mean(self.series['W'][:, 1])
-            self.E[self.ITERNEW - 1] = np.mean(self.series['E'][:, 0])
-            self.B[self.ITERNEW - 1] = np.mean(self.series['Budget'])
+            if self.ITER > 0:
+                self.S[self.ITERNEW - 1] = np.mean(self.series['S'])
+                self.W[self.ITERNEW - 1] = np.mean(self.series['W'][:, 1])
+                self.E[self.ITERNEW - 1] = np.mean(self.series['E'][:, 0])
+                self.B[self.ITERNEW - 1] = np.mean(self.series['Budget'])
 
 
-        #if self.ITER > 2:
-        #    pylab.plot(self.S[4:self.ITERNEW])
-        #    pylab.plot(self.W[4:self.ITERNEW])
-        #    pylab.plot(self.E[4:self.ITERNEW])
-        #    pylab.show()
-        #    pylab.plot(self.B[4:self.ITERNEW])
-        #    pylab.show()
+            #if self.ITER > 2:
+            #    pylab.plot(self.S[4:self.ITERNEW])
+            #    pylab.plot(self.W[4:self.ITERNEW])
+            #    pylab.plot(self.E[4:self.ITERNEW])
+            #    pylab.show()
+            #    pylab.plot(self.B[4:self.ITERNEW])
+            #    pylab.show()
