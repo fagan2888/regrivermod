@@ -335,22 +335,25 @@ class Model:
             print 'Mean EWH budget outcome: ' + str(np.mean(self.sim.series['Budget'][:, 1]))
             
 
-            self.users.exploring = 0
-            self.env.explore = 0
-            budget = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 40000,self.para.CPU_CORES, stats=True, budgetonly=True) 
-            self.users.exploring = 1
-            self.env.explore = 1
+            counter += 1
+            if counter > 2:
+                counter = 0
+                self.users.exploring = 0
+                self.env.explore = 0
+                budget = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 60000,self.para.CPU_CORES, stats=True, budgetonly=True) 
+                self.users.exploring = 1
+                self.env.explore = 1
 
-            if budget > 0:
-                P_adj -= 10 * scale 
-            else:
-                P_adj += 10 * scale
+                if budget > 0:
+                    P_adj -= 15 * scale 
+                else:
+                    P_adj += 15 * scale
 
-            self.env.P_adj = P_adj
-            self.market.P_adj = P_adj
-            print 'P_adj: ' + str(self.market.P_adj) 
-            scale *= 0.95
-            #counter += 1 
+                self.env.P_adj = P_adj
+                self.market.P_adj = P_adj
+                print 'P_adj: ' + str(self.market.P_adj) 
+                scale *= 0.9
+            #counter += 1
             #if counter > 6:
             #    if  np.mean(self.sim.series['Budget']) > 0:
             #        P_adj -= 25 * scale 
