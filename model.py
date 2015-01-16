@@ -340,7 +340,7 @@ class Model:
                 counter = 0
                 self.users.exploring = 0
                 self.env.explore = 0
-                budget = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 60000,self.para.CPU_CORES, stats=True, budgetonly=True) 
+                budget = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 100000,self.para.CPU_CORES, stats=True, budgetonly=True) 
                 self.users.exploring = 1
                 self.env.explore = 1
 
@@ -352,7 +352,7 @@ class Model:
                 self.env.P_adj = P_adj
                 self.market.P_adj = P_adj
                 print 'P_adj: ' + str(self.market.P_adj) 
-                scale *= 0.9
+                scale *= 0.95
             #counter += 1
             #if counter > 6:
             #    if  np.mean(self.sim.series['Budget']) > 0:
