@@ -76,7 +76,7 @@ cdef class Environment:
         self.d_b = 0
         self.d_c = 0
         self.min_q = 0
-        self.Bhat = 0.5
+        self.Bhat = 1
         self.Pmax = 0
         self.e_sig = para.ch7['e_sig']
         self.budget = 0

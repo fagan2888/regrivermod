@@ -346,10 +346,10 @@ class Model:
             else:
                 P_adj += 10 * scale
 
-                self.env.P_adj = P_adj
-                self.market.P_adj = P_adj
-                print 'P_adj: ' + str(self.market.P_adj) 
-                scale *= 0.95
+            self.env.P_adj = P_adj
+            self.market.P_adj = P_adj
+            print 'P_adj: ' + str(self.market.P_adj) 
+            scale *= 0.95
             #counter += 1 
             #if counter > 6:
             #    if  np.mean(self.sim.series['Budget']) > 0:
