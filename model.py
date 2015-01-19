@@ -356,9 +356,9 @@ class Model:
                 print 'P_adj: ' + str(self.market.P_adj) 
                 scale *= 0.95
             """ 
-            P_adj_plot[i] = P_adj
-            pylab.plot(P_adj_plot)
-            pylab.show()
+            #P_adj_plot[i] = P_adj
+            #pylab.plot(P_adj_plot)
+            #pylab.show()
              
             counter += 1
             if counter > 7:
