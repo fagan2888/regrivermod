@@ -80,7 +80,7 @@ for i in range(N):
     para.set_property_rights(scenario=scen)
     para.aproximate_shares_ch7(nonoise=nonoise)
     mod = Model(para, ch7=True, turn_off_env=False)
-    results[scen] = mod.chapter7(E_lambda)
+    results = mod.chapter7(E_lambda)
     del mod
     
     with open(NCIhome + NCIfolder + str(arg1) + str(arg3) + '_' + str(i) +  '_result.pkl', 'wb') as f:
