@@ -292,21 +292,31 @@ def central_case():
     img_ext = '.pdf'
     table_out = '/Dropbox/Thesis/STATS/chapter7/'
     
-    with open(home + folder + '0_0_result.pkl', 'rb') as f:
-        results = pickle.load(f)
-        f.close()
+    rows = ['CS']# 'SWA'] #, 'CS-HL', 'SWA-HL', 'OA', 'NS']
+    results = {row : 0 for row in rows}
+    
+    for row in rows:
+        with open(home + folder + '0' + row + '_0_result.pkl', 'rb') as f:
+            results[row] = pickle.load(f)
+            f.close()
     
     ###### Summary results #####
     
     cols = ['Mean', 'SD', '2.5th', '25th', '75th', '97.5th']
     rows = ['CS']# 'SWA'] #, 'CS-HL', 'SWA-HL', 'OA', 'NS']
-    series = ['SW', 'Profit', 'B', 'S', 'W', 'E']
-    scale = {'SW' : 1000000, 'Profit' : 1000000, 'S' : 1000, 'W' : 1000, 'E' : 1000, 'B' : 1000000}
+    series = ['SW', 'Profit', 'B', 'S', 'W', 'E', 'Z']
+    scale = {'SW' : 1000000, 'Profit' : 1000000, 'S' : 1000, 'W' : 1000, 'E' : 1000, 'B' : 1000000, 'Z' : 1000}
 
     m = len(results['CS'][0]['S']['Annual']['Mean']) - 1
 
     for x in series:
         data0 = []
+        
+        record = {}
+        for col in cols:
+            record[col] = results[row][0][x]['Annual'][col][2] / scale[x]
+        data0.append(record)
+        
         for row in rows:
             record = {}
             for col in cols:
@@ -314,7 +324,7 @@ def central_case():
             data0.append(record)
 
         data = pandas.DataFrame(data0)
-        data.index = rows
+        data.index = ['Planner'] + rows
 
         with open(home + table_out + 'central_' + x + '.txt', 'w') as f:
             f.write(data.to_latex(float_format='{:,.2f}'.format, columns=cols))
