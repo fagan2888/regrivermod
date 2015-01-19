@@ -53,13 +53,12 @@ def solve_model(para, scenarios, E_lambda, nonoise, que):
 try:
     arg1 = sys.argv[1]
     arg2 = sys.argv[2]
-    arg3 = sys.argv[3]
 except IndexError:
     print "Provide arguments <runnum> <numofjobs> <scenario>"
 
 para = Para()
-N = int(arg2)
-scen = arg3 #, 'CS-HL', 'SWA','SWA-HL', 'OA', 'NS']
+N = 1
+scen = arg2 #, 'CS-HL', 'SWA','SWA-HL', 'OA', 'NS']
 
 for i in range(N):
     
