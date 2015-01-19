@@ -406,7 +406,7 @@ class QVtile_ch7:
                 xargstemp1 = xargs
                 xargstemp2 = xargs
     
-    def maximise(self, m, grid, Al, Ah, plot=False, output=True, plotiter=False, xargs=0, NS=NS):
+    def maximise(self, m, grid, Al, Ah, plot=False, output=True, plotiter=False, xargs=0, NS=False):
 
         """
         Maximises current Q-function for a subset of state space points and returns new value and policy functions
