@@ -53,12 +53,13 @@ def solve_model(para, scenarios, E_lambda, nonoise, que):
 try:
     arg1 = sys.argv[1]
     arg2 = sys.argv[2]
+    arg3 = sys.argv[3]
 except IndexError:
-    print "Provide arguments <runnum> <numofjobs>"
+    print "Provide arguments <runnum> <numofjobs> <scenario>"
 
 para = Para()
 N = int(arg2)
-scenarios = ['CS'] #, 'CS-HL', 'SWA','SWA-HL', 'OA', 'NS']
+scen = arg3 #, 'CS-HL', 'SWA','SWA-HL', 'OA', 'NS']
 
 for i in range(N):
     
@@ -73,16 +74,16 @@ for i in range(N):
     E_lambda = mod.chapter7_initialise()
     del mod
     
-    results = {scen: 0 for scen in scenarios}
+    #results = {scen: 0 for scen in scenarios}
     
-    for scen in scenarios:
-        para.set_property_rights(scenario=scen)
-        para.aproximate_shares_ch7(nonoise=nonoise)
-        mod = Model(para, ch7=True, turn_off_env=False)
-        results[scen] = mod.chapter7(E_lambda)
-        del mod
+    #for scen in scenarios:
+    para.set_property_rights(scenario=scen)
+    para.aproximate_shares_ch7(nonoise=nonoise)
+    mod = Model(para, ch7=True, turn_off_env=False)
+    results[scen] = mod.chapter7(E_lambda)
+    del mod
     
-    with open(NCIhome + NCIfolder + str(arg1) + '_' + str(i) +  '_result.pkl', 'wb') as f:
+    with open(NCIhome + NCIfolder + str(arg1) + str(arg3) + '_' + str(i) +  '_result.pkl', 'wb') as f:
         pickle.dump(results, f)
         f.close()
     

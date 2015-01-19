@@ -873,7 +873,7 @@ class Para:
 
         """
 
-        self.CPU_CORES = 8 #mp.cpu_count()
+        self.CPU_CORES = 4 #mp.cpu_count()
 
         # Evaluation simulation size (for generating model results)
         self.T0 = 500000
@@ -922,7 +922,7 @@ class Para:
         #======================================================
 
         self.ITER1 = 40             # Initialization stage QV iterations
-        self.ITER2 = 70             # Main learning iterations
+        self.ITER2 = 80             # Main learning iterations
         self.iters = 1              # QV iterations per learning iteration
 
         #Proportion of users to update
@@ -941,11 +941,11 @@ class Para:
         #self.d = [0.25] * 4 + [0.2] * 4 + [0.15] * 4 + [0.085] * 150
         self.d = [0.1] * 5 + [0.15] * 5 + [0.2] * 10 + [0.15] * 150# + [0.1] * 150 
         #self.d = [max(0.25 - 0.01 * i, 0.05) for i in range(150)]
-        self.envd = [0.3] * 4 + [0.2] * 4 + [0.15] * 4 + [0.1] * 150
+        self.envd = [0.3] * 4 + [0.2] * 4 + [0.15] * 6 + [0.1] * 15 + [0.08] * 100
 
         # Total sample size, actual sim length = T1 / (2*N_e)
         self.T2 = 500000
-        self.T2_ch7 = 800000
+        self.T2_ch7 = 600000
 
         # State sample grid parameters
         self.sg_radius2 = 0.045

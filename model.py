@@ -261,7 +261,7 @@ class Model:
         self.para.sg_points1_ch7 = 750
         stats, _, _ = self.plannerQV_ch7(T=200000, stage2=False, d=0.2, simulate=True, envoff=True)
 
-        E_cons = stats['E']['Summer']['Mean'][self.sim.ITEROLD-1]
+        E_cons = stats['E']['Summer']['Mean'][self.sim.ITEROLD]
 
         self.env.turn_off = 0 
         self.sim.ITER = 0
@@ -271,9 +271,9 @@ class Model:
         self.para.sg_points1_ch7 = 2500
         stats, _, _ = self.plannerQV_ch7(T=200000, stage2=False, d=0.2, simulate=True, envoff=False)
         
-        E_opt = stats['E']['Summer']['Mean'][self.sim.ITEROLD-1]
+        E_opt = stats['E']['Summer']['Mean'][self.sim.ITEROLD]
         E_lambda = 1 - E_opt / E_cons 
-
+    
         print 'E_cons: ' + str(E_cons) + ', E_opt: ' + str(E_opt) + ', % change: ' + str(E_lambda)
         
         return E_lambda
@@ -306,6 +306,8 @@ class Model:
         P_adj = 0
         counter  = 0
         scale = 1
+        P_adj_plot = np.zeros(self.para.ITER2)
+
         for i in range(self.para.ITER2):
             
             print '\n  ---  Iteration: ' + str(i) + '  ---\n'
@@ -334,13 +336,13 @@ class Model:
             print 'Mean Q env: ' + str(np.mean(self.sim.series['Q_env'][:,1]))
             print 'Mean EWH budget outcome: ' + str(np.mean(self.sim.series['Budget'][:, 1]))
             
-
+            """ 
             counter += 1
-            if counter > 2:
+            if counter > 0:
                 counter = 0
                 self.users.exploring = 0
                 self.env.explore = 0
-                budget = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 100000,self.para.CPU_CORES, stats=True, budgetonly=True) 
+                budget = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 40000,self.para.CPU_CORES, stats=True, budgetonly=True) 
                 self.users.exploring = 1
                 self.env.explore = 1
 
@@ -353,19 +355,32 @@ class Model:
                 self.market.P_adj = P_adj
                 print 'P_adj: ' + str(self.market.P_adj) 
                 scale *= 0.95
-            #counter += 1
-            #if counter > 6:
-            #    if  np.mean(self.sim.series['Budget']) > 0:
-            #        P_adj -= 25 * scale 
-            #    else:
-            #        P_adj += 25 * scale
-
-            #    self.env.P_adj = P_adj
-            #    self.market.P_adj = P_adj
-            #    print 'P_adj: ' + str(self.market.P_adj) 
-            #    print 'Budget: ' + str(np.mean(self.sim.series['Budget']))
-            #    counter = 0
-            #    scale *= 0.8
+            """ 
+            P_adj_plot[i] = P_adj
+            pylab.plot(P_adj_plot)
+            pylab.show()
+             
+            counter += 1
+            if counter > 7:
+                budget = np.mean(self.sim.series['Budget'])
+                #self.users.exploring = 0
+                #self.env.explore = 0
+                #budget = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 100000,self.para.CPU_CORES, stats=True, budgetonly=True) 
+                #self.users.exploring = 1
+                #self.env.explore = 1
+                
+                if  budget > 0:
+                    P_adj -= 19 * scale 
+                else:
+                    P_adj += 19 * scale
+                    
+                self.env.P_adj = P_adj
+                self.market.P_adj = P_adj
+                print 'P_adj: ' + str(self.market.P_adj) 
+                print 'Budget: ' + str(budget)
+                counter = 0
+                scale *= 0.79
+            
 
 
         self.users.exploring = 0

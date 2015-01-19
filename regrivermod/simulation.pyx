@@ -1348,7 +1348,6 @@ class Simulation:
             print '--------------------------------------------------------'
             print '--------------------------------------------------------'
             print 'Env trade surplus mean: ' + str(budget)
-            print np.array(datalist)
             print '--------------------------------------------------------'
             print '--------------------------------------------------------'
             return budget
@@ -1449,10 +1448,10 @@ class Simulation:
                 self.B[self.ITERNEW - 1] = np.mean(self.series['Budget'])
 
 
-            #if self.ITER > 2:
-            #    pylab.plot(self.S[4:self.ITERNEW])
-            #    pylab.plot(self.W[4:self.ITERNEW])
-            #    pylab.plot(self.E[4:self.ITERNEW])
-            #    pylab.show()
-            #    pylab.plot(self.B[4:self.ITERNEW])
-            #    pylab.show()
+            if self.ITER > 2:
+                pylab.plot(self.S[4:self.ITERNEW])
+                pylab.plot(self.W[4:self.ITERNEW])
+                pylab.plot(self.E[4:self.ITERNEW])
+                pylab.show()
+                pylab.plot(self.B[4:self.ITERNEW])
+                pylab.show()
