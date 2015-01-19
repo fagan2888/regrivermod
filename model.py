@@ -399,7 +399,7 @@ class Model:
 
         
 
-    def multiQV_ch7(self, ITER, init=False, eta=0.7, partial=False, NS=NS):
+    def multiQV_ch7(self, ITER, init=False, eta=0.7, partial=False, NS=False):
         
         tic = time()
         
