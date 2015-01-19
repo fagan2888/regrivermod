@@ -1,6 +1,6 @@
 #!/bin/bash
 
-qsub -v PBS_ARRAY_INDEX=0 -v PBS_SCEN=CS ch7jobs
+qsub -v PBS_ARRAY_INDEX=0 ch7jobs
 #qsub -v PBS_ARRAY_INDEX=0 -v PBS_SCEN=SWA ch7jobs
 #qsub -v PBS_ARRAY_INDEX=0 -v PBS_SCEN=OA ch7jobs
 #qsub -v PBS_ARRAY_INDEX=0 -v PBS_SCEN=NS ch7jobs

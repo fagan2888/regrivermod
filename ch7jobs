@@ -7,5 +7,5 @@
 #PBS -l wd
 module load python/2.7.3
 module load python/2.7.3-matplotlib
-python chapter7.py $PBS_ARRAY_INDEX $PBS_SCEN
+python chapter7.py $PBS_ARRAY_INDEX CS
 
