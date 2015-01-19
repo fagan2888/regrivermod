@@ -82,7 +82,7 @@ for i in range(N):
     results = mod.chapter7(E_lambda)
     del mod
     
-    with open(NCIhome + NCIfolder + str(arg1) + str(arg3) + '_' + str(i) +  '_result.pkl', 'wb') as f:
+    with open(NCIhome + NCIfolder + str(arg1) + str(arg2) + '_' + str(i) +  '_result.pkl', 'wb') as f:
         pickle.dump(results, f)
         f.close()
     
