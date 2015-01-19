@@ -282,7 +282,7 @@ class QVtile_ch7:
 
         self.Q_f = [Tilecode(D + 1, T[m], L, mem_max, min_sample=ms, cores=self.CORES) for m in self.M]
     
-    def iterate(self, XA, X1, u, A_low, A_high, ITER=50, plot=True, xargs=[], output=True, a = 0, b = 0, pc_samp=1, maxT=60000, eta=0.8, tilesg=False, sg_prop=0.96, sg_samp=1, sg_points=100, sgmem_max=0.4, plotiter=False, test=False):
+    def iterate(self, XA, X1, u, A_low, A_high, ITER=50, plot=True, xargs=[], output=True, a = 0, b = 0, pc_samp=1, maxT=60000, eta=0.8, tilesg=False, sg_prop=0.96, sg_samp=1, sg_points=100, sgmem_max=0.4, plotiter=False, test=False, NS=NS):
 
         tic = time()
         M = self.M
@@ -312,8 +312,8 @@ class QVtile_ch7:
 
         ticfit = time()
         if self.first:
-            [self.W_f[m].fit(grid[m], np.zeros(points[m])) for m in M]
-            [self.V_f[m].fit(grid[m], np.zeros(points[m])) for m in M]
+            [self.W_f[m].fit(grid[m], np.zeros(points[m]), NS=NS) for m in M]
+            [self.V_f[m].fit(grid[m], np.zeros(points[m]), NS=NS) for m in M]
             self.first = False
         
         Al = [np.zeros(points[m]) for m in M]
@@ -359,7 +359,7 @@ class QVtile_ch7:
             print 'Q Fitting time: ' + str(tocfit - ticfit)
 
             # Optimise Q function
-            value_error, W_opt[m], state[m] = self.maximise(m, grid[m], Al[m], Ah[m], output=output, plotiter=plotiter, xargs=xargs)
+            value_error, W_opt[m], state[m] = self.maximise(m, grid[m], Al[m], Ah[m], output=output, plotiter=plotiter, xargs=xargs, NS=NS)
             m1 = 0
             if test:
                 import pdb; pdb.set_trace()
@@ -374,7 +374,7 @@ class QVtile_ch7:
                 self.Q_f[m].partial_fit(Q[m], 0)
 
                 # Optimise Q function
-                value_error, W_opt[m], state[m] = self.maximise(m, grid[m], Al[m], Ah[m], output=output, plotiter=plotiter, xargs=xargs)
+                value_error, W_opt[m], state[m] = self.maximise(m, grid[m], Al[m], Ah[m], output=output, plotiter=plotiter, xargs=xargs, NS=NS)
                 m1 = 0
                 if test:
                     import pdb; pdb.set_trace()
@@ -384,7 +384,7 @@ class QVtile_ch7:
             ticfit = time()
             NN = min(X1[m].shape[0], 20000)
             W_opt_old = self.W_f[m].predict(X1[m][0:NN,:])
-            self.W_f[m].fit(state[m], W_opt[m], sgd=0, eta=0.1, n_iters=5, scale=0)
+            self.W_f[m].fit(state[m], W_opt[m], sgd=0, eta=0.1, n_iters=5, scale=0, NS=NS)
             W_opt_new = self.W_f[m].predict(X1[m][0:NN,:])
             self.pe[m] = np.mean((W_opt_old - W_opt_new)/W_opt_old)
             toc = time()
@@ -406,7 +406,7 @@ class QVtile_ch7:
                 xargstemp1 = xargs
                 xargstemp2 = xargs
     
-    def maximise(self, m, grid, Al, Ah, plot=False, output=True, plotiter=False, xargs=0):
+    def maximise(self, m, grid, Al, Ah, plot=False, output=True, plotiter=False, xargs=0, NS=NS):
 
         """
         Maximises current Q-function for a subset of state space points and returns new value and policy functions
@@ -445,7 +445,7 @@ class QVtile_ch7:
 
         V_old = self.V_f[m].predict(state)
         
-        self.V_f[m].fit(state, V, sgd=0, eta=0.1, n_iters=5, scale=0)
+        self.V_f[m].fit(state, V, sgd=0, eta=0.1, n_iters=5, scale=0, NS=NS)
         
 
         if np.count_nonzero(V_old) < V_old.shape[0]:
@@ -459,7 +459,7 @@ class QVtile_ch7:
             print 'Value change: ' + str(round(self.ve, 3)) + '\t---\tMax time: ' + str(round(toc - tic, 4))
 
         if plotiter:
-            self.W_f[m].fit(state, W_opt, sgd=0, eta=0.1, n_iters=5, scale=0)
+            self.W_f[m].fit(state, W_opt, sgd=0, eta=0.1, n_iters=5, scale=0, NS=NS)
             xargstemp = xargs
             self.W_f[m].plot(xargs, showdata=True)
             pylab.show()

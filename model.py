@@ -286,6 +286,11 @@ class Model:
         
         self.plannerQV_ch7(T=200000, stage2=False, d=0.2, simulate=True, envoff=False)
         
+        if self.para.sr == 'NS':
+            NS = True
+        else:
+            NS = False
+        
         big_tic = time()
         
         ##################          User starting values              #################
@@ -297,7 +302,7 @@ class Model:
         self.env.d = 0.3
         
         #stats, qv = 
-        self.multiQV_ch7(ITER=self.para.ITER1, init=True)
+        self.multiQV_ch7(ITER=self.para.ITER1, init=True, NS=NS)
         
         ##################          Main Q-learning              #################
         env_lambda = self.env.Lambda_I
@@ -313,7 +318,7 @@ class Model:
             print '\n  ---  Iteration: ' + str(i) + '  ---\n'
             print '-----------------------------------------'
 
-            stats, qv = self.multiQV_ch7(ITER=1, partial=True)
+            stats, qv = self.multiQV_ch7(ITER=1, partial=True, NS=NS)
             
             self.users.update_policy_ch7(qv[0].W_f, qv[1].W_f, Np=self.para.update_rate_ch7[i], N_e=2, d=self.para.d[i])
             self.env.update_policy(qv[2].W_f)
@@ -359,7 +364,7 @@ class Model:
             #P_adj_plot[i] = P_adj
             #pylab.plot(P_adj_plot)
             #pylab.show()
-            """     
+                
             counter += 1
             if counter > 7:
                 budget = np.mean(self.sim.series['Budget'])
@@ -380,7 +385,7 @@ class Model:
                 print 'Budget: ' + str(budget)
                 counter = 0
                 scale *= 0.79
-            """ 
+            
 
 
         self.users.exploring = 0
@@ -394,7 +399,7 @@ class Model:
 
         
 
-    def multiQV_ch7(self, ITER, init=False, eta=0.7, partial=False):
+    def multiQV_ch7(self, ITER, init=False, eta=0.7, partial=False, NS=NS):
         
         tic = time()
         
@@ -439,19 +444,19 @@ class Model:
         self.qv_multi[0].iterate([self.sim.XA_t[0], self.sim.XA_t1[0]], [self.sim.X_t1[0], self.sim.X_t11[0]],  [self.sim.u_t[0], self.sim.u_t1[0]],  
                 Alow, Ahigh, ITER=ITER, a = [0, 0, 0, 0.25, 0.25],b = [100, 100, 100, 99.40, 99.40], pc_samp=0.25, 
                 maxT=1200000,eta=eta, tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2_ch7, sgmem_max=0.15, plotiter=False, 
-                xargs=[300000,'x', 1, 1, 1], test=False, plot=False)
+                xargs=[300000,'x', 1, 1, 1], test=False, plot=False, NS=NS)
      
         print "\nSolving high reliability users problem"
         print "-------------------------------------\n"
         self.qv_multi[1].iterate([self.sim.XA_t[1], self.sim.XA_t1[1]], [self.sim.X_t1[1], self.sim.X_t11[1]], [self.sim.u_t[1], self.sim.u_t1[1]],
                 Alow, Ahigh, ITER=ITER, a = [0, 0, 0, 0.25, 0.25], b = [100, 100, 100, 99.40, 99.40], pc_samp=0.25, 
                 maxT=1200000, eta=eta, tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2, sgmem_max=0.15, plotiter=False, 
-                xargs=[300000,'x', 1, 1, 1], plot=False)
+                xargs=[300000,'x', 1, 1, 1], plot=False, NS=NS)
         
         print "\nSolving the EWHs problem"
         print "-------------------------------------\n"
         self.qv_multi[2].iterate(self.sim.XA_e, self.sim.X1_e, self.sim.u_e, Alow, Ahigh, ITER=ITER, maxT=600000, eta=eta,
-                tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2, sgmem_max= 0.15, plotiter=False, xargs=[1000000,'x', 1, 2, 1], plot=False)
+                tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2, sgmem_max= 0.15, plotiter=False, xargs=[1000000,'x', 1, 2, 1], plot=False, NS=NS)
 
         toc = time()
         st = toc - tic    
