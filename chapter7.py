@@ -76,7 +76,7 @@ for i in range(N):
 
     para.ch7['inflow_share'] = E_lambda
     para.ch7['capacity_share'] = E_lambda
-    para.t_cost = self.para.t_cost/2.0
+    para.t_cost = para.t_cost/2.0
     
     para.set_property_rights(scenario=scen)
     para.aproximate_shares_ch7(nonoise=nonoise)
