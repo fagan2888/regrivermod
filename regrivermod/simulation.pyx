@@ -86,6 +86,11 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
     cdef double[:,:] A_low_sim = np.zeros([T, 2])
     cdef double[:,:] A_high_sim = np.zeros([T, 2])
     cdef double[:,:] A_env_sim = np.zeros([T, 2])
+    cdef double[:,:] S_low_sim = np.zeros([T, 2])
+    cdef double[:,:] S_high_sim = np.zeros([T, 2])
+    cdef double[:,:] U_low_sim = np.zeros([T, 2])
+    cdef double[:,:] U_high_sim = np.zeros([T, 2])
+    cdef double[:,:] S_env_sim = np.zeros([T, 2])
     cdef double[:,:] Budget_sim = np.zeros([T, 2])
     cdef double[:,:] Budget_in = np.zeros([T, 2])
     cdef double[:,:] Budget_out = np.zeros([T, 2])
@@ -204,6 +209,8 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
             users.withdraw_ch7(storage.S, utility.s, storage.I_tilde, 0)
             env.withdraw(storage.S, utility.s[utility.I_env], storage.I_tilde, 0)
             utility.make_allocations(users.w, env.w)
+
+
             if stats == 0: 
                 ##########  Record user state and action pairs [w, S, s, e, I, M] ###########
                 for i in range(N_e_l):
@@ -251,6 +258,8 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
         E_sim[t, 0] = utility.extract(qe)
         Profit_sim[t, 0] = users.consume(P_sim[t, 0], storage.I_tilde, plan)
         Q_sim[t, 0] = c_sum(users.N, users.q)
+        U_low_sim[t, 0] = users.U_low
+        U_high_sim[t, 0] = users.U_high
         
         #if stats == 1:
         users.user_stats(utility.s, utility.x)
@@ -260,6 +269,9 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
         A_low_sim[t, 0] = users.A_low
         A_high_sim[t, 0] = users.A_high
         A_env_sim[t, 0] = env.a 
+        S_low_sim[t, 0] = users.S_low
+        S_high_sim[t, 0] = users.S_high
+        S_env_sim[t, 0] = utility.s[utility.I_env]
 
         # Calculate actual river flows
         storage.river_flow(W_sim[t,0], E_sim[t, 0], 0, 0)
@@ -383,6 +395,9 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
             users.withdraw_ch7(storage.S, utility.s, storage.I_tilde, 1)
             env.withdraw(storage.S, utility.s[utility.I_env], storage.I_tilde, 1)
             utility.make_allocations(users.w, env.w)
+            S_low_sim[t, 1] = users.S_low
+            S_high_sim[t, 1] = users.S_high
+            S_env_sim[t, 1] = utility.s[utility.I_env]
             
             if stats == 0 :
                 ##########  Record user state and action pairs [w, S, s, e, I, M] ###########
@@ -432,6 +447,8 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
             We = utility.record_trades(users, env, storage)
             SW_sim[t,1] = users.take_sale_cash(utility.a, P_sim[t, 1])
             W_sim[t, 1] = utility.deliver_ch7(storage, 1, We)
+            U_low_sim[t, 1] = users.U_low
+            U_high_sim[t, 1] = users.U_high
         else:
             env.q = c_max(W_sim[t, 1] - 2 * storage.delta_a[1], 0)* (1 - storage.delta1b)
             env.a = env.q
@@ -444,6 +461,9 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
         Q_high_sim[t, 1] = users.Q_high
         A_low_sim[t, 1] = users.A_low
         A_high_sim[t, 1] = users.A_high
+        S_low_sim[t, 1] = users.S_low
+        S_high_sim[t, 1] = users.S_high
+        S_env_sim[t, 1] = utility.s[utility.I_env]
 
         # Calculate actual river flows
         storage.river_flow(W_sim[t,1], E_sim[t, 1], 1, 0)
@@ -559,7 +579,12 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
                 'Bhat' : np.asarray(Bhat_sim),
                 'A_low' : np.asarray(A_low_sim),
                 'A_high' : np.asarray(A_high_sim),
-                'A_env' : np.asarray(A_env_sim)}
+                'A_env' : np.asarray(A_env_sim),
+                'S_low' : np.asarray(S_low_sim),
+                'S_high' : np.asarray(S_high_sim),
+                'S_env' : np.asarray(A_env_sim),
+                'U_low' : np.asarray(S_low_sim),
+                'U_high' : np.asarray(S_high_sim)}
         
         if plan == 1: 
             data['XA1'] = np.asarray(XA1)
@@ -1370,7 +1395,7 @@ class Simulation:
             else:
                 if not(partial):
                     series = ['W','SW','S','I','Z','P','E','Q', 'A', 'F1','F3','F1_tilde','F3_tilde', 'Profit', 'B', 'Budget']
-                    series = series + ['Q_low', 'Q_high', 'Q_env', 'Bhat', 'A_env', 'A_low', 'A_high'] 
+                    series = series + ['Q_low', 'Q_high', 'Q_env', 'Bhat', 'A_env', 'A_low', 'A_high', 'S_low', 'S_high', 'S_env', 'U_low', 'U_high' ] 
                     self.series = dict.fromkeys(series)
                     self.XA_e = [0,0] 
                     self.X1_e = [0,0] 

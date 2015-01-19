@@ -27,7 +27,11 @@ class Model:
             self.learn_market_demand()
         else:
             self.utility = Utility(self.users, self.storage, para)
-
+        
+        print '----------------------------------------------------'
+        print 'Sum of user shares: ' + str(np.sum(self.utility.c_F))
+        print 'User shares: ' + str(np.array(self.utility.c_F))
+        print '----------------------------------------------------'
 
     def plannerSDP(self, seed=0, plot=False):
         
@@ -278,11 +282,7 @@ class Model:
         
         return E_lambda
 
-    def chapter7(self, E_lambda):
-        
-        self.para.ch7['inflow_share'] = E_lambda
-        self.para.ch7['capacity_share'] = E_lambda
-        self.para.t_cost = self.para.t_cost/2.0
+    def chapter7(self):
         
         self.plannerQV_ch7(T=200000, stage2=False, d=0.2, simulate=True, envoff=False)
         

@@ -303,8 +303,8 @@ def central_case():
     ###### Summary results #####
     
     cols = ['Mean', 'SD', '2.5th', '25th', '75th', '97.5th']
-    series = ['SW', 'Profit', 'B', 'S', 'W', 'E', 'Z']
-    scale = {'SW' : 1000000, 'Profit' : 1000000, 'S' : 1000, 'W' : 1000, 'E' : 1000, 'B' : 1000000, 'Z' : 1000}
+    series = ['SW', 'Profit', 'B', 'S', 'W', 'E', 'Z', 'Q_low', 'Q_high', 'Q_env', 'A_low', 'A_high', 'A_env']
+    scale = {'SW' : 1000000, 'Profit' : 1000000, 'S' : 1000, 'W' : 1000, 'E' : 1000, 'B' : 1000000, 'Z' : 1000, 'Q_low' : 1000, 'Q_high' : 1000, 'Q_env' : 1000, 'A_low' : 1000, 'A_high' : 1000, 'A_env' : 1000}
 
     m = len(results['CS'][0]['S']['Annual']['Mean']) - 1
 

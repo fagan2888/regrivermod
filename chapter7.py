@@ -68,18 +68,20 @@ for i in range(N):
         para.randomize(N = 100)
         nonoise = False
     
-    para.set_property_rights(scenario='CS')
-    mod = Model(para, ch7=True, turn_off_env=True)
-    E_lambda = mod.chapter7_initialise()
-    del mod
+    #para.set_property_rights(scenario='CS')
+    #mod = Model(para, ch7=True, turn_off_env=True)
+    #E_lambda = mod.chapter7_initialise()
+    #del mod
+    E_lambda = 0.263
+
+    para.ch7['inflow_share'] = E_lambda
+    para.ch7['capacity_share'] = E_lambda
+    para.t_cost = self.para.t_cost/2.0
     
-    #results = {scen: 0 for scen in scenarios}
-    
-    #for scen in scenarios:
     para.set_property_rights(scenario=scen)
     para.aproximate_shares_ch7(nonoise=nonoise)
     mod = Model(para, ch7=True, turn_off_env=False)
-    results = mod.chapter7(E_lambda)
+    results = mod.chapter7()
     del mod
     
     with open(NCIhome + NCIfolder + str(arg1) + str(arg2) + '_' + str(i) +  '_result.pkl', 'wb') as f:
