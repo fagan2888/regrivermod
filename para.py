@@ -924,7 +924,7 @@ class Para:
         #======================================================
 
         self.ITER1 = 40             # Initialization stage QV iterations
-        self.ITER2 = 80             # Main learning iterations
+        self.ITER2 = 40 #80             # Main learning iterations
         self.iters = 1              # QV iterations per learning iteration
 
         #Proportion of users to update

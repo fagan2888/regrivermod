@@ -359,7 +359,7 @@ class Model:
             #P_adj_plot[i] = P_adj
             #pylab.plot(P_adj_plot)
             #pylab.show()
-             
+            """     
             counter += 1
             if counter > 7:
                 budget = np.mean(self.sim.series['Budget'])
@@ -380,7 +380,7 @@ class Model:
                 print 'Budget: ' + str(budget)
                 counter = 0
                 scale *= 0.79
-            
+            """ 
 
 
         self.users.exploring = 0
