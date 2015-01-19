@@ -153,6 +153,8 @@ cdef class Users:
         
         if ch7:
             low_c = low_c - para.ch7['inflow_share']
+            high_c = c_max(c_min(high_c, high_c + low_c),0)
+            low_c = c_max(low_c, 0)
 
         self.c_F_low = low_c / <double> self.N_low                  # Low reliability inflow shares
         self.c_K_low = low_c / <double> self.N_low                  # Low reliability capacity shares
