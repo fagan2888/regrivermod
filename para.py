@@ -582,6 +582,7 @@ class Para:
         self.ch7['delta_a'] = self.ch7['delta_a'] * self.I_bar
         self.ch7['F_bar'] = self.ch7['F_bar'] * self.K
         self.ch7['b_value'] = self.ch7['b_value'] * self.I_bar
+        self.ch7['High'] = False
         
         ##################################################
 
@@ -736,6 +737,7 @@ class Para:
         self.ch7['delta_a'] = self.ch7['delta_a'] * self.I_bar
         self.ch7['F_bar'] = self.ch7['F_bar'] * self.I_bar
         self.ch7['b_value'] = self.ch7['b_value'] * self.I_bar
+        self.ch7['High'] = False
         ##################################################
         
         self.alpha = (SA_K*self.K) / (self.K**(2.0/3))

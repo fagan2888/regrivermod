@@ -115,16 +115,12 @@ cdef class Utility:
 
         cdef int i
         
-        if not(ch7) or (ch7 and para.ch7['High']):
-            for i in range(self.N_low):
-                self.I_low[i] = i
-            for i in range(self.N_high):
-                self.I_high[i]  = i + self.N_low
-        else:
-            for i in range(self.N_low):
-                self.I_low[i] = i
-            for i in range(self.N_high):
-                self.I_high[i]  = i + self.N_low
+        for i in range(self.N_low):
+            self.I_low[i] = i
+        for i in range(self.N_high):
+            self.I_high[i]  = i + self.N_low
+        
+        if (ch7 and not(para.ch7['High'])):
             self.I_low[self.N_low - 1] = self.N - 1
 
         self.K = storage.K
