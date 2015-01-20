@@ -287,7 +287,7 @@ def simple_share_model(n=10):
 def central_case():
 
     home = '/home/nealbob'
-    folder = '/Dropbox/Model/results/chapter7/'
+    folder = '/Dropbox/Model/results/chapter7/chapter7/'
     out = '/Dropbox/Thesis/IMG/chapter7/'
     img_ext = '.pdf'
     table_out = '/Dropbox/Thesis/STATS/chapter7/'
@@ -303,8 +303,8 @@ def central_case():
     ###### Summary results #####
     
     cols = ['Mean', 'SD', '2.5th', '25th', '75th', '97.5th']
-    series = ['SW', 'Profit', 'B', 'S', 'W', 'E', 'Z', 'Q_low', 'Q_high', 'Q_env', 'A_low', 'A_high', 'A_env']
-    scale = {'SW' : 1000000, 'Profit' : 1000000, 'S' : 1000, 'W' : 1000, 'E' : 1000, 'B' : 1000000, 'Z' : 1000, 'Q_low' : 1000, 'Q_high' : 1000, 'Q_env' : 1000, 'A_low' : 1000, 'A_high' : 1000, 'A_env' : 1000}
+    series = ['SW', 'Profit', 'B', 'S', 'W', 'E', 'Z', 'Q_low', 'Q_high', 'Q_env', 'A_low', 'A_high', 'A_env', 'S_low', 'S_high', 'S_env', 'U_low', 'U_high']
+    scale = {'SW' : 1000000, 'Profit' : 1000000, 'S' : 1000, 'W' : 1000, 'E' : 1000, 'B' : 1000000, 'Z' : 1000, 'Q_low' : 1000, 'Q_high' : 1000, 'Q_env' : 1000, 'A_low' : 1000, 'A_high' : 1000, 'A_env' : 1000, 'S_low' : 1000, 'S_high' : 1000, 'S_env' : 1000, 'U_low' : 1000000, 'U_high' : 1000000}
 
     m = len(results['CS'][0]['S']['Annual']['Mean']) - 1
 
@@ -328,5 +328,48 @@ def central_case():
         with open(home + table_out + 'central_' + x + '.txt', 'w') as f:
             f.write(data.to_latex(float_format='{:,.2f}'.format, columns=cols))
             f.close()
+
+
+    for x in series:
+        data0 = []
+        
+        record = {}
+        for col in cols:
+            record[col] = results[row][0][x]['Summer'][col][2] / scale[x]
+        data0.append(record)
+        
+        for row in rows:
+            record = {}
+            for col in cols:
+                record[col] = results[row][0][x]['Summer'][col][m] / scale[x]
+            data0.append(record)
+
+        data = pandas.DataFrame(data0)
+        data.index = ['Planner'] + rows
+
+        with open(home + table_out + 'central_sum_' + x + '.txt', 'w') as f:
+            f.write(data.to_latex(float_format='{:,.2f}'.format, columns=cols))
+            f.close()
     
+    for x in series:
+        data0 = []
+        
+        record = {}
+        for col in cols:
+            record[col] = results[row][0][x]['Winter'][col][2] / scale[x]
+        data0.append(record)
+        
+        for row in rows:
+            record = {}
+            for col in cols:
+                record[col] = results[row][0][x]['Winter'][col][m] / scale[x]
+            data0.append(record)
+
+        data = pandas.DataFrame(data0)
+        data.index = ['Planner'] + rows
+
+        with open(home + table_out + 'central_win_' + x + '.txt', 'w') as f:
+            f.write(data.to_latex(float_format='{:,.2f}'.format, columns=cols))
+            f.close()
+
     return results
