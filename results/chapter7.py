@@ -396,10 +396,10 @@ def central_case():
     ax.annotate(rows[4], xy=(Y[5], X[5]), xytext=(5, 5) , textcoords='offset points', xycoords=('data'),)
     ax.annotate(rows[5], xy=(Y[6], X[6]), xytext=(-42, -12) , textcoords='offset points', xycoords=('data'),)
     
-    pylab.xlabel('Irrigation profit')
-    pylab.ylabel('Environmental benefit')
+    pylab.xlabel('Mean irrigation profit (\$m)')
+    pylab.ylabel('Mean environmental benefit (\$m)')
     pylab.ylim(26, 40)
-    pylab.savefig(home + out + 'tradeoff.pdf')
+    pylab.savefig(home + out + 'tradeoff.pdf', bbox_inches='tight')
     pylab.show()
     
     # Storage chart
