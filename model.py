@@ -305,13 +305,14 @@ class Model:
         self.multiQV_ch7(ITER=self.para.ITER1, init=True, NS=NS)
         
         ##################          Main Q-learning              #################
-        env_lambda = self.env.Lambda_I
         
         print '\nSolve decentralised problem, multiple agent fitted QV iteration ...'
-        P_adj = 0
+        P_adj = 40
         counter  = 0
         scale = 1
         P_adj_plot = np.zeros(self.para.ITER2)
+        self.env.P_adj = P_adj
+        self.market.P_adj = P_adj
 
         for i in range(self.para.ITER2):
             

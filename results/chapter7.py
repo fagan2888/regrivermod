@@ -292,7 +292,7 @@ def central_case():
     img_ext = '.pdf'
     table_out = '/Dropbox/Thesis/STATS/chapter7/'
     
-    rows = ['CS', 'SWA', 'OA', 'NS'] #, 'CS-HL', 'SWA-HL', 'OA', 'NS']
+    rows = ['CS', 'SWA', 'OA', 'NS', 'CS-HL', 'SWA-HL']
     results = {row : 0 for row in rows}
     
     for row in rows:
