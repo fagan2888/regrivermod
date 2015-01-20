@@ -303,8 +303,8 @@ def central_case():
     ###### Summary results #####
     
     cols = ['Mean', 'SD', '2.5th', '25th', '75th', '97.5th']
-    series = ['SW', 'Profit', 'B', 'S', 'W', 'E', 'Z', 'Q_low', 'Q_high', 'Q_env', 'A_low', 'A_high', 'A_env', 'S_low', 'S_high', 'S_env', 'U_low', 'U_high']
-    scale = {'SW' : 1000000, 'Profit' : 1000000, 'S' : 1000, 'W' : 1000, 'E' : 1000, 'B' : 1000000, 'Z' : 1000, 'Q_low' : 1000, 'Q_high' : 1000, 'Q_env' : 1000, 'A_low' : 1000, 'A_high' : 1000, 'A_env' : 1000, 'S_low' : 1000, 'S_high' : 1000, 'S_env' : 1000, 'U_low' : 1000000, 'U_high' : 1000000}
+    series = ['SW', 'Profit', 'B', 'S', 'W', 'E', 'Z', 'Q_low', 'Q_high', 'Q_env', 'A_low', 'A_high', 'A_env', 'S_low', 'S_high', 'S_env', 'U_low', 'U_high', 'Budget']
+    scale = {'SW' : 1000000, 'Profit' : 1000000, 'S' : 1000, 'W' : 1000, 'E' : 1000, 'B' : 1000000, 'Z' : 1000, 'Q_low' : 1000, 'Q_high' : 1000, 'Q_env' : 1000, 'A_low' : 1000, 'A_high' : 1000, 'A_env' : 1000, 'S_low' : 1000, 'S_high' : 1000, 'S_env' : 1000, 'U_low' : 1000000, 'U_high' : 1000000, 'Budget' : 1000000}
 
     m = len(results['CS'][0]['S']['Annual']['Mean']) - 1
 
@@ -384,11 +384,40 @@ def central_case():
         Y[i] = results[rows[i-1]][0]['Profit']['Annual']['Mean'][m] / scale['Profit']
 
     chart_params()
-    pylab.figure()
-    pylab.plot(Y, X, 'o') 
+    fig = pylab.figure()
+    ax = fig.add_subplot(111)
+    ax.plot(Y, X, 'o') 
+    
+    ax.annotate('Planner', xy=(Y[0], X[0]), xytext=(-43, 2) , textcoords='offset points', xycoords=('data'),)
+    ax.annotate(rows[0], xy=(Y[1], X[1]), xytext=(-20, 0) , textcoords='offset points', xycoords=('data'),)
+    ax.annotate(rows[1], xy=(Y[2], X[2]), xytext=(10, -4) , textcoords='offset points', xycoords=('data'),)
+    ax.annotate(rows[2], xy=(Y[3], X[3]), xytext=(10, -4) , textcoords='offset points', xycoords=('data'),)
+    ax.annotate(rows[3], xy=(Y[4], X[4]), xytext=(10, -4) , textcoords='offset points', xycoords=('data'),)
+    ax.annotate(rows[4], xy=(Y[5], X[5]), xytext=(5, 5) , textcoords='offset points', xycoords=('data'),)
+    ax.annotate(rows[5], xy=(Y[6], X[6]), xytext=(-42, -12) , textcoords='offset points', xycoords=('data'),)
+    
     pylab.xlabel('Irrigation profit')
     pylab.ylabel('Environmental benefit')
+    pylab.ylim(26, 40)
     pylab.savefig(home + out + 'tradeoff.pdf')
+    pylab.show()
+    
+    # env trade chart
+    Y = np.zeros(6)
+    for i in range(6):
+        Y[i] = results[rows[i]][0]['Budget']['Winter']['Mean'][m] / scale['Budget']#results[rows[i]][0]['A_env']['Winter']['Mean'][m] / scale['A_env']  - results[rows[i]][0]['Q_env']['Winter']['Mean'][m] / scale['Q_env']
+    
+    Y1 = np.zeros(6)
+    for i in range(6):
+        Y1[i] = results[rows[i]][0]['Budget']['Summer']['Mean'][m] / scale['Budget'] #results[rows[i]][0]['A_env']['Summer']['Mean'][m] / scale['A_env']  - results[rows[i]][0]['Q_env']['Summer']['Mean'][m] / scale['Q_env']
+
+    chart_params()
+    pylab.figure()
+    pylab.plot(Y) 
+    pylab.plot(Y1) 
+    pylab.xlabel('Irrigation profit')
+    pylab.ylabel('Environmental benefit')
+    pylab.savefig(home + out + 'envtrade.pdf')
     pylab.show()
             
     return results

@@ -282,7 +282,7 @@ class Model:
         
         return E_lambda
 
-    def chapter7(self):
+    def chapter7(self, P_adj, delta):
         
         self.plannerQV_ch7(T=200000, stage2=False, d=0.2, simulate=True, envoff=False)
         
@@ -307,7 +307,7 @@ class Model:
         ##################          Main Q-learning              #################
         
         print '\nSolve decentralised problem, multiple agent fitted QV iteration ...'
-        P_adj = 60
+        
         counter  = 0
         scale = 1
         P_adj_plot = np.zeros(self.para.ITER2)
@@ -376,9 +376,9 @@ class Model:
                 #self.env.explore = 1
                 
                 if  budget > 0:
-                    P_adj -= 19 * scale 
+                    P_adj -= delta * scale 
                 else:
-                    P_adj += 19 * scale
+                    P_adj += delta * scale
                     
                 self.env.P_adj = P_adj
                 self.market.P_adj = P_adj

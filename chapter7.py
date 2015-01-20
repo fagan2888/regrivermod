@@ -60,6 +60,10 @@ para = Para()
 N = 1
 scen = arg2 #, 'CS-HL', 'SWA','SWA-HL', 'OA', 'NS']
 
+P_adj_scen = {'CS' : 58.3, 'SWA' : 57.1, 'OA' : 60.8, 'NS' : 38.4, 'CS-HL' : 94.1, 'SWA-HL' : 61}
+delta_scen = 5
+P_adj = P_adj_scen[scen]
+
 for i in range(N):
     
     para.central_case(N = 100)
@@ -81,7 +85,7 @@ for i in range(N):
     para.set_property_rights(scenario=scen)
     para.aproximate_shares_ch7(nonoise=nonoise)
     mod = Model(para, ch7=True, turn_off_env=False)
-    results = mod.chapter7()
+    results = mod.chapter7(P_adj, delta)
     del mod
     
     with open(NCIhome + NCIfolder + str(arg1) + str(arg2) + '_' + str(i) +  '_result.pkl', 'wb') as f:

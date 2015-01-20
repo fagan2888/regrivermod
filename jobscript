@@ -3,8 +3,8 @@
 #qsub -v PBS_ARRAY_INDEX=0 ch7jobsCS
 #qsub -v PBS_ARRAY_INDEX=0 ch7jobsSWA
 #qsub -v PBS_ARRAY_INDEX=0 ch7jobsOA
-#qsub -v PBS_ARRAY_INDEX=0 ch7jobsNS
-qsub -v PBS_ARRAY_INDEX=0 ch7jobsCSHL
+qsub -v PBS_ARRAY_INDEX=0 ch7jobsNS
+#qsub -v PBS_ARRAY_INDEX=0 ch7jobsCSHL
 #qsub -v PBS_ARRAY_INDEX=0 ch7jobsSWAHL
 
 #qsub -v PBS_ARRAY_INDEX=0 -v PBS_SCEN=SWA ch7jobs
