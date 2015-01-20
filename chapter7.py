@@ -60,8 +60,8 @@ para = Para()
 N = 1
 scen = arg2 #, 'CS-HL', 'SWA','SWA-HL', 'OA', 'NS']
 
-P_adj_scen = {'CS' : 58.3, 'SWA' : 57.1, 'OA' : 60.8, 'NS' : 38.4, 'CS-HL' : 94.1, 'SWA-HL' : 61}
-delta_scen = 5
+P_adj_scen = {'CS' : 58.3, 'SWA' : 57.1, 'OA' : 60.8, 'NS' : 38.4, 'CS-HL' : 94.1, 'SWA-HL' : 61} #0
+delta = 5   #19
 P_adj = P_adj_scen[scen]
 
 for i in range(N):

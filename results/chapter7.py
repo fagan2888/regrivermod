@@ -402,22 +402,64 @@ def central_case():
     pylab.savefig(home + out + 'tradeoff.pdf')
     pylab.show()
     
-    # env trade chart
-    Y = np.zeros(6)
-    for i in range(6):
-        Y[i] = results[rows[i]][0]['Budget']['Winter']['Mean'][m] / scale['Budget']#results[rows[i]][0]['A_env']['Winter']['Mean'][m] / scale['A_env']  - results[rows[i]][0]['Q_env']['Winter']['Mean'][m] / scale['Q_env']
+    # Storage chart
+    n = len(results['CS'][0]['S']['Annual']['Mean'])
+    data0 = []
+    for i in range(2, n-1):
+        record = {}
+        for sr in ['CS', 'SWA', 'OA', 'NS']:
+            record[sr] = results[sr][0]['S']['Annual']['Mean'][i] / 1000
+        data0.append(record)
     
-    Y1 = np.zeros(6)
-    for i in range(6):
-        Y1[i] = results[rows[i]][0]['Budget']['Summer']['Mean'][m] / scale['Budget'] #results[rows[i]][0]['A_env']['Summer']['Mean'][m] / scale['A_env']  - results[rows[i]][0]['Q_env']['Summer']['Mean'][m] / scale['Q_env']
-
-    chart_params()
-    pylab.figure()
-    pylab.plot(Y) 
-    pylab.plot(Y1) 
-    pylab.xlabel('Irrigation profit')
-    pylab.ylabel('Environmental benefit')
-    pylab.savefig(home + out + 'envtrade.pdf')
-    pylab.show()
+    data = pandas.DataFrame(data0)
+    chart = {'OUTFILE': home + out + 'Storage' + img_ext,
+     'YLABEL': 'Mean storage $S_t$ (GL)',
+     'XLABEL': 'Iteration'}
+    build_chart(chart, data, chart_type='date')
+    
+    # Budget
+    n = len(results['CS'][0]['S']['Annual']['Mean'])
+    data0 = []
+    for i in range(2, n-1):
+        record = {}
+        for sr in ['CS', 'SWA', 'OA', 'NS']:
+            record[sr] = results[sr][0]['Budget']['Annual']['Mean'][i] / 1000000
+        data0.append(record)
+    
+    data = pandas.DataFrame(data0)
+    chart = {'OUTFILE': home + out + 'Budget' + img_ext,
+     'YLABEL': 'Environmental trade $P_t(a_{0t} - q_{0t})$',
+     'XLABEL': 'Iteration'}
+    build_chart(chart, data, chart_type='date')
             
+    # Extraction
+    n = len(results['CS'][0]['S']['Annual']['Mean'])
+    data0 = []
+    for i in range(2, n-1):
+        record = {}
+        for sr in ['CS', 'SWA', 'OA', 'NS']:
+            record[sr] = results[sr][0]['E']['Annual']['Mean'][i] / 1000
+        data0.append(record)
+    
+    data = pandas.DataFrame(data0)
+    chart = {'OUTFILE': home + out + 'Extraction' + img_ext,
+     'YLABEL': 'Extraction, $E_t$ (GL)',
+     'XLABEL': 'Iteration'}
+    build_chart(chart, data, chart_type='date')
+    
+    # Price
+    n = len(results['CS'][0]['S']['Annual']['Mean'])
+    data0 = []
+    for i in range(2, n-1):
+        record = {}
+        for sr in ['CS', 'SWA', 'OA', 'NS']:
+            record[sr] = results[sr][0]['P']['Annual']['Mean'][i]
+        data0.append(record)
+    
+    data = pandas.DataFrame(data0)
+    chart = {'OUTFILE': home + out + 'Price' + img_ext,
+     'YLABEL': 'Price, $P_t$ (\$/ML)',
+     'XLABEL': 'Iteration'}
+    build_chart(chart, data, chart_type='date')
+
     return results
