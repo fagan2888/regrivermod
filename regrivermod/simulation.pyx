@@ -88,9 +88,9 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
     cdef double[:,:] A_env_sim = np.zeros([T, 2])
     cdef double[:,:] S_low_sim = np.zeros([T, 2])
     cdef double[:,:] S_high_sim = np.zeros([T, 2])
+    cdef double[:,:] S_env_sim = np.zeros([T, 2])
     cdef double[:,:] U_low_sim = np.zeros([T, 2])
     cdef double[:,:] U_high_sim = np.zeros([T, 2])
-    cdef double[:,:] S_env_sim = np.zeros([T, 2])
     cdef double[:,:] Budget_sim = np.zeros([T, 2])
     cdef double[:,:] Budget_in = np.zeros([T, 2])
     cdef double[:,:] Budget_out = np.zeros([T, 2])
@@ -582,9 +582,9 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
                 'A_env' : np.asarray(A_env_sim),
                 'S_low' : np.asarray(S_low_sim),
                 'S_high' : np.asarray(S_high_sim),
-                'S_env' : np.asarray(A_env_sim),
-                'U_low' : np.asarray(S_low_sim),
-                'U_high' : np.asarray(S_high_sim)}
+                'S_env' : np.asarray(S_env_sim),
+                'U_low' : np.asarray(U_low_sim),
+                'U_high' : np.asarray(U_high_sim)}
         
         if plan == 1: 
             data['XA1'] = np.asarray(XA1)
@@ -978,7 +978,7 @@ class Simulation:
         names  = ['Mean', 'SD', '25th', '75th', '2.5th', '97.5th', 'Min', 'Max']
         formats = ['f4','f4','f4','f4','f4','f4','f4','f4']
         vars = ['S', 'W', 'I', 'SW', 'Z', 'U_low', 'U_high', 'A_low', 'A_high', 'Q_low', 'Q_high', 'W_low', 'W_high', 'S_low', 'S_high',
-                 'X_low', 'X_high', 'trade', 'P', 'Q', 'F1', 'F3', 'F1_tilde', 'F3_tilde', 'E', 'Profit', 'trade_low', 'trade_high', 'A', 'Q_env', 'Bhat', 'B', 'Budget', 'A_env', 'A_low', 'A_high']
+                 'X_low', 'X_high', 'trade', 'P', 'Q', 'F1', 'F3', 'F1_tilde', 'F3_tilde', 'E', 'Profit', 'trade_low', 'trade_high', 'A', 'Q_env', 'Bhat', 'B', 'Budget', 'A_env', 'A_low', 'A_high', 'S_env']
         if ch7:
             for var in vars:
                 self.stats[var] = { 'Summer' : np.zeros(self.ITERMAX, dtype={'names':names, 'formats':formats}),
