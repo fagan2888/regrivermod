@@ -372,4 +372,23 @@ def central_case():
             f.write(data.to_latex(float_format='{:,.2f}'.format, columns=cols))
             f.close()
 
+    # central case trade-off chart
+    X = np.zeros(7)
+    X[0] = results['CS'][0]['B']['Annual']['Mean'][2] / scale['B']
+    for i in range(1, 7):
+        X[i] = results[rows[i-1]][0]['B']['Annual']['Mean'][m] / scale['B']
+    
+    Y = np.zeros(7)
+    Y[0] = results['CS'][0]['Profit']['Annual']['Mean'][2] / scale['Profit']
+    for i in range(1, 7):
+        Y[i] = results[rows[i-1]][0]['Profit']['Annual']['Mean'][m] / scale['Profit']
+
+    chart_params()
+    pylab.figure()
+    pylab.plot(Y, X, 'o') 
+    pylab.xlabel('Irrigation profit')
+    pylab.ylabel('Environmental benefit')
+    pylab.savefig(home + out + 'tradeoff.pdf')
+    pylab.show()
+            
     return results

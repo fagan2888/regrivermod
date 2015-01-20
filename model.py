@@ -307,7 +307,7 @@ class Model:
         ##################          Main Q-learning              #################
         
         print '\nSolve decentralised problem, multiple agent fitted QV iteration ...'
-        P_adj = 40
+        P_adj = 60
         counter  = 0
         scale = 1
         P_adj_plot = np.zeros(self.para.ITER2)
