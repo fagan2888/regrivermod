@@ -1380,9 +1380,9 @@ class Simulation:
         tic1 = time.time()
         if budgetonly:
             Budget = np.sum(np.vstack(d['Budget'] for d in datalist), axis=1)
-            NN = len(Budget)
-            Budget = Budget.reshape([NN, 1])
             P_adj = np.hstack(d['P_adj'] for d in datalist)
+            NN = len(P_adj)
+            P_adj = P_adj.reshape([NN, 1])
             
             print '--------------------------------------------------------'
             print '--------------------------------------------------------'
