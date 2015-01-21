@@ -117,7 +117,7 @@ cdef class Environment:
             np.random.seed(seed)
 
         self.P_adj_e = np.zeros(T)
-        self.P_adj_e = np.random.norm(loc=mu, scale=sig, size=T)
+        self.P_adj_e = np.random.normal(loc=mu, scale=sig, size=T)
 
     cdef void draw_P_adj(self, int t):
 
