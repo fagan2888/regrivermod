@@ -96,7 +96,7 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
     cdef double[:,:] U_low_sim = np.zeros([T, 2])
     cdef double[:,:] U_high_sim = np.zeros([T, 2])
     cdef double[:,:] Budget_sim = np.zeros([T, 2])
-    cdef double[:,:] P_adj_sim = np.zeros(T)
+    cdef double[:] P_adj_sim = np.zeros(T)
     cdef double[:,:] Budget_in = np.zeros([T, 2])
     cdef double[:,:] Budget_out = np.zeros([T, 2])
     cdef double[:,:] Budget_tc = np.zeros([T, 2])
