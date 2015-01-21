@@ -183,8 +183,8 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
     for t in range(T):
         if bo == 1: 
             env.draw_P_adj(t)
-            market.P_adj = market.P_adj
-            P_adj_sim[t]
+            market.P_adj = env.P_adj
+            P_adj_sim[t] = market.P_adj
         
         utility.fail = 0
 
