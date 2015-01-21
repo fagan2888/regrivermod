@@ -346,8 +346,8 @@ class Model:
             counter += 1
             if counter > 7:
                 counter = 0
+                scale = 1 
                 for i in range(20): 
-                    scale = 1 
                     
                     self.users.exploring = 0
                     self.env.explore = 0
