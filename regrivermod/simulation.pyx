@@ -1383,15 +1383,13 @@ class Simulation:
             NN = len(Budget)
             Budget = Budget.reshape([NN, 1])
             P_adj = np.hstack(d['P_adj'] for d in datalist)
-            approx = Tilecode(1, [14], 25)
-            approx.fit(P_adj, Budget)
             
             print '--------------------------------------------------------'
             print '--------------------------------------------------------'
             print 'Env trade surplus mean: ' + str(np.mean(Budget))
             print '--------------------------------------------------------'
             print '--------------------------------------------------------'
-            return approx
+            return [P_adj, Budget] 
         else:
             if planner: 
                 series = ['W','SW','S','I','Z','P','E','Q', 'A', 'F1','F3','F1_tilde','F3_tilde', 'Profit', 'B', 'Budget']
