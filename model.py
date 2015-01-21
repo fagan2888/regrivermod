@@ -353,7 +353,12 @@ class Model:
 
                 from econlearn.tilecode import Tilecode as Tile
                 approx = Tile(1, [14], 25)
+                print np.mean(P_adj_sim) 
+                print np.mean(Budget_sim) 
+                print P_adj.shape
+                print Budget.shape
                 approx.fit(P_adj_sim, Budget_sim)
+                print np.array(approx.a)
                 X = np.linspace(P_adj - 2*20, P_adj + 2*20, 1000).reshape([1000, 1])
                 Y = approx.predict(X)
                 idx = np.argmin(np.abs(Y))

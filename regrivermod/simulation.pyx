@@ -1383,7 +1383,6 @@ class Simulation:
             P_adj = np.hstack(d['P_adj'] for d in datalist)
             NN = len(P_adj)
             P_adj = P_adj.reshape([NN, 1])
-            
             print '--------------------------------------------------------'
             print '--------------------------------------------------------'
             print 'Env trade surplus mean: ' + str(np.mean(Budget))
