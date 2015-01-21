@@ -118,7 +118,7 @@ cdef class Environment:
 
         self.P_adj_e = np.zeros(T)
         self.P_adj_e = np.random.normal(loc=mu, scale=sig, size=T)
-        print np.array(self.P_adj_e)[0:10]
+    
     cdef void draw_P_adj(self, int t):
 
         self.P_adj = self.P_adj_e[t]

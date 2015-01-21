@@ -80,7 +80,7 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
  
     cdef int bo = 0
     if budgetonly:
-        bo == 1
+        bo = 1
 
     cdef double[:,:] W_sim = np.zeros([T, 2])
     cdef double[:,:] Q_sim = np.zeros([T, 2])
