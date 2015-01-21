@@ -463,3 +463,82 @@ def central_case():
     build_chart(chart, data, chart_type='date')
 
     return results
+
+def tradeoff():
+
+    home = '/home/nealbob'
+    folder = '/Dropbox/Model/results/chapter7/chapter7/'
+    out = '/Dropbox/Thesis/IMG/chapter7/'
+    img_ext = '.pdf'
+    table_out = '/Dropbox/Thesis/STATS/chapter7/'
+    
+    rows = ['CS', 'SWA', 'OA', 'NS', 'CS-HL', 'SWA-HL']
+    results = {'20': {row : 0 for row in rows}, '26.3' : {row : 0 for row in rows}}
+    shares = ['20', '26.3']
+
+    for share in shares: 
+        for row in rows:
+            if share == '26.3':
+                share_ext = ''
+            else:
+                share_ext = share
+            with open(home + folder + '0' + row + '_0_result' + share_ext + '.pkl', 'rb') as f:
+                results[share][row] = pickle.load(f)
+                f.close()
+    
+    ###### Summary results #####
+    
+    series = ['SW', 'Profit', 'B', 'Budget']
+    scale = {'SW' : 1000000, 'Profit' : 1000000, 'S' : 1000, 'W' : 1000, 'E' : 1000, 'B' : 1000000, 'Z' : 1000, 'Q_low' : 1000, 'Q_high' : 1000, 'Q_env' : 1000, 'A_low' : 1000, 'A_high' : 1000, 'A_env' : 1000, 'S_low' : 1000, 'S_high' : 1000, 'S_env' : 1000, 'U_low' : 1000000, 'U_high' : 1000000, 'Budget' : 1000000}
+
+    m = len(results['20']['CS'][0]['S']['Annual']['Mean']) - 1
+
+    for x in series:
+        data0 = []
+        
+        for row in rows:
+            record = {}
+            for share in shares:
+                record[share] = results[share][row][0][x]['Annual']['Mean'][m] / scale[x]
+            data0.append(record)
+
+        data = pandas.DataFrame(data0)
+        data.index = rows
+
+        with open(home + table_out + 'tradeoff_' + x + '.txt', 'w') as f:
+            f.write(data.to_latex(float_format='{:,.2f}'.format, columns=shares))
+            f.close()
+
+    """
+    # central case trade-off chart
+    X = np.zeros(7)
+    X[0] = results['CS'][0]['B']['Annual']['Mean'][2] / scale['B']
+    for i in range(1, 7):
+        X[i] = results[rows[i-1]][0]['B']['Annual']['Mean'][m] / scale['B']
+    
+    Y = np.zeros(7)
+    Y[0] = results['CS'][0]['Profit']['Annual']['Mean'][2] / scale['Profit']
+    for i in range(1, 7):
+        Y[i] = results[rows[i-1]][0]['Profit']['Annual']['Mean'][m] / scale['Profit']
+
+    chart_params()
+    fig = pylab.figure()
+    ax = fig.add_subplot(111)
+    ax.plot(Y, X, 'o') 
+    
+    ax.annotate('Planner', xy=(Y[0], X[0]), xytext=(-43, 2) , textcoords='offset points', xycoords=('data'),)
+    ax.annotate(rows[0], xy=(Y[1], X[1]), xytext=(-20, 0) , textcoords='offset points', xycoords=('data'),)
+    ax.annotate(rows[1], xy=(Y[2], X[2]), xytext=(10, -4) , textcoords='offset points', xycoords=('data'),)
+    ax.annotate(rows[2], xy=(Y[3], X[3]), xytext=(10, -4) , textcoords='offset points', xycoords=('data'),)
+    ax.annotate(rows[3], xy=(Y[4], X[4]), xytext=(10, -4) , textcoords='offset points', xycoords=('data'),)
+    ax.annotate(rows[4], xy=(Y[5], X[5]), xytext=(5, 5) , textcoords='offset points', xycoords=('data'),)
+    ax.annotate(rows[5], xy=(Y[6], X[6]), xytext=(-42, -12) , textcoords='offset points', xycoords=('data'),)
+    
+    pylab.xlabel('Mean irrigation profit (\$m)')
+    pylab.ylabel('Mean environmental benefit (\$m)')
+    pylab.ylim(26, 40)
+    pylab.savefig(home + out + 'tradeoff.pdf', bbox_inches='tight')
+    pylab.show()
+    """    
+
+    return results

@@ -342,30 +342,34 @@ class Model:
             print 'Mean Q env: ' + str(np.mean(self.sim.series['Q_env'][:,1]))
             print 'Mean EWH budget outcome: ' + str(np.mean(self.sim.series['Budget'][:, 1]))
             
-            """ 
+             
             counter += 1
-            if counter > 0:
+            if counter > 7:
                 counter = 0
-                self.users.exploring = 0
-                self.env.explore = 0
-                budget = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 40000,self.para.CPU_CORES, stats=True, budgetonly=True) 
-                self.users.exploring = 1
-                self.env.explore = 1
+                for i in range(20): 
+                    scale = 1 
+                    
+                    self.users.exploring = 0
+                    self.env.explore = 0
+                    budget = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 20000,self.para.CPU_CORES, stats=True, budgetonly=True) 
+                    self.users.exploring = 1
+                    self.env.explore = 1
 
-                if budget > 0:
-                    P_adj -= 15 * scale 
-                else:
-                    P_adj += 15 * scale
+                    if budget > 0:
+                        P_adj -= delta * scale 
+                    else:
+                        P_adj += delta * scale
 
-                self.env.P_adj = P_adj
-                self.market.P_adj = P_adj
-                print 'P_adj: ' + str(self.market.P_adj) 
-                scale *= 0.95
-            """ 
+                    self.env.P_adj = P_adj
+                    self.market.P_adj = P_adj
+                    print 'P_adj: ' + str(self.market.P_adj) 
+                    scale *= 0.85
+                delta* = 0.9
+             
             #P_adj_plot[i] = P_adj
             #pylab.plot(P_adj_plot)
             #pylab.show()
-                
+            """    
             counter += 1
             if counter > 7:
                 budget = np.mean(self.sim.series['Budget'])
@@ -386,7 +390,7 @@ class Model:
                 print 'Budget: ' + str(budget)
                 counter = 0
                 scale *= 0.79
-            
+           """ 
 
 
         self.users.exploring = 0
