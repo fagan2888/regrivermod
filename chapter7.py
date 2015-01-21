@@ -76,9 +76,9 @@ P_adj = P_adj_scen[scen]
     
 para.central_case(N = 100)
 nonoise = True
-if i > 0:
-    para.randomize(N = 100)
-    nonoise = False
+#if i > 0:
+#    para.randomize(N = 100)
+#    nonoise = False
 
 #para.set_property_rights(scenario='CS')
 #mod = Model(para, ch7=True, turn_off_env=True)
