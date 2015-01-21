@@ -105,6 +105,24 @@ cdef class Environment:
         self.e = np.zeros(T)
         self.e = truncnorm(-1*(self.e_sig**-1), 1*(self.e_sig**-1), loc=1, scale=self.e_sig).rvs(size=T) 
     
+    def precompute_P_adj_shocks(self, T, mu, sig, seed=0):
+        
+        "Draw a random series for eps_I of length t "
+        
+        T = T * 2
+        
+        if seed == 0:
+            np.random.seed()
+        else:
+            np.random.seed(seed)
+
+        self.P_adj_e = np.zeros(T)
+        self.P_adj_e = np.random.norm(loc=mu, scale=sig, size=T)
+
+    cdef void draw_P_adj(self, int t):
+
+        self.P_adj = self.P_adj_e[t]
+
     def set_shares(self, Lambda):
 
         self.Lambda_I = Lambda

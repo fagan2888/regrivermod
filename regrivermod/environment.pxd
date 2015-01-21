@@ -22,6 +22,7 @@ cdef class Environment:
     cdef public double delta_R, delta_Eb
     cdef public double[:] delta_a 
     cdef public double[:] e
+    cdef public double[:] P_adj_e
 
     cdef public double DELTA0, DELTA1
     cdef public double t_cost
@@ -37,6 +38,8 @@ cdef class Environment:
     cdef public double Pmax
 
     cdef double consume(self, double P, int M, int planner)
+    
+    cdef void draw_P_adj(self, int t)
 
     cdef void allocate(self, double a, double Z, double max_R, double F1_tilde, double F3_tilde, double Pr, int M)
 

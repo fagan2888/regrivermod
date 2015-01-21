@@ -342,29 +342,23 @@ class Model:
             print 'Mean Q env: ' + str(np.mean(self.sim.series['Q_env'][:,1]))
             print 'Mean EWH budget outcome: ' + str(np.mean(self.sim.series['Budget'][:, 1]))
             
-             
             counter += 1
             if counter > 7:
                 counter = 0
-                scale = 1 
-                for i in range(20): 
-                    
-                    self.users.exploring = 0
-                    self.env.explore = 0
-                    budget = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 20000,self.para.CPU_CORES, stats=True, budgetonly=True) 
-                    self.users.exploring = 1
-                    self.env.explore = 1
+                self.users.exploring = 0
+                self.env.explore = 0
+                approx = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 20000,self.para.CPU_CORES, stats=True, budgetonly=True) 
+                self.users.exploring = 1
+                self.env.explore = 1
+                X = np.linspace(P_adj - 2*20, P_adj + 2*20, 1000).reshape([1000, 1])
+                Y = np.abs(approx.predict(X))
+                idx = np.argmin(Y)
+                P_adj = X[idx] 
+                self.env.P_adj = P_adj
+                self.market.P_adj = P_adj
 
-                    if budget > 0:
-                        P_adj -= delta * scale 
-                    else:
-                        P_adj += delta * scale
-
-                    self.env.P_adj = P_adj
-                    self.market.P_adj = P_adj
-                    print 'P_adj: ' + str(self.market.P_adj) 
-                    scale *= 0.85
-                delta = delta*0.9
+                print 'P_adj: ' + str(self.market.P_adj) 
+                print 'Budget hat: ' + str(Y[idx]) 
              
             #P_adj_plot[i] = P_adj
             #pylab.plot(P_adj_plot)

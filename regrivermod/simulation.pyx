@@ -77,6 +77,10 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
     cdef int N_e_l = users.N_e
     cdef int N_e_h = users.N_e
     cdef int N_e = N_e_l + N_e_h
+ 
+    cdef int bo = 0
+    if budgetonly:
+        bo == 1
 
     cdef double[:,:] W_sim = np.zeros([T, 2])
     cdef double[:,:] Q_sim = np.zeros([T, 2])
@@ -92,6 +96,7 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
     cdef double[:,:] U_low_sim = np.zeros([T, 2])
     cdef double[:,:] U_high_sim = np.zeros([T, 2])
     cdef double[:,:] Budget_sim = np.zeros([T, 2])
+    cdef double[:,:] P_adj_sim = np.zeros(T)
     cdef double[:,:] Budget_in = np.zeros([T, 2])
     cdef double[:,:] Budget_out = np.zeros([T, 2])
     cdef double[:,:] Budget_tc = np.zeros([T, 2])
@@ -172,9 +177,14 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
     storage.precompute_I_shocks(T)
     storage.precompute_I_split(T)
     env.precompute_e_shocks(T)
+    env.precompute_P_adj_shocks(T, env.P_adj, 20)
     
     # Run simulation
     for t in range(T):
+        if bo == 1: 
+            env.draw_P_adj(t)
+            market.P_adj = market.P_adj
+            P_adj_sim[t]
         
         utility.fail = 0
 
@@ -555,7 +565,8 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
             print 'Env budget: ' + str(env.budget)
     
     if budgetonly:
-        data = np.mean(Budget_sim)
+        data = {'Budget' : np.asarray(Budget_sim),
+                'P_adj' : np.asarray(P_adj_sim)}
     else:
         data = {'W': np.asarray(W_sim),
                 'SW': np.asarray(SW_sim),
@@ -1368,14 +1379,19 @@ class Simulation:
 
         tic1 = time.time()
         if budgetonly:
-            budget = np.mean(np.array(datalist))
+            Budget = np.sum(np.vstack(d['Budget'] for d in datalist), axis=1)
+            NN = len(Budget)
+            Budget = Budget.reshape([NN, 1])
+            P_adj = np.hstack(d['P_adj'] for d in datalist)
+            approx = Tilecode(1, [14], 25)
+            approx.fit(P_adj, Budget)
             
             print '--------------------------------------------------------'
             print '--------------------------------------------------------'
-            print 'Env trade surplus mean: ' + str(budget)
+            print 'Env trade surplus mean: ' + str(np.mean(Budget))
             print '--------------------------------------------------------'
             print '--------------------------------------------------------'
-            return budget
+            return approx
         else:
             if planner: 
                 series = ['W','SW','S','I','Z','P','E','Q', 'A', 'F1','F3','F1_tilde','F3_tilde', 'Profit', 'B', 'Budget']
