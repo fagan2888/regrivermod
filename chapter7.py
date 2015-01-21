@@ -76,7 +76,7 @@ for i in range(N):
     #mod = Model(para, ch7=True, turn_off_env=True)
     #E_lambda = mod.chapter7_initialise()
     #del mod
-    E_lambda = 0.263
+    E_lambda = 0.20
 
     para.ch7['inflow_share'] = E_lambda
     para.ch7['capacity_share'] = E_lambda
@@ -88,7 +88,7 @@ for i in range(N):
     results = mod.chapter7(P_adj, delta)
     del mod
     
-    with open(NCIhome + NCIfolder + str(arg1) + str(arg2) + '_' + str(i) +  '_result.pkl', 'wb') as f:
+    with open(NCIhome + NCIfolder + str(arg1) + str(arg2) + '_' + str(i) +  '_result20.pkl', 'wb') as f:
         pickle.dump(results, f)
         f.close()
     
