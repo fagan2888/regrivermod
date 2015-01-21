@@ -284,6 +284,8 @@ class Model:
 
     def chapter7(self, P_adj, delta):
         
+        from econlearn.tilecode import Tilecode as Tile
+
         self.plannerQV_ch7(T=200000, stage2=False, d=0.2, simulate=True, envoff=False)
         
         if self.para.sr == 'NS':
@@ -343,7 +345,7 @@ class Model:
             print 'Mean EWH budget outcome: ' + str(np.mean(self.sim.series['Budget'][:, 1]))
             
             counter += 1
-            if counter > 1:
+            if counter > 4:
                 counter = 0
                 self.users.exploring = 0
                 self.env.explore = 0
@@ -351,7 +353,6 @@ class Model:
                 self.users.exploring = 1
                 self.env.explore = 1
 
-                from econlearn.tilecode import Tilecode as Tile
                 approx = Tile(1, [14], 25)
                 approx.fit(P_adj_sim, Budget_sim)
                 X = np.linspace(P_adj - 2*20, P_adj + 2*20, 1000).reshape([1000, 1])
