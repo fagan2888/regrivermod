@@ -364,7 +364,7 @@ class Model:
                     self.market.P_adj = P_adj
                     print 'P_adj: ' + str(self.market.P_adj) 
                     scale *= 0.85
-                delta* = 0.9
+                delta = delta*0.9
              
             #P_adj_plot[i] = P_adj
             #pylab.plot(P_adj_plot)
