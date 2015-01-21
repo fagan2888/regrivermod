@@ -177,7 +177,7 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
     storage.precompute_I_shocks(T)
     storage.precompute_I_split(T)
     env.precompute_e_shocks(T)
-    env.precompute_P_adj_shocks(T, env.P_adj, 20)
+    env.precompute_P_adj_shocks(T, env.P_adj, 15)
     
     # Run simulation
     for t in range(T):

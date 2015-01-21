@@ -509,36 +509,32 @@ def tradeoff():
             f.write(data.to_latex(float_format='{:,.2f}'.format, columns=shares))
             f.close()
 
-    """
-    # central case trade-off chart
-    X = np.zeros(7)
-    X[0] = results['CS'][0]['B']['Annual']['Mean'][2] / scale['B']
-    for i in range(1, 7):
-        X[i] = results[rows[i-1]][0]['B']['Annual']['Mean'][m] / scale['B']
-    
-    Y = np.zeros(7)
-    Y[0] = results['CS'][0]['Profit']['Annual']['Mean'][2] / scale['Profit']
-    for i in range(1, 7):
-        Y[i] = results[rows[i-1]][0]['Profit']['Annual']['Mean'][m] / scale['Profit']
-
     chart_params()
     fig = pylab.figure()
     ax = fig.add_subplot(111)
-    ax.plot(Y, X, 'o') 
     
-    ax.annotate('Planner', xy=(Y[0], X[0]), xytext=(-43, 2) , textcoords='offset points', xycoords=('data'),)
-    ax.annotate(rows[0], xy=(Y[1], X[1]), xytext=(-20, 0) , textcoords='offset points', xycoords=('data'),)
-    ax.annotate(rows[1], xy=(Y[2], X[2]), xytext=(10, -4) , textcoords='offset points', xycoords=('data'),)
-    ax.annotate(rows[2], xy=(Y[3], X[3]), xytext=(10, -4) , textcoords='offset points', xycoords=('data'),)
-    ax.annotate(rows[3], xy=(Y[4], X[4]), xytext=(10, -4) , textcoords='offset points', xycoords=('data'),)
-    ax.annotate(rows[4], xy=(Y[5], X[5]), xytext=(5, 5) , textcoords='offset points', xycoords=('data'),)
-    ax.annotate(rows[5], xy=(Y[6], X[6]), xytext=(-42, -12) , textcoords='offset points', xycoords=('data'),)
+    # central case trade-off chart
+    for row in rows:
+        X = np.zeros(2)
+        Y = np.zeros(2)
+        i = 0 
+        for share in shares:  
+            X[i] = results[share][row][0]['Profit']['Annual']['Mean'][m] / scale['Profit']
+            Y[i] = results[share][row][0]['B']['Annual']['Mean'][m] / scale['B']
+            i += 1
+
+        ax.plot(X, Y, label=row) 
+    
+    #ax.annotate('Planner', xy=(Y[0], X[0]), xytext=(-43, 2) , textcoords='offset points', xycoords=('data'),)
+    
+    setAxLinesBW(ax)
+    pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=3, mode="expand", borderaxespad=0.) 
     
     pylab.xlabel('Mean irrigation profit (\$m)')
     pylab.ylabel('Mean environmental benefit (\$m)')
     pylab.ylim(26, 40)
-    pylab.savefig(home + out + 'tradeoff.pdf', bbox_inches='tight')
+    pylab.savefig(home + out + 'tradeoff_multi.pdf', bbox_inches='tight')
+    
     pylab.show()
-    """    
 
     return results
