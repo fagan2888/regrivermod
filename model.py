@@ -282,7 +282,7 @@ class Model:
         
         return E_lambda
 
-    def chapter7(self, P_adj, delta):
+    def chapter7(self, P_adj):
         
         from econlearn.tilecode import Tilecode as Tile
 

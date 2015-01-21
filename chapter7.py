@@ -57,40 +57,48 @@ except IndexError:
     print "Provide arguments <runnum> <numofjobs> <scenario>"
 
 para = Para()
-N = 1
+share_no = int(arg1)
 scen = arg2 #, 'CS-HL', 'SWA','SWA-HL', 'OA', 'NS']
 
 P_adj_scen = {'CS' : 58.3, 'SWA' : 57.1, 'OA' : 60.8, 'NS' : 38.4, 'CS-HL' : 94.1, 'SWA-HL' : 61} #0
-delta = 20   #19
+E_lambda_share = [0.1, 0.2, 0.263, 0.3, 0.4, 0.5] 
+E_lambda_name = ['10', '20', '', '30', '40', '50'] 
+
+print '============================================================'
+print 'Scenario: ' + scen
+print 'E_lambda: ' + str(E_lambda_share[share_no])
+print 'E_lambda_name: ' + str(E_lambda_name[share_no])
+print '============================================================'
+
 P_adj = P_adj_scen[scen]
 
-for i in range(N):
+#for i in range(N):
     
-    para.central_case(N = 100)
-    nonoise = True
-    if i > 0:
-        para.randomize(N = 100)
-        nonoise = False
-    
-    #para.set_property_rights(scenario='CS')
-    #mod = Model(para, ch7=True, turn_off_env=True)
-    #E_lambda = mod.chapter7_initialise()
-    #del mod
-    E_lambda = 0.20
+para.central_case(N = 100)
+nonoise = True
+if i > 0:
+    para.randomize(N = 100)
+    nonoise = False
 
-    para.ch7['inflow_share'] = E_lambda
-    para.ch7['capacity_share'] = E_lambda
-    para.t_cost = para.t_cost/2.0
-    
-    para.set_property_rights(scenario=scen)
-    para.aproximate_shares_ch7(nonoise=nonoise)
-    mod = Model(para, ch7=True, turn_off_env=False)
-    results = mod.chapter7(P_adj, delta)
-    del mod
-    
-    with open(NCIhome + NCIfolder + str(arg1) + str(arg2) + '_' + str(i) +  '_result20.pkl', 'wb') as f:
-        pickle.dump(results, f)
-        f.close()
+#para.set_property_rights(scenario='CS')
+#mod = Model(para, ch7=True, turn_off_env=True)
+#E_lambda = mod.chapter7_initialise()
+#del mod
+E_lambda = E_lambda_share[share_no]
+
+para.ch7['inflow_share'] = E_lambda
+para.ch7['capacity_share'] = E_lambda
+para.t_cost = para.t_cost/2.0
+
+para.set_property_rights(scenario=scen)
+para.aproximate_shares_ch7(nonoise=nonoise)
+mod = Model(para, ch7=True, turn_off_env=False)
+results = mod.chapter7(P_adj)
+del mod
+
+with open(NCIhome + NCIfolder + str(arg1) + str(arg2) + '_' + str(i) +  '_result' + E_lambda_name[share_no] + '.pkl', 'wb') as f:
+    pickle.dump(results, f)
+    f.close()
     
 
 #==========================================
