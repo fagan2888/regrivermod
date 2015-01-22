@@ -349,7 +349,7 @@ class Model:
                 counter = 0
                 self.users.exploring = 0
                 self.env.explore = 0
-                P_adj_sim, Budget_sim = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 40000,self.para.CPU_CORES, stats=True, budgetonly=True) 
+                P_adj_sim, Budget_sim = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 50000,self.para.CPU_CORES, stats=True, budgetonly=True) 
                 self.users.exploring = 1
                 self.env.explore = 1
 

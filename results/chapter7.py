@@ -473,8 +473,8 @@ def tradeoff():
     table_out = '/Dropbox/Thesis/STATS/chapter7/'
     
     rows = ['CS', 'SWA', 'OA', 'NS', 'CS-HL', 'SWA-HL']
-    results = {'20': {row : 0 for row in rows}, '26.3' : {row : 0 for row in rows}}
-    shares = ['20', '26.3']
+    shares = ['10', '20', '26.3', '30', '40', '50']
+    results = {share: {row : 0 for row in rows} for share in shares} 
 
     for share in shares: 
         for row in rows:
@@ -515,8 +515,8 @@ def tradeoff():
     
     # central case trade-off chart
     for row in rows:
-        X = np.zeros(2)
-        Y = np.zeros(2)
+        X = np.zeros(6)
+        Y = np.zeros(6)
         i = 0 
         for share in shares:  
             X[i] = results[share][row][0]['Profit']['Annual']['Mean'][m] / scale['Profit']
@@ -532,7 +532,7 @@ def tradeoff():
     
     pylab.xlabel('Mean irrigation profit (\$m)')
     pylab.ylabel('Mean environmental benefit (\$m)')
-    pylab.ylim(26, 40)
+    #pylab.ylim(26, 40)
     pylab.savefig(home + out + 'tradeoff_multi.pdf', bbox_inches='tight')
     
     pylab.show()
