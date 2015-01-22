@@ -561,7 +561,7 @@ def sens(n = 20, m=10):
 
         print sr
         print count
-
+    """
     paralist = results[0]['CS']['paras'][0]  
     paralist = removekeys(paralist,  ['L', 'Lambda_high_RS', 'risk', 'SA_K', 'Prop_high'])
     
@@ -1174,3 +1174,4 @@ def sens(n = 20, m=10):
     with open(home + table_out + 'lowUI_sens.txt', 'w') as f:
         f.write(tab.to_latex(float_format='{:,.3f}'.format, columns=['Mean', 'Min', 'Q1', 'Q3', 'Max'], escape=False))
         f.close()
+    """
