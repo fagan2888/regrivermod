@@ -96,7 +96,7 @@ mod = Model(para, ch7=True, turn_off_env=False)
 results = mod.chapter7(P_adj)
 del mod
 
-with open(NCIhome + NCIfolder + str(arg1) + str(arg2) + '_' + '0' +  '_result' + E_lambda_name[share_no] + '.pkl', 'wb') as f:
+with open(NCIhome + NCIfolder + '0' + str(arg2) + '_' + '0' +  '_result' + E_lambda_name[share_no] + '.pkl', 'wb') as f:
     pickle.dump(results, f)
     f.close()
     
