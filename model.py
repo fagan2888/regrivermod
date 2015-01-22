@@ -349,13 +349,13 @@ class Model:
                 counter = 0
                 self.users.exploring = 0
                 self.env.explore = 0
-                P_adj_sim, Budget_sim = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 50000,self.para.CPU_CORES, stats=True, budgetonly=True) 
+                P_adj_sim, Budget_sim = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 60000,self.para.CPU_CORES, stats=True, budgetonly=True) 
                 self.users.exploring = 1
                 self.env.explore = 1
 
-                approx = Tile(1, [14], 25)
+                approx = Tile(1, [13], 25)
                 approx.fit(P_adj_sim, Budget_sim)
-                X = np.linspace(P_adj - 2*20, P_adj + 2*20, 1000).reshape([1000, 1])
+                X = np.linspace(P_adj - 2*40, P_adj + 2*40, 1000).reshape([1000, 1])
                 Y = approx.predict(X)
                 idx = np.argmin(np.abs(Y))
                 P_adj = X[idx] 

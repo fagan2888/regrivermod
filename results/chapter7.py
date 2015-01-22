@@ -488,7 +488,7 @@ def tradeoff():
     
     ###### Summary results #####
     
-    series = ['SW', 'Profit', 'B', 'Budget']
+    series = ['SW', 'Profit', 'B', 'Budget', 'S']
     scale = {'SW' : 1000000, 'Profit' : 1000000, 'S' : 1000, 'W' : 1000, 'E' : 1000, 'B' : 1000000, 'Z' : 1000, 'Q_low' : 1000, 'Q_high' : 1000, 'Q_env' : 1000, 'A_low' : 1000, 'A_high' : 1000, 'A_env' : 1000, 'S_low' : 1000, 'S_high' : 1000, 'S_env' : 1000, 'U_low' : 1000000, 'U_high' : 1000000, 'Budget' : 1000000}
 
     m = len(results['20']['CS'][0]['S']['Annual']['Mean']) - 1
@@ -514,6 +514,7 @@ def tradeoff():
     ax = fig.add_subplot(111)
     
     # central case trade-off chart
+    rows = ['CS', 'SWA', 'NS', 'CS-HL', 'SWA-HL']
     for row in rows:
         X = np.zeros(6)
         Y = np.zeros(6)
@@ -524,10 +525,13 @@ def tradeoff():
             i += 1
 
         ax.plot(X, Y, label=row) 
-    
-    #ax.annotate('Planner', xy=(Y[0], X[0]), xytext=(-43, 2) , textcoords='offset points', xycoords=('data'),)
-    
+    X = np.array(results['26.3']['CS'][0]['Profit']['Annual']['Mean'][2] / scale['Profit'])
+    Y = np.array(results['26.3']['CS'][0]['B']['Annual']['Mean'][2] / scale['B'])
+
     setAxLinesBW(ax)
+    ax.plot(X, Y, 'o') 
+    ax.annotate('Planner', xy=(X, Y), xytext=(-5, 10) , textcoords='offset points', xycoords=('data'),)
+    
     pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=3, mode="expand", borderaxespad=0.) 
     
     pylab.xlabel('Mean irrigation profit (\$m)')
