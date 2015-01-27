@@ -355,7 +355,7 @@ class Model:
 
                 approx = Tile(1, [12], 30, min_sample=100)
                 approx.fit(P_adj_sim, Budget_sim)
-                approx.plot()
+                #approx.plot()
                 pylab.show()
                 
                 X = np.linspace(P_adj - 2.25*20, P_adj + 2.25*20, 1000).reshape([1000, 1])
