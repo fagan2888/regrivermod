@@ -366,7 +366,7 @@ class Model:
                 Y2 = Y[idx][idx2] 
                 Y1 = Y[500] 
                 if abs(Y2) > 100000: # linear extrapolation
-                    P_adj = P_adj - Y1 * (P_adj - P_adj2) / (Y1 - Y2) 
+                    P_adj = P_adj - Y1 * ((P_adj - P_adj2) / (Y1 - Y2)) 
                 else:
                     P_adj = P_adj2
 
