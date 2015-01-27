@@ -349,22 +349,37 @@ class Model:
                 counter = 0
                 self.users.exploring = 0
                 self.env.explore = 0
-                P_adj_sim, Budget_sim = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 60000,self.para.CPU_CORES, stats=True, budgetonly=True) 
+                P_adj_sim, Budget_sim = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 100000,self.para.CPU_CORES, stats=True, budgetonly=True) 
                 self.users.exploring = 1
                 self.env.explore = 1
 
-                approx = Tile(1, [13], 25)
+                approx = Tile(1, [12], 30, min_sample=100)
                 approx.fit(P_adj_sim, Budget_sim)
-                X = np.linspace(P_adj - 2*40, P_adj + 2*40, 1000).reshape([1000, 1])
+                approx.plot()
+                pylab.show()
+                
+                X = np.linspace(P_adj - 2.25*20, P_adj + 2.25*20, 1000).reshape([1000, 1])
                 Y = approx.predict(X)
-                idx = np.argmin(np.abs(Y))
-                P_adj = X[idx] 
+                idx = np.abs(Y) > 0
+                idx2 = np.argmin(np.abs(Y[idx]))
+                P_adj2 = X[idx][idx2] 
+                Y2 = Y[idx][idx2] 
+                Y1 = Y[500] 
+                if abs(Y2) > 100000: # linear extrapolation
+                    P_adj = P_adj - Y1 * (P_adj - P_adj2) / (Y1 - Y2) 
+                else:
+                    P_adj = P_adj2
+
                 self.env.P_adj = P_adj
                 self.market.P_adj = P_adj
 
+                print '======================================================' 
                 print 'P_adj: ' + str(self.market.P_adj) 
-                print 'Budget hat: ' + str(Y[idx]) 
-             
+                print 'Budget hat: ' + str(Y2) 
+                print '======================================================' 
+                #pylab.plot(X, Y) 
+                #pylab.show()
+                #import pdb; pdb.set_trace()
             #P_adj_plot[i] = P_adj
             #pylab.plot(P_adj_plot)
             #pylab.show()
@@ -460,7 +475,7 @@ class Model:
         print "\nSolving the EWHs problem"
         print "-------------------------------------\n"
         self.qv_multi[2].iterate(self.sim.XA_e, self.sim.X1_e, self.sim.u_e, Alow, Ahigh, ITER=ITER, maxT=600000, eta=eta,
-                tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2, sgmem_max= 0.15, plotiter=False, xargs=[1000000,'x', 1, 2, 1], plot=False, NS=NS)
+                tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2, sgmem_max= 0.15, plotiter=False, xargs=[1000000,'x', 1, 1], plot=True, NS=NS)
 
         toc = time()
         st = toc - tic    

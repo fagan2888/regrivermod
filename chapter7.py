@@ -94,11 +94,11 @@ para.set_property_rights(scenario=scen)
 para.aproximate_shares_ch7(nonoise=nonoise)
 mod = Model(para, ch7=True, turn_off_env=False)
 results = mod.chapter7(P_adj)
-del mod
+#del mod
 
-with open(NCIhome + NCIfolder + '0' + str(arg2) + '_' + '0' +  '_result' + E_lambda_name[share_no] + '.pkl', 'wb') as f:
-    pickle.dump(results, f)
-    f.close()
+#with open(NCIhome + NCIfolder + '0' + str(arg2) + '_' + '0' +  '_result' + E_lambda_name[share_no] + '.pkl', 'wb') as f:
+#    pickle.dump(results, f)
+#    f.close()
     
 
 #==========================================

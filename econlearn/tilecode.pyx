@@ -1279,6 +1279,7 @@ cdef class Tilecode:
         state = np.array(X)[index, 1::]
 
         return [actions, values, state, index]
+    
     def plot(self, xargs=0, showdata=True, label='', showplot=True, quad=False, returndata=False):
 
         """
@@ -1301,7 +1302,6 @@ cdef class Tilecode:
 
         cdef int k = 0
         
-        x = [xargs[i] for i in range(self.D)]
 
         if self.D == 1:
             Xsmooth = np.linspace(self.a[0], self.b[0], 300)
@@ -1310,6 +1310,7 @@ cdef class Tilecode:
             Y = self.Y
             pylab.plot(X, Y, 'o', Xsmooth, Ysmooth)
         else:
+            x = [xargs[i] for i in range(self.D)]
             k = x.index('x')
             Xsmooth = np.linspace(self.a[k], self.b[k]*1.1, 300)
 
