@@ -353,22 +353,24 @@ class Model:
                 self.users.exploring = 1
                 self.env.explore = 1
 
-                approx = Tile(1, [12], 30, min_sample=100)
+                approx = Tile(1, [11], 30, min_sample=120)
                 approx.fit(P_adj_sim, Budget_sim)
                 #approx.plot()
                 pylab.show()
                 
-                X = np.linspace(P_adj - 2.25*20, P_adj + 2.25*20, 1000).reshape([1000, 1])
+                X = np.linspace(P_adj - 2.5*30, P_adj + 2.5*30, 1000).reshape([1000, 1])
                 Y = approx.predict(X)
                 idx = np.abs(Y) > 0
                 idx2 = np.argmin(np.abs(Y[idx]))
                 P_adj2 = X[idx][idx2] 
                 Y2 = Y[idx][idx2] 
                 Y1 = Y[500] 
-                if abs(Y2) > 100000: # linear extrapolation
-                    P_adj = P_adj - Y1 * ((P_adj - P_adj2) / (Y1 - Y2)) 
-                else:
-                    P_adj = P_adj2
+                #if Y2 > 5000000: # linear extrapolation
+                #    P_adj = P_adj - 100*(abs(Y2)/5000000)#  Y1 * ((P_adj - P_adj2) / (Y1 - Y2)) 
+                #elif Y2 < -5000000:
+                #    P_adj = P_adj + 100*(abs(Y2)/5000000)
+                #else:
+                P_adj = P_adj2
 
                 self.env.P_adj = P_adj
                 self.market.P_adj = P_adj
@@ -377,7 +379,7 @@ class Model:
                 print 'P_adj: ' + str(self.market.P_adj) 
                 print 'Budget hat: ' + str(Y2) 
                 print '======================================================' 
-                #pylab.plot(X, Y) 
+               # pylab.plot(X, Y) 
                 #pylab.show()
                 #import pdb; pdb.set_trace()
             #P_adj_plot[i] = P_adj
