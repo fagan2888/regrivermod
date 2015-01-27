@@ -475,7 +475,7 @@ class Model:
         print "\nSolving the EWHs problem"
         print "-------------------------------------\n"
         self.qv_multi[2].iterate(self.sim.XA_e, self.sim.X1_e, self.sim.u_e, Alow, Ahigh, ITER=ITER, maxT=600000, eta=eta,
-                tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2, sgmem_max= 0.15, plotiter=False, xargs=[1000000,'x', 1, 1], plot=True, NS=NS)
+                tilesg=True, sg_samp=self.para.sg_samp2_ch7, sg_prop=self.para.sg_prop2, sgmem_max= 0.15, plotiter=False, xargs=[1000000,'x', 1, 1], plot=False, NS=NS)
 
         toc = time()
         st = toc - tic    
