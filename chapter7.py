@@ -60,7 +60,7 @@ para = Para()
 share_no = int(arg1)
 scen = arg2 #, 'CS-HL', 'SWA','SWA-HL', 'OA', 'NS']
 
-P_adj_scen = {'CS' : 58.3, 'SWA' : 57.1, 'OA' : 60.8, 'NS' : 38.4, 'CS-HL' : 94.1, 'SWA-HL' : 61} #0
+P_adj_scen = {'CS' : 58.3, 'SWA' : 57.1, 'OA' : -200, 'NS' : 38.4, 'CS-HL' : 94.1, 'SWA-HL' : 61} #0
 E_lambda_share = [0.1, 0.2, 0.263, 0.3, 0.4, 0.5] 
 E_lambda_name = ['10', '20', '', '30', '40', '50'] 
 
