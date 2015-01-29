@@ -412,7 +412,7 @@ class Model:
         self.env.explore = 0
         
         iters = 0 
-        while 1 and iters < 200:
+        while iters < 200:
             self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 100000, self.para.CPU_CORES, partial=False, stats=True)
             budget = np.mean(self.sim.series['Budget'])
             
@@ -421,6 +421,7 @@ class Model:
                 print 'P_adj: ' + str(self.market.P_adj) 
                 print 'Budget hat: ' + str(budget) 
                 print '======================================================' 
+                iters += 201
                 break
             else:
                 if budget > 0:
