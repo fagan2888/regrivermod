@@ -356,7 +356,7 @@ class Model:
                 approx = Tile(1, [11], 30, min_sample=120)
                 approx.fit(P_adj_sim, Budget_sim)
                 #approx.plot()
-                pylab.show()
+                #pylab.show()
                 
                 X = np.linspace(P_adj - 2.5*30, P_adj + 2.5*30, 1000).reshape([1000, 1])
                 Y = approx.predict(X)
@@ -365,9 +365,9 @@ class Model:
                 P_adj2 = X[idx][idx2] 
                 Y2 = Y[idx][idx2] 
                 Y1 = Y[500] 
-                if Y2 > 3500000: # linear extrapolation
+                if Y2 > 5000000: # linear extrapolation
                     P_adj = P_adj - 100 #*(abs(Y2)/5000000)#  Y1 * ((P_adj - P_adj2) / (Y1 - Y2)) 
-                elif Y2 < -3500000:
+                elif Y2 < -5000000:
                     P_adj = P_adj + 100 #*(abs(Y2)/5000000)
                 else:
                     P_adj = P_adj2
@@ -379,7 +379,7 @@ class Model:
                 print 'P_adj: ' + str(self.market.P_adj) 
                 print 'Budget hat: ' + str(Y2) 
                 print '======================================================' 
-               # pylab.plot(X, Y) 
+                #pylab.plot(X, Y) 
                 #pylab.show()
                 #import pdb; pdb.set_trace()
             #P_adj_plot[i] = P_adj
@@ -407,7 +407,29 @@ class Model:
                 counter = 0
                 scale *= 0.79
            """ 
+        print '============================ Final stage ======================================'
+        self.users.exploring = 0
+        self.env.explore = 0
+        
+        while 1:
+            self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 50000, self.para.CPU_CORES, partial=False, stats=True)
+            budget = np.mean(self.sim.series['Budget'])
+            
+            if abs(budget) < 200000:
+                break
+            else:
+                if budget > 0:
+                    P_adj -= 10
+                else:
+                    P_adj +=10
+            
+                self.env.P_adj = P_adj
+                self.market.P_adj = P_adj
 
+                print '======================================================' 
+                print 'P_adj: ' + str(self.market.P_adj) 
+                print 'Budget hat: ' + str(budget) 
+                print '======================================================' 
 
         self.users.exploring = 0
         self.env.explore = 0
