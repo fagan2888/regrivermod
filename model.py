@@ -366,9 +366,9 @@ class Model:
                 Y2 = Y[idx][idx2] 
                 Y1 = Y[500] 
                 if Y2 > 5000000: # linear extrapolation
-                    P_adj = P_adj - 100 #*(abs(Y2)/5000000)#  Y1 * ((P_adj - P_adj2) / (Y1 - Y2)) 
+                    P_adj = P_adj - 75 #*(abs(Y2)/5000000)#  Y1 * ((P_adj - P_adj2) / (Y1 - Y2)) 
                 elif Y2 < -5000000:
-                    P_adj = P_adj + 100 #*(abs(Y2)/5000000)
+                    P_adj = P_adj + 75 #*(abs(Y2)/5000000)
                 else:
                     P_adj = P_adj2
 
@@ -411,7 +411,8 @@ class Model:
         self.users.exploring = 0
         self.env.explore = 0
         
-        while 1:
+        iters = 0 
+        while 1 and iters < 200:
             self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 50000, self.para.CPU_CORES, partial=False, stats=True)
             budget = np.mean(self.sim.series['Budget'])
             
@@ -421,7 +422,7 @@ class Model:
                 if budget > 0:
                     P_adj -= 10
                 else:
-                    P_adj +=10
+                    P_adj += 10
             
                 self.env.P_adj = P_adj
                 self.market.P_adj = P_adj
@@ -430,7 +431,30 @@ class Model:
                 print 'P_adj: ' + str(self.market.P_adj) 
                 print 'Budget hat: ' + str(budget) 
                 print '======================================================' 
+                iters += 1
 
+        P_adj_sim, Budget_sim = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 500000,self.para.CPU_CORES, stats=True, budgetonly=True) 
+
+        approx = Tile(1, [11], 30, min_sample=120)
+        approx.fit(P_adj_sim, Budget_sim)
+        X = np.linspace(P_adj - 2.5*30, P_adj + 2.5*30, 1000).reshape([1000, 1])
+        Y = approx.predict(X)
+        idx = np.abs(Y) > 0
+        idx2 = np.argmin(np.abs(Y[idx]))
+        P_adj2 = X[idx][idx2] 
+        Y2 = Y[idx][idx2] 
+        Y1 = Y[500] 
+        P_adj = P_adj2
+
+        self.env.P_adj = P_adj
+        self.market.P_adj = P_adj
+
+        print '======================================================' 
+        print 'Last chance'
+        print 'P_adj: ' + str(self.market.P_adj) 
+        print 'Budget hat: ' + str(Y2) 
+        print '======================================================' 
+        
         self.users.exploring = 0
         self.env.explore = 0
         self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, self.para.T2, self.para.CPU_CORES, partial=False, stats=True)
