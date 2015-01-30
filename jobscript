@@ -2,11 +2,11 @@
 
 #for i in {4..5}; do
 qsub -v PBS_ARRAY_INDEX=2 ch7jobsCS
-#qsub -v PBS_ARRAY_INDEX=2 ch7jobsSWA
-#qsub -v PBS_ARRAY_INDEX=2 ch7jobsOA
-#qsub -v PBS_ARRAY_INDEX=2 ch7jobsNS
-#qsub -v PBS_ARRAY_INDEX=2 ch7jobsCSHL
-#qsub -v PBS_ARRAY_INDEX=2 ch7jobsSWAHL
+qsub -v PBS_ARRAY_INDEX=2 ch7jobsSWA
+qsub -v PBS_ARRAY_INDEX=2 ch7jobsOA
+qsub -v PBS_ARRAY_INDEX=2 ch7jobsNS
+qsub -v PBS_ARRAY_INDEX=2 ch7jobsCSHL
+qsub -v PBS_ARRAY_INDEX=2 ch7jobsSWAHL
 #done
 
 #qsub -v PBS_ARRAY_INDEX=0 -v PBS_SCEN=SWA ch7jobs
