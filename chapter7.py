@@ -92,7 +92,7 @@ para.t_cost = 10000000000000000000 #para.t_cost/2.0
 
 para.set_property_rights(scenario=scen)
 para.aproximate_shares_ch7(nonoise=nonoise)
-mod = Model(para, ch7=True, turn_off_env=False)
+mod = Model(para, ch7=True, turn_off_env=False, psearch=False)
 results = mod.chapter7(P_adj)
 del mod
 

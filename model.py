@@ -282,7 +282,7 @@ class Model:
         
         return E_lambda
 
-    def chapter7(self, P_adj):
+    def chapter7(self, P_adj, psearch=True):
         
         from econlearn.tilecode import Tilecode as Tile
 
@@ -343,126 +343,131 @@ class Model:
             print 'Mean Q high: ' + str(np.mean(self.sim.series['Q_high'][:,1]))
             print 'Mean Q env: ' + str(np.mean(self.sim.series['Q_env'][:,1]))
             print 'Mean EWH budget outcome: ' + str(np.mean(self.sim.series['Budget'][:, 1]))
-            """ 
-            counter += 1
-            if counter > 3:
-                counter = 0
-                self.users.exploring = 0
-                self.env.explore = 0
-                P_adj_sim, Budget_sim = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 100000,self.para.CPU_CORES, stats=True, budgetonly=True) 
-                self.users.exploring = 1
-                self.env.explore = 1
+            
+            if psearch:
+                counter += 1
+                if counter > 3:
+                    counter = 0
+                    self.users.exploring = 0
+                    self.env.explore = 0
+                    P_adj_sim, Budget_sim = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 100000,self.para.CPU_CORES, stats=True, budgetonly=True) 
+                    self.users.exploring = 1
+                    self.env.explore = 1
 
-                approx = Tile(1, [11], 30, min_sample=120)
-                approx.fit(P_adj_sim, Budget_sim)
-                #approx.plot()
-                #pylab.show()
-                
-                X = np.linspace(P_adj - 2.5*30, P_adj + 2.5*30, 1000).reshape([1000, 1])
-                Y = approx.predict(X)
-                idx = np.abs(Y) > 0
-                idx2 = np.argmin(np.abs(Y[idx]))
-                P_adj2 = X[idx][idx2] 
-                Y2 = Y[idx][idx2] 
-                Y1 = Y[500] 
-                if Y2 > 5000000: # linear extrapolation
-                    P_adj = P_adj - 75 #*(abs(Y2)/5000000)#  Y1 * ((P_adj - P_adj2) / (Y1 - Y2)) 
-                elif Y2 < -5000000:
-                    P_adj = P_adj + 75 #*(abs(Y2)/5000000)
-                else:
-                    P_adj = P_adj2
-
-                self.env.P_adj = P_adj
-                self.market.P_adj = P_adj
-
-                print '======================================================' 
-                print 'P_adj: ' + str(self.market.P_adj) 
-                print 'Budget hat: ' + str(Y2) 
-                print '======================================================' 
-                #pylab.plot(X, Y) 
-                #pylab.show()
-                #import pdb; pdb.set_trace()
-            #P_adj_plot[i] = P_adj
-            #pylab.plot(P_adj_plot)
-            #pylab.show()
-            """ 
-            """
-            counter += 1
-            if counter > 7:
-                budget = np.mean(self.sim.series['Budget'])
-                #self.users.exploring = 0
-                #self.env.explore = 0
-                #budget = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 100000,self.para.CPU_CORES, stats=True, budgetonly=True) 
-                #self.users.exploring = 1
-                #self.env.explore = 1
-                
-                if  budget > 0:
-                    P_adj -= delta * scale 
-                else:
-                    P_adj += delta * scale
+                    approx = Tile(1, [11], 30, min_sample=120)
+                    approx.fit(P_adj_sim, Budget_sim)
+                    #approx.plot()
+                    #pylab.show()
                     
-                self.env.P_adj = P_adj
-                self.market.P_adj = P_adj
-                print 'P_adj: ' + str(self.market.P_adj) 
-                print 'Budget: ' + str(budget)
-                counter = 0
-                scale *= 0.79
-           """ 
-        """
-        print '============================ Final stage ======================================'
-        self.users.exploring = 0
-        self.env.explore = 0
-        
-        iters = 0 
-        while iters < 50:
-            self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 100000, self.para.CPU_CORES, partial=False, stats=True)
-            budget = np.mean(self.sim.series['Budget'])
+                    X = np.linspace(P_adj - 2.5*30, P_adj + 2.5*30, 1000).reshape([1000, 1])
+                    Y = approx.predict(X)
+                    idx = np.abs(Y) > 0
+                    idx2 = np.argmin(np.abs(Y[idx]))
+                    P_adj2 = X[idx][idx2] 
+                    Y2 = Y[idx][idx2] 
+                    Y1 = Y[500] 
+                    if Y2 > 5000000: # linear extrapolation
+                        P_adj = P_adj - 75 #*(abs(Y2)/5000000)#  Y1 * ((P_adj - P_adj2) / (Y1 - Y2)) 
+                    elif Y2 < -5000000:
+                        P_adj = P_adj + 75 #*(abs(Y2)/5000000)
+                    else:
+                        P_adj = P_adj2
+
+                    self.env.P_adj = P_adj
+                    self.market.P_adj = P_adj
+
+                    print '======================================================' 
+                    print 'P_adj: ' + str(self.market.P_adj) 
+                    print 'Budget hat: ' + str(Y2) 
+                    print '======================================================' 
+                    #pylab.plot(X, Y) 
+                    #pylab.show()
+                    #import pdb; pdb.set_trace()
+                #P_adj_plot[i] = P_adj
+                #pylab.plot(P_adj_plot)
+                #pylab.show()
+             
+                """
+                counter += 1
+                if counter > 7:
+                    budget = np.mean(self.sim.series['Budget'])
+                    #self.users.exploring = 0
+                    #self.env.explore = 0
+                    #budget = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 100000,self.para.CPU_CORES, stats=True, budgetonly=True) 
+                    #self.users.exploring = 1
+                    #self.env.explore = 1
+                    
+                    if  budget > 0:
+                        P_adj -= delta * scale 
+                    else:
+                        P_adj += delta * scale
+                        
+                    self.env.P_adj = P_adj
+                    self.market.P_adj = P_adj
+                    print 'P_adj: ' + str(self.market.P_adj) 
+                    print 'Budget: ' + str(budget)
+                    counter = 0
+                    scale *= 0.79
+               """ 
+        if psearch and self.para.sr == 'OA':
+            print '============================ Final stage ======================================'
+            self.users.exploring = 0
+            self.env.explore = 0
             
-            if abs(budget) < 100000:
-                print '======================================================' 
-                print 'P_adj: ' + str(self.market.P_adj) 
-                print 'Budget hat: ' + str(budget) 
-                print '======================================================' 
-                iters += 201
-                break
-            else:
-                if budget > 0:
-                    P_adj -= 10
+            iters = 0 
+            while iters < 50:
+                self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 100000, self.para.CPU_CORES, partial=False, stats=True)
+                budget = np.mean(self.sim.series['Budget'])
+                
+                if abs(budget) < 100000:
+                    print '======================================================' 
+                    print 'P_adj: ' + str(self.market.P_adj) 
+                    print 'Budget hat: ' + str(budget) 
+                    print '======================================================' 
+                    iters += 201
+                    break
                 else:
-                    P_adj += 10
-            
-                self.env.P_adj = P_adj
-                self.market.P_adj = P_adj
+                    if budget > 0:
+                        P_adj -= 10
+                    else:
+                        P_adj += 10
+                
+                    self.env.P_adj = P_adj
+                    self.market.P_adj = P_adj
 
-                print '======================================================' 
-                print 'P_adj: ' + str(self.market.P_adj) 
-                print 'Budget hat: ' + str(budget) 
-                print '======================================================' 
-            
-            iters += 1
+                    print '======================================================' 
+                    print 'P_adj: ' + str(self.market.P_adj) 
+                    print 'Budget hat: ' + str(budget) 
+                    print '======================================================' 
+                
+                iters += 1
+        
+        if psearch:
 
-        P_adj_sim, Budget_sim = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 500000,self.para.CPU_CORES, stats=True, budgetonly=True) 
+            self.users.exploring = 0
+            self.env.explore = 0
+            P_adj_sim, Budget_sim = self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 500000,self.para.CPU_CORES, stats=True, budgetonly=True) 
 
-        approx = Tile(1, [11], 30, min_sample=120)
-        approx.fit(P_adj_sim, Budget_sim)
-        X = np.linspace(P_adj - 2.5*30, P_adj + 2.5*30, 1000).reshape([1000, 1])
-        Y = approx.predict(X)
-        idx = np.abs(Y) > 0
-        idx2 = np.argmin(np.abs(Y[idx]))
-        P_adj2 = X[idx][idx2] 
-        Y2 = Y[idx][idx2] 
-        Y1 = Y[500] 
-        P_adj = P_adj2
+            approx = Tile(1, [11], 30, min_sample=120)
+            approx.fit(P_adj_sim, Budget_sim)
+            X = np.linspace(P_adj - 2.5*30, P_adj + 2.5*30, 1000).reshape([1000, 1])
+            Y = approx.predict(X)
+            idx = np.abs(Y) > 0
+            idx2 = np.argmin(np.abs(Y[idx]))
+            P_adj2 = X[idx][idx2] 
+            Y2 = Y[idx][idx2] 
+            Y1 = Y[500] 
+            P_adj = P_adj2
 
-        self.env.P_adj = P_adj
-        self.market.P_adj = P_adj
+            self.env.P_adj = P_adj
+            self.market.P_adj = P_adj
 
-        print '======================================================' 
-        print 'Last chance'
-        print 'P_adj: ' + str(self.market.P_adj) 
-        print 'Budget hat: ' + str(Y2) 
-        print '======================================================' 
-        """
+            print '======================================================' 
+            print 'Last chance'
+            print 'P_adj: ' + str(self.market.P_adj) 
+            print 'Budget hat: ' + str(Y2) 
+            print '======================================================' 
+        
         self.users.exploring = 0
         self.env.explore = 0
         self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, self.para.T2, self.para.CPU_CORES, partial=False, stats=True)
