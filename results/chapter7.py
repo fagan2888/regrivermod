@@ -514,10 +514,10 @@ def tradeoff():
     ax = fig.add_subplot(111)
     
     # central case trade-off chart
-    rows = ['CS', 'SWA', 'CS-HL', 'SWA-HL']
+    rows = ['CS',  'CS-HL', 'SWA', 'SWA-HL', 'NS', 'OA']
     for row in rows:
-        X = np.zeros(4)
-        Y = np.zeros(4)
+        X = np.zeros(6)
+        Y = np.zeros(6)
         i = 0 
         for share in shares:  
             X[i] = results[share][row][0]['Profit']['Annual']['Mean'][m] / scale['Profit']
@@ -528,7 +528,7 @@ def tradeoff():
     X = np.array(results['26.3']['CS'][0]['Profit']['Annual']['Mean'][2] / scale['Profit'])
     Y = np.array(results['26.3']['CS'][0]['B']['Annual']['Mean'][2] / scale['B'])
 
-    setAxLinesBW(ax)
+    #setAxLinesBW(ax)
     ax.plot(X, Y, 'o') 
     ax.annotate('Planner', xy=(X, Y), xytext=(-5, 10) , textcoords='offset points', xycoords=('data'),)
     
@@ -536,35 +536,36 @@ def tradeoff():
     
     pylab.xlabel('Mean irrigation profit (\$m)')
     pylab.ylabel('Mean environmental benefit (\$m)')
-    #pylab.ylim(26, 40)
+    pylab.xlim(140, 190)
+    pylab.ylim(20, 50)
     pylab.savefig(home + out + 'tradeoff_multi.pdf', bbox_inches='tight')
     
     pylab.show()
     
+    chart_params()
+    fig, ax = pylab.subplots()   
+    
     # central case trade-off chart
-    rows = ['CS',  'CS-HL', 'OA', 'NS']
-    for row in rows:
-        X = np.zeros(4)
-        Y = np.zeros(4)
-        i = 0 
-        for share in shares:  
-            X[i] = results[share][row][0]['Profit']['Annual']['Mean'][m] / scale['Profit']
-            Y[i] = results[share][row][0]['B']['Annual']['Mean'][m] / scale['B']
+    rows = ['CS',  'CS-HL', 'SWA', 'SWA-HL', 'OA', 'NS']
+    
+    pos = np.arange(6)
+    width = 0.1
+    for share in shares:  
+        i = 0
+        X = np.zeros(6)
+        for row in rows:
+            X[i] = results[share][row][0]['SW']['Annual']['Mean'][m] / scale['SW']
             i += 1
-
-        ax.plot(X, Y, label=row) 
-    X = np.array(results['26.3']['CS'][0]['Profit']['Annual']['Mean'][2] / scale['Profit'])
-    Y = np.array(results['26.3']['CS'][0]['B']['Annual']['Mean'][2] / scale['B'])
-
-    setAxLinesBW(ax)
-    ax.plot(X, Y, 'o') 
-    ax.annotate('Planner', xy=(X, Y), xytext=(-5, 10) , textcoords='offset points', xycoords=('data'),)
+        ax.bar(pos, X, width=width)
+        pos = pos + width
+        
     
-    pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=3, mode="expand", borderaxespad=0.) 
-    
-    pylab.xlabel('Mean irrigation profit (\$m)')
-    pylab.ylabel('Mean environmental benefit (\$m)')
-    #pylab.ylim(26, 40)
+    #two = ax.bar(data_set[1][0], data_set[1][1], chart['WIDTH'], color='w')
+    #ax.set_ylabel(chart['YLABEL'])
+    #ax.set_xticklabels(chart['LABELS'])
+    #ax.legend((one[0], two[0]), chart['LEGEND'], bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=4, mode="expand", borderaxespad=0.)
+
+    pylab.ylim(190, 215)
     pylab.savefig(home + out + 'tradeoff_multi2.pdf', bbox_inches='tight')
     
     pylab.show()

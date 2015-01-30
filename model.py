@@ -343,7 +343,7 @@ class Model:
             print 'Mean Q high: ' + str(np.mean(self.sim.series['Q_high'][:,1]))
             print 'Mean Q env: ' + str(np.mean(self.sim.series['Q_env'][:,1]))
             print 'Mean EWH budget outcome: ' + str(np.mean(self.sim.series['Budget'][:, 1]))
-            
+            """ 
             counter += 1
             if counter > 3:
                 counter = 0
@@ -385,7 +385,8 @@ class Model:
             #P_adj_plot[i] = P_adj
             #pylab.plot(P_adj_plot)
             #pylab.show()
-            """    
+            """ 
+            """
             counter += 1
             if counter > 7:
                 budget = np.mean(self.sim.series['Budget'])
@@ -407,6 +408,7 @@ class Model:
                 counter = 0
                 scale *= 0.79
            """ 
+        """
         print '============================ Final stage ======================================'
         self.users.exploring = 0
         self.env.explore = 0
@@ -460,7 +462,7 @@ class Model:
         print 'P_adj: ' + str(self.market.P_adj) 
         print 'Budget hat: ' + str(Y2) 
         print '======================================================' 
-        
+        """
         self.users.exploring = 0
         self.env.explore = 0
         self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, self.para.T2, self.para.CPU_CORES, partial=False, stats=True)
