@@ -13,7 +13,6 @@ para.central_case(N=100, printp=False)
 para.set_property_rights(scenario='OA')
 para.solve_para()
 
-
 home = '/home/nealbob'
 folder = '/Dropbox/Model/results/chapter5/'
 
@@ -25,6 +24,7 @@ for i in range(1):
     #try:
 
     para.central_case(N = 100)
+    para.t_cost = 100000000000
     para.aproximate_shares(nonoise=True)
     #if i > 0:
     #    para.randomize(N = 100)
@@ -47,7 +47,7 @@ for i in range(1):
         results[scen] = res
         policies[scen] = pol
 
-    with open(home + folder + str(i) + '_result_demo.pkl', 'wb') as f:
+    with open(home + folder + str(i) + '_result_notrade.pkl', 'wb') as f:
         pickle.dump(results, f)
         f.close()
     
