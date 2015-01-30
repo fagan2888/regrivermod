@@ -455,10 +455,10 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
             # Extract and consume water
             qe = env.consume(P_sim[t, 1], 1, plan)
             We = utility.record_trades(users, env, storage)
-            SW_sim[t,1] = users.take_sale_cash(utility.a, P_sim[t, 1])
+            Profit_sim[t, 1] = c_max(users.take_sale_cash(utility.a, P_sim[t, 1]), 0)
             W_sim[t, 1] = utility.deliver_ch7(storage, 1, We)
-            U_low_sim[t, 1] = users.U_low
-            U_high_sim[t, 1] = users.U_high
+            U_low_sim[t, 1] = c_max(users.U_low, 0)
+            U_high_sim[t, 1] = c_max(users.U_high, 0)
         else:
             env.q = c_max(W_sim[t, 1] - 2 * storage.delta_a[1], 0)* (1 - storage.delta1b)
             env.a = env.q
@@ -482,7 +482,7 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
 
         # Env payoff
         B_sim[t, 1] = env.payoff(storage.F1, storage.F3, storage.F1_tilde, storage.F3_tilde, P_sim[t, 1])
-        SW_sim[t, 1] += B_sim[t, 1]
+        SW_sim[t, 1] = B_sim[t, 1] + Profit_sim[t, 1]
         Budget_sim[t, 1] = env.budget
 
         ###### State transition ######

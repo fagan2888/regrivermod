@@ -284,7 +284,7 @@ def simple_share_model(n=10):
 
     return [CS_c, CS_b, CSHL_c, CSHL_b]
 
-def central_case():
+def central_case(notrade=False):
 
     home = '/home/nealbob'
     folder = '/Dropbox/Model/results/chapter7/chapter7/'
@@ -295,8 +295,13 @@ def central_case():
     rows = ['CS', 'SWA', 'OA', 'NS', 'CS-HL', 'SWA-HL']
     results = {row : 0 for row in rows}
     
+    if notrade:
+        filename = 'notrade'
+    else:
+        filename = '0'
+    
     for row in rows:
-        with open(home + folder + '0' + row + '_0_result.pkl', 'rb') as f:
+        with open(home + folder + '0' + row + '_' + filename + '_result.pkl', 'rb') as f:
             results[row] = pickle.load(f)
             f.close()
     
@@ -307,6 +312,11 @@ def central_case():
     scale = {'SW' : 1000000, 'Profit' : 1000000, 'S' : 1000, 'W' : 1000, 'E' : 1000, 'B' : 1000000, 'Z' : 1000, 'Q_low' : 1000, 'Q_high' : 1000, 'Q_env' : 1000, 'A_low' : 1000, 'A_high' : 1000, 'A_env' : 1000, 'S_low' : 1000, 'S_high' : 1000, 'S_env' : 1000, 'U_low' : 1000000, 'U_high' : 1000000, 'Budget' : 1000000}
 
     m = len(results['CS'][0]['S']['Annual']['Mean']) - 1
+
+    if not(notrade):
+        filename = 'central_'
+    else:
+        filename = 'notrade_'
 
     for x in series:
         data0 = []
@@ -325,7 +335,7 @@ def central_case():
         data = pandas.DataFrame(data0)
         data.index = ['Planner'] + rows
 
-        with open(home + table_out + 'central_' + x + '.txt', 'w') as f:
+        with open(home + table_out + filename + x + '.txt', 'w') as f:
             f.write(data.to_latex(float_format='{:,.2f}'.format, columns=cols))
             f.close()
 
@@ -347,7 +357,7 @@ def central_case():
         data = pandas.DataFrame(data0)
         data.index = ['Planner'] + rows
 
-        with open(home + table_out + 'central_sum_' + x + '.txt', 'w') as f:
+        with open(home + table_out + filename + 'sum_' + x + '.txt', 'w') as f:
             f.write(data.to_latex(float_format='{:,.2f}'.format, columns=cols))
             f.close()
     
@@ -368,10 +378,15 @@ def central_case():
         data = pandas.DataFrame(data0)
         data.index = ['Planner'] + rows
 
-        with open(home + table_out + 'central_win_' + x + '.txt', 'w') as f:
+        with open(home + table_out + filename + 'win_' + x + '.txt', 'w') as f:
             f.write(data.to_latex(float_format='{:,.2f}'.format, columns=cols))
             f.close()
 
+    if not(notrade):
+        filename = ''
+    else:
+        filename = 'notrade_'
+    
     # central case trade-off chart
     X = np.zeros(7)
     X[0] = results['CS'][0]['B']['Annual']['Mean'][2] / scale['B']
@@ -399,7 +414,7 @@ def central_case():
     pylab.xlabel('Mean irrigation profit (\$m)')
     pylab.ylabel('Mean environmental benefit (\$m)')
     pylab.ylim(26, 40)
-    pylab.savefig(home + out + 'tradeoff.pdf', bbox_inches='tight')
+    pylab.savefig(home + out + filename + 'tradeoff.pdf', bbox_inches='tight')
     pylab.show()
     
     # Storage chart
@@ -412,7 +427,7 @@ def central_case():
         data0.append(record)
     
     data = pandas.DataFrame(data0)
-    chart = {'OUTFILE': home + out + 'Storage' + img_ext,
+    chart = {'OUTFILE': home + out + filename + 'Storage' + img_ext,
      'YLABEL': 'Mean storage $S_t$ (GL)',
      'XLABEL': 'Iteration'}
     build_chart(chart, data, chart_type='date')
@@ -427,7 +442,7 @@ def central_case():
         data0.append(record)
     
     data = pandas.DataFrame(data0)
-    chart = {'OUTFILE': home + out + 'Budget' + img_ext,
+    chart = {'OUTFILE': home + out + filename + 'Budget' + img_ext,
      'YLABEL': 'Environmental trade $P_t(a_{0t} - q_{0t})$',
      'XLABEL': 'Iteration'}
     build_chart(chart, data, chart_type='date')
@@ -442,7 +457,7 @@ def central_case():
         data0.append(record)
     
     data = pandas.DataFrame(data0)
-    chart = {'OUTFILE': home + out + 'Extraction' + img_ext,
+    chart = {'OUTFILE': home + out + filename + 'Extraction' + img_ext,
      'YLABEL': 'Extraction, $E_t$ (GL)',
      'XLABEL': 'Iteration'}
     build_chart(chart, data, chart_type='date')
@@ -457,7 +472,7 @@ def central_case():
         data0.append(record)
     
     data = pandas.DataFrame(data0)
-    chart = {'OUTFILE': home + out + 'Price' + img_ext,
+    chart = {'OUTFILE': home + out + filename + 'Price' + img_ext,
      'YLABEL': 'Price, $P_t$ (\$/ML)',
      'XLABEL': 'Iteration'}
     build_chart(chart, data, chart_type='date')
