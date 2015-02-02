@@ -1227,7 +1227,7 @@ class Simulation:
                     name = names[i]
                     if name == 'Annual':
                         data = np.sum(self.series[x], axis=1)
-                        if x == 'S':
+                        if x == 'S' or x == 'S_low' or x == 'S_high' or x == 'S_env':
                             data = data / 2
                     else:
                         data = self.series[x][:,i]

@@ -367,6 +367,63 @@ def tables(result = 0, sens = 0, scen = ['CS', 'CS-SL', 'SWA', 'SWA-SL', 'OA', '
              'SD', '2.5th', '25th', '75th', '97.5th'], escape=False))
             f.close()
 
+def notrade_tables(result = 0, sens = 0, scen = ['CS', 'CS-SL', 'SWA', 'SWA-SL', 'OA', 'NS', 'CS-SWA']):
+    
+    home = '/home/nealbob'
+    folder = '/Dropbox/Model/results/chapter5/'
+    table_out = '/Dropbox/Thesis/STATS/chapter5/'
+    
+    if result == 0:
+        with open(home + folder + '0_result_notrade.pkl', 'rb') as f:
+            result = pickle.load(f)
+            f.close()
+    
+    series = ['S', 'SW', 'W', 'Z', 'U_low', 'U_high', 'X_low', 'X_high']
+    stats = ['Mean', 'SD', '25th', '75th', '2.5th','97.5th']
+    n = result['CS']['stats'][sens]['S'].shape[0] - 1
+    print result['CS']['stats'][0]['S'][(n - 1)]['Mean']
+    
+    adj = 0
+    for x in series:
+        if x == 'SW' or x == 'U_low' or x == 'U_high':
+            scale = 1000000
+            adj = 0
+        elif x == 'Z':
+            scale = 1000
+            adj = 0
+        elif x == 'X_low' or x == 'X_high':
+            scale = 0.01
+            adj = 0
+        else:
+            scale = 1000
+            adj = 0
+        data0 = []
+        for sr in scen:
+            record = {}
+            for stat in stats:
+                if x == 'X_low':
+                    record[stat] = result[sr]['stats'][sens][x][(n - 1)][stat] / result[sr]['stats'][sens]['S_low'][(n - 1)][stat] / scale
+                elif x == 'X_high':
+                    record[stat] = result[sr]['stats'][sens][x][(n - 1)][stat] / result[sr]['stats'][sens]['S_high'][(n - 1)][stat] / scale
+                else:
+                    record[stat] = result[sr]['stats'][sens][x][(n - 1)][stat] / scale + adj
+
+            data0.append(record)
+
+        record = {}
+        for stat in stats:
+            record[stat] = result['CS']['stats'][sens][x][0][stat] / scale
+
+        data0.append(record)
+        tab = pandas.DataFrame(data0)
+        temp = [ sr for sr in scen ]
+        temp.append('Planner')
+        tab.index = temp
+        with open(home + table_out + x + '_notrade_table.txt', 'w') as f:
+            f.write(tab.to_latex(float_format='{:,.1f}'.format, columns=['Mean',
+             'SD', '2.5th', '25th', '75th', '97.5th'], escape=False))
+            f.close()
+
 def policy_chart(policies):
     home = '/home/nealbob'
     out = '/Dropbox/Thesis/IMG/chapter5/'

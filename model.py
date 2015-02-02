@@ -475,7 +475,8 @@ class Model:
         big_toc = time()
         print "Total time (minutes): " + str(round((big_toc - big_tic) / 60, 2))
         
-        return [self.sim.stats, P_adj]
+        return [self.sim.stats, P_adj, self.sim.series]
+        #return [self.sim.stats, P_adj]
 
         
 
