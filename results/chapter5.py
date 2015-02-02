@@ -367,11 +367,12 @@ def tables(result = 0, sens = 0, scen = ['CS', 'CS-SL', 'SWA', 'SWA-SL', 'OA', '
              'SD', '2.5th', '25th', '75th', '97.5th'], escape=False))
             f.close()
 
-def notrade_tables(result = 0, sens = 0, scen = ['CS', 'CS-SL', 'SWA', 'SWA-SL', 'OA', 'NS', 'CS-SWA']):
+def notrade_tables(result = 0, sens = 0, scen = ['CS', 'SWA',  'OA', 'NS', 'CS-SL', 'SWA-SL', 'CS-SWA']):
     
     home = '/home/nealbob'
     folder = '/Dropbox/Model/results/chapter5/'
     table_out = '/Dropbox/Thesis/STATS/chapter5/'
+    out = '/Dropbox/Thesis/IMG/chapter5/'
     
     if result == 0:
         with open(home + folder + '0_result_notrade.pkl', 'rb') as f:
@@ -423,6 +424,20 @@ def notrade_tables(result = 0, sens = 0, scen = ['CS', 'CS-SL', 'SWA', 'SWA-SL',
             f.write(tab.to_latex(float_format='{:,.1f}'.format, columns=['Mean',
              'SD', '2.5th', '25th', '75th', '97.5th'], escape=False))
             f.close()
+
+    notrade = np.array([182.1, 182.6, 180.8, 173.7, 182.7, 183.2, 182.5])  
+    trade = np.array([185.3, 185.3, 182.7, 182.0, 185.5, 185.2, 185.4])
+    gain = trade - notrade
+    labels = scen
+    chart_params()
+    
+    width = 0.5
+    pylab.bar(np.arange(7), gain, width)
+    pylab.xticks(np.arange(7) + width, scen)
+    pylab.xlabel('Scenario')
+    pylab.ylabel('Gain from trade, (\$M)')
+    pylab.savefig(home + out + 'tradegain.pdf', bbox_inches='tight')
+    pylab.show()
 
 def policy_chart(policies):
     home = '/home/nealbob'

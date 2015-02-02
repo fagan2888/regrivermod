@@ -365,12 +365,12 @@ class Model:
                     idx2 = np.argmin(np.abs(Y[idx]))
                     P_adj2 = X[idx][idx2] 
                     Y2 = Y[idx][idx2] 
-                    #Y1 = Y[500] 
-                    #if Y2 > 5000000: # linear extrapolation
-                    #    P_adj = P_adj - 75 #*(abs(Y2)/5000000)#  Y1 * ((P_adj - P_adj2) / (Y1 - Y2)) 
-                    #elif Y2 < -5000000:
-                    #    P_adj = P_adj + 75 #*(abs(Y2)/5000000)
-                    #else:
+                    Y1 = Y[500] 
+                    if Y2 > 6000000: # linear extrapolation
+                        P_adj = P_adj - 75 #*(abs(Y2)/5000000)#  Y1 * ((P_adj - P_adj2) / (Y1 - Y2)) 
+                    elif Y2 < -6000000:
+                        P_adj = P_adj + 75 #*(abs(Y2)/5000000)
+                    else:
                     P_adj = P_adj2
 
                     self.env.P_adj = P_adj
@@ -475,8 +475,8 @@ class Model:
         big_toc = time()
         print "Total time (minutes): " + str(round((big_toc - big_tic) / 60, 2))
         
-        return [self.sim.stats, P_adj, self.sim.series]
-        #return [self.sim.stats, P_adj]
+        #return [self.sim.stats, P_adj, self.sim.series]
+        return [self.sim.stats, P_adj]
 
         
 
