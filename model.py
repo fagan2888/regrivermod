@@ -371,7 +371,7 @@ class Model:
                     elif Y2 < -6000000:
                         P_adj = P_adj + 75 #*(abs(Y2)/5000000)
                     else:
-                    P_adj = P_adj2
+                        P_adj = P_adj2
 
                     self.env.P_adj = P_adj
                     self.market.P_adj = P_adj
