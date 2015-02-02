@@ -364,7 +364,7 @@ class Model:
                     idx = np.abs(Y) > 0
                     idx2 = np.argmin(np.abs(Y[idx]))
                     P_adj2 = X[idx][idx2] 
-                    #Y2 = Y[idx][idx2] 
+                    Y2 = Y[idx][idx2] 
                     #Y1 = Y[500] 
                     #if Y2 > 5000000: # linear extrapolation
                     #    P_adj = P_adj - 75 #*(abs(Y2)/5000000)#  Y1 * ((P_adj - P_adj2) / (Y1 - Y2)) 
