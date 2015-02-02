@@ -288,7 +288,7 @@ def central_case(notrade=False):
 
     home = '/home/nealbob'
     folder = '/Dropbox/Model/results/chapter7/chapter7/'
-    out = '/Dropbox/Thesis/IMG/chapter7/'
+    ut = '/Dropbox/Thesis/IMG/chapter7/'
     img_ext = '.pdf'
     table_out = '/Dropbox/Thesis/STATS/chapter7/'
     
