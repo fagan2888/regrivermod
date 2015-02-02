@@ -302,7 +302,7 @@ def central_case(notrade=False):
     
     for row in rows:
         with open(home + folder + '0' + row + '_' + filename + '_result.pkl', 'rb') as f:
-            results[row] = pickle.load(f)
+            results[row] = pickle.load(f)[0:2]
             f.close()
     
     ###### Summary results #####

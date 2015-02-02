@@ -88,7 +88,8 @@ E_lambda = E_lambda_share[share_no]
 
 para.ch7['inflow_share'] = E_lambda
 para.ch7['capacity_share'] = E_lambda
-para.t_cost = 10000000000000000000 #para.t_cost/2.0
+#para.t_cost = 10000000000000000000 #
+para.t_cost = para.t_cost/2.0
 
 para.set_property_rights(scenario=scen)
 para.aproximate_shares_ch7(nonoise=nonoise)
@@ -96,7 +97,8 @@ mod = Model(para, ch7=True, turn_off_env=False)
 results = mod.chapter7(P_adj, psearch=False)
 del mod
 
-with open(NCIhome + NCIfolder + '0' + str(arg2) + '_' + 'notrade' +  '_result' + E_lambda_name[share_no] + '.pkl', 'wb') as f:
+#notrade
+with open(NCIhome + NCIfolder + '0' + str(arg2) + '_' + '0' +  '_result' + E_lambda_name[share_no] + '.pkl', 'wb') as f:
     pickle.dump(results, f)
     f.close()
     
