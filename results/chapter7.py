@@ -404,12 +404,12 @@ def central_case(notrade=False):
     ax.plot(Y, X, 'o') 
     
     ax.annotate('Planner', xy=(Y[0], X[0]), xytext=(-43, 2) , textcoords='offset points', xycoords=('data'),)
-    ax.annotate(rows[0], xy=(Y[1], X[1]), xytext=(-20, 0) , textcoords='offset points', xycoords=('data'),)
+    ax.annotate(rows[0], xy=(Y[1], X[1]), xytext=(2, 6) , textcoords='offset points', xycoords=('data'),)
     ax.annotate(rows[1], xy=(Y[2], X[2]), xytext=(10, -4) , textcoords='offset points', xycoords=('data'),)
-    ax.annotate(rows[2], xy=(Y[3], X[3]), xytext=(10, -4) , textcoords='offset points', xycoords=('data'),)
+    ax.annotate(rows[2], xy=(Y[3], X[3]), xytext=(-22, -5) , textcoords='offset points', xycoords=('data'),)
     ax.annotate(rows[3], xy=(Y[4], X[4]), xytext=(10, -4) , textcoords='offset points', xycoords=('data'),)
-    ax.annotate(rows[4], xy=(Y[5], X[5]), xytext=(5, 5) , textcoords='offset points', xycoords=('data'),)
-    ax.annotate(rows[5], xy=(Y[6], X[6]), xytext=(-42, -12) , textcoords='offset points', xycoords=('data'),)
+    ax.annotate(rows[4], xy=(Y[5], X[5]), xytext=(-40, 5) , textcoords='offset points', xycoords=('data'),)
+    ax.annotate(rows[5], xy=(Y[6], X[6]), xytext=(-38, -14) , textcoords='offset points', xycoords=('data'),)
     
     pylab.xlabel('Mean irrigation profit (\$m)')
     pylab.ylabel('Mean environmental benefit (\$m)')
@@ -479,6 +479,127 @@ def central_case(notrade=False):
 
     return results
 
+def env_demand():
+
+    home = '/home/nealbob'
+    folder = '/Dropbox/Model/results/chapter7/chapter7/'
+    out = '/Dropbox/Thesis/IMG/chapter7/'
+    img_ext = '.pdf'
+    table_out = '/Dropbox/Thesis/STATS/chapter7/'
+    
+    rows = ['CS', 'CS-HL', 'SWA', 'OA']
+    
+    data = {}
+
+    for row in rows:
+        with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
+            data[row] = pickle.load(f)[2]['F3'][:, 1]
+
+    duration_curve(data, OUTFILE=home + out + 'down_win_dec' + img_ext)
+    
+    for row in rows:
+        with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
+            data[row] = pickle.load(f)[2]['F3'][:, 0]
+            f.close()
+
+    duration_curve(data, OUTFILE=home + out + 'down_sum_dec' + img_ext)
+    
+    from econlearn import TilecodeRegressor as TR
+    
+    tr = TR(1, [11], 20)
+    fig = pylab.figure()
+
+    for row in rows:
+        with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
+            Q = np.sum(pickle.load(f)[2]['Q_env'], axis = 1)
+            f.close()
+        with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
+            S = np.sum(pickle.load(f)[2]['S'], axis = 1) / 2.0
+            f.close()
+        #with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
+        #    I = np.sum(pickle.load(f)[2]['I'], axis = 1)
+        #    f.close()
+
+        tr.fit(S, Q)
+        tr.tile.plot(['x'], showdata=False, label=row)
+    
+    pylab.xlabel('Storage volume, $S_t$ (GL)')
+    pylab.ylabel('Mean environmental flow, $q_{0t}$ (GL)')
+    setFigLinesBW_list(fig)
+    pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=4, mode="expand", borderaxespad=0.) 
+    pylab.savefig(home + out + 'env_demand_S.pdf', bbox_inches='tight')
+    pylab.show()
+    
+    
+    tr = TR(1, [11], 20)
+    fig = pylab.figure()
+
+    for row in rows:
+        with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
+            Q = np.sum(pickle.load(f)[2]['Q_env'], axis = 1)
+            f.close()
+        #with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
+        #    S = np.sum(pickle.load(f)[2]['S'], axis = 1) / 2.0
+        #    f.close()
+        with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
+            I = np.sum(pickle.load(f)[2]['I'], axis = 1)
+            f.close()
+
+        tr.fit(I, Q)
+        tr.tile.plot(['x'], showdata=False, label=row)
+    
+    pylab.xlabel('Inflow, $I_t$ (GL)')
+    pylab.ylabel('Mean environmental flow, $q_{0t}$ (GL)')
+    setFigLinesBW_list(fig)
+    pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=4, mode="expand", borderaxespad=0.) 
+    pylab.savefig(home + out + 'env_demand_I.pdf', bbox_inches='tight')
+    pylab.show()
+
+    tr = TR(1, [11], 20)
+    fig = pylab.figure()
+
+    for row in rows:
+        with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
+            B = np.sum(pickle.load(f)[2]['Budget'], axis = 1)
+            f.close()
+        with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
+            S = np.sum(pickle.load(f)[2]['S'], axis = 1) / 2.0
+            f.close()
+        #with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
+        #    I = np.sum(pickle.load(f)[2]['I'], axis = 1)
+        #    f.close()
+
+        tr.fit(S, B)
+        tr.tile.plot(['x'], showdata=False, label=row)
+    
+    pylab.xlabel('Storage volume, $S_t$ (GL)')
+    pylab.ylabel('Mean environmental trade, $P_t(a_{0t} - q_{0t})$ (GL)')
+    setFigLinesBW_list(fig)
+    pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=4, mode="expand", borderaxespad=0.) 
+    pylab.savefig(home + out + 'env_trade_S.pdf', bbox_inches='tight')
+    pylab.show()
+    
+    tr = TR(1, [11], 20)
+    fig = pylab.figure()
+
+    for row in rows:
+        with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
+            B = np.sum(pickle.load(f)[2]['Budget'], axis = 1)
+            f.close()
+        with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
+            I = np.sum(pickle.load(f)[2]['I'], axis = 1)
+            f.close()
+
+        tr.fit(I, B)
+        tr.tile.plot(['x'], showdata=False, label=row)
+    
+    pylab.xlabel('Inflow, $I_t$ (GL)')
+    pylab.ylabel('Mean environmental trade, $P_t(a_{0t} - q_{0t})$ (GL)')
+    setFigLinesBW_list(fig)
+    pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=4, mode="expand", borderaxespad=0.) 
+    pylab.savefig(home + out + 'env_trade_I.pdf', bbox_inches='tight')
+    pylab.show()
+
 def tradeoff():
 
     home = '/home/nealbob'
@@ -488,6 +609,7 @@ def tradeoff():
     table_out = '/Dropbox/Thesis/STATS/chapter7/'
     
     rows = ['CS', 'SWA', 'OA', 'NS', 'CS-HL', 'SWA-HL']
+    rows2 = ['CS', 'SWA', 'OA', 'CS-HL']
     shares = ['10', '20', '26.3', '30', '40', '50']
     results = {share: {row : 0 for row in rows} for share in shares} 
 
@@ -498,7 +620,7 @@ def tradeoff():
             else:
                 share_ext = share
             with open(home + folder + '0' + row + '_0_result' + share_ext + '.pkl', 'rb') as f:
-                results[share][row] = pickle.load(f)
+                results[share][row] = pickle.load(f)[0:2]
                 f.close()
     
     ###### Summary results #####
@@ -529,7 +651,7 @@ def tradeoff():
     ax = fig.add_subplot(111)
     
     # central case trade-off chart
-    rows = ['CS',  'CS-HL', 'SWA', 'SWA-HL', 'NS', 'OA']
+    rows = ['CS',  'CS-HL', 'SWA', 'OA']
     for row in rows:
         X = np.zeros(6)
         Y = np.zeros(6)
@@ -543,11 +665,11 @@ def tradeoff():
     X = np.array(results['26.3']['CS'][0]['Profit']['Annual']['Mean'][2] / scale['Profit'])
     Y = np.array(results['26.3']['CS'][0]['B']['Annual']['Mean'][2] / scale['B'])
 
-    #setAxLinesBW(ax)
+    setAxLinesBW(ax)
     ax.plot(X, Y, 'o') 
     ax.annotate('Planner', xy=(X, Y), xytext=(-5, 10) , textcoords='offset points', xycoords=('data'),)
     
-    pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=3, mode="expand", borderaxespad=0.) 
+    pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=4, mode="expand", borderaxespad=0.) 
     
     pylab.xlabel('Mean irrigation profit (\$m)')
     pylab.ylabel('Mean environmental benefit (\$m)')

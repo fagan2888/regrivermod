@@ -1308,7 +1308,10 @@ cdef class Tilecode:
             Ysmooth = self.predict(Xsmooth)
             X = self.X
             Y = self.Y
-            pylab.plot(X, Y, 'o', Xsmooth, Ysmooth)
+            if showdata:
+                pylab.plot(X, Y, 'o', Xsmooth, Ysmooth, label=label)
+            else:
+                pylab.plot(Xsmooth, Ysmooth, label=label)
         else:
             x = [xargs[i] for i in range(self.D)]
             k = x.index('x')

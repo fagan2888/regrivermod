@@ -634,8 +634,8 @@ cdef class Users:
         for i in range(self.N):
             self.a[i] = a[i]
             self.q[i] = 0
-            #self.profit[i] = c_max(self.a[i] * (P - self.t_cost), 0) 
-            self.profit[i] = self.a[i] * (P - self.t_cost) 
+            self.profit[i] = c_max(self.a[i] * (P - self.t_cost), 0) 
+            #self.profit[i] = self.a[i] * (P - self.t_cost) 
         
         self.U_low = 0
         self.U_high = 0
