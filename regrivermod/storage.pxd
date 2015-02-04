@@ -9,7 +9,7 @@ cdef class Storage:
     ##################      Parameters      ##################
 
     cdef public double K, delta0, alpha, rho, theta_I, k_I, delta1a, delta1b
-    
+    cdef public double[:] Flow    
     cdef public double omega_mu, omega_sig,  delta_b, delta_Ea, delta_Eb, delta_R
     cdef public double[:] omega_ab, F_bar, delta_a, I_bar_ch7
     
@@ -19,6 +19,7 @@ cdef class Storage:
     cdef public double F1, F2, F3
     cdef public double F1_tilde, F2_tilde, F3_tilde, max_R, max_E
     cdef public double omega_delta
+    cdef public double min_env_flow
    
     cdef double[:] EPS      # eps_I shock series 
     cdef double[:] OMEGA    # omega shock series 

@@ -161,7 +161,7 @@ def duration_curve(data, bins=100, XMAX=0, OUTFILE=''):
 
     setFigLinesBW(fig[0])
     #pylab.legend()
-    pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=3, mode="expand", borderaxespad=0.) 
+    pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=4, mode="expand", borderaxespad=0.) 
     pylab.xlim(0, XMAX)
     pylab.savefig(OUTFILE, bbox_inches='tight')
     pylab.show()
@@ -404,9 +404,9 @@ def central_case(notrade=False):
     ax.plot(Y, X, 'o') 
     
     ax.annotate('Planner', xy=(Y[0], X[0]), xytext=(-43, 2) , textcoords='offset points', xycoords=('data'),)
-    ax.annotate(rows[0], xy=(Y[1], X[1]), xytext=(2, 6) , textcoords='offset points', xycoords=('data'),)
-    ax.annotate(rows[1], xy=(Y[2], X[2]), xytext=(10, -4) , textcoords='offset points', xycoords=('data'),)
-    ax.annotate(rows[2], xy=(Y[3], X[3]), xytext=(-22, -5) , textcoords='offset points', xycoords=('data'),)
+    ax.annotate(rows[0], xy=(Y[1], X[1]), xytext=(-20, 2) , textcoords='offset points', xycoords=('data'),)
+    ax.annotate(rows[1], xy=(Y[2], X[2]), xytext=(10, -15) , textcoords='offset points', xycoords=('data'),)
+    ax.annotate(rows[2], xy=(Y[3], X[3]), xytext=(0, 5) , textcoords='offset points', xycoords=('data'),)
     ax.annotate(rows[3], xy=(Y[4], X[4]), xytext=(10, -4) , textcoords='offset points', xycoords=('data'),)
     ax.annotate(rows[4], xy=(Y[5], X[5]), xytext=(-40, 5) , textcoords='offset points', xycoords=('data'),)
     ax.annotate(rows[5], xy=(Y[6], X[6]), xytext=(-38, -14) , textcoords='offset points', xycoords=('data'),)
@@ -479,6 +479,29 @@ def central_case(notrade=False):
 
     return results
 
+def trade_gain():
+
+    home = '/home/nealbob'
+    folder = '/Dropbox/Model/results/chapter7/chapter7/'
+    out = '/Dropbox/Thesis/IMG/chapter7/'
+    img_ext = '.pdf'
+    table_out = '/Dropbox/Thesis/STATS/chapter7/'
+    
+    scen = ['CS', 'SWA', 'OA', 'NS', 'CS-HL', 'SWA-HL']
+    notrade = np.array([205.67, 206.12, 208.03, 196.54, 208.11, 204.62])
+    trade = np.array([211.95, 212.55, 211.97, 209.32, 213.79, 212.25])
+    gain = trade - notrade
+    labels = scen
+    chart_params()
+    
+    width = 0.5
+    pylab.bar(np.arange(6), gain, width)
+    pylab.xticks(np.arange(6) + width/2, scen)
+    pylab.xlabel('Scenario')
+    pylab.ylabel('Gain from trade (\$M)')
+    pylab.savefig(home + out + 'tradegain.pdf', bbox_inches='tight')
+    pylab.show()
+
 def env_demand():
 
     home = '/home/nealbob'
@@ -511,10 +534,10 @@ def env_demand():
 
     for row in rows:
         with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
-            Q = np.sum(pickle.load(f)[2]['Q_env'], axis = 1)
+            Q = np.sum(pickle.load(f)[2]['Q_env'], axis = 1) /1000
             f.close()
         with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
-            S = np.sum(pickle.load(f)[2]['S'], axis = 1) / 2.0
+            S = np.sum(pickle.load(f)[2]['S'], axis = 1) / 2000
             f.close()
         #with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
         #    I = np.sum(pickle.load(f)[2]['I'], axis = 1)
@@ -536,13 +559,13 @@ def env_demand():
 
     for row in rows:
         with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
-            Q = np.sum(pickle.load(f)[2]['Q_env'], axis = 1)
+            Q = np.sum(pickle.load(f)[2]['Q_env'], axis = 1) /1000
             f.close()
         #with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
         #    S = np.sum(pickle.load(f)[2]['S'], axis = 1) / 2.0
         #    f.close()
         with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
-            I = np.sum(pickle.load(f)[2]['I'], axis = 1)
+            I = np.sum(pickle.load(f)[2]['I'], axis = 1) / 1000
             f.close()
 
         tr.fit(I, Q)
@@ -560,10 +583,10 @@ def env_demand():
 
     for row in rows:
         with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
-            B = np.sum(pickle.load(f)[2]['Budget'], axis = 1)
+            B = np.sum(pickle.load(f)[2]['Budget'], axis = 1) / 1000000
             f.close()
         with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
-            S = np.sum(pickle.load(f)[2]['S'], axis = 1) / 2.0
+            S = np.sum(pickle.load(f)[2]['S'], axis = 1) / 2000
             f.close()
         #with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
         #    I = np.sum(pickle.load(f)[2]['I'], axis = 1)
@@ -573,7 +596,7 @@ def env_demand():
         tr.tile.plot(['x'], showdata=False, label=row)
     
     pylab.xlabel('Storage volume, $S_t$ (GL)')
-    pylab.ylabel('Mean environmental trade, $P_t(a_{0t} - q_{0t})$ (GL)')
+    pylab.ylabel('Mean environmental trade, $P_t(a_{0t} - q_{0t})$ (\$m)')
     setFigLinesBW_list(fig)
     pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=4, mode="expand", borderaxespad=0.) 
     pylab.savefig(home + out + 'env_trade_S.pdf', bbox_inches='tight')
@@ -584,17 +607,17 @@ def env_demand():
 
     for row in rows:
         with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
-            B = np.sum(pickle.load(f)[2]['Budget'], axis = 1)
+            B = np.sum(pickle.load(f)[2]['Budget'], axis = 1) / 1000000
             f.close()
         with open(home + folder + '0' + row + '_' + '0' + '_result.pkl', 'rb') as f:
-            I = np.sum(pickle.load(f)[2]['I'], axis = 1)
+            I = np.sum(pickle.load(f)[2]['I'], axis = 1) /1000
             f.close()
 
         tr.fit(I, B)
         tr.tile.plot(['x'], showdata=False, label=row)
     
     pylab.xlabel('Inflow, $I_t$ (GL)')
-    pylab.ylabel('Mean environmental trade, $P_t(a_{0t} - q_{0t})$ (GL)')
+    pylab.ylabel('Mean environmental trade, $P_t(a_{0t} - q_{0t})$ (\$m)')
     setFigLinesBW_list(fig)
     pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=4, mode="expand", borderaxespad=0.) 
     pylab.savefig(home + out + 'env_trade_I.pdf', bbox_inches='tight')

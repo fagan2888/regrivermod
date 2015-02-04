@@ -412,6 +412,7 @@ cdef class Utility:
         elif M == 1:
             W = W + 2 * storage.delta_a[1]
         
+  
         return W
     
     cdef double extract(self, double qe):
@@ -423,7 +424,9 @@ cdef class Utility:
         return E
 
     cdef void update(self, double S, double I, double L, double Spill, double[:] w, double A):
-    
+        
+        #I  = I - self.min_env_flow
+
         if self.sr == -1:       # Release sharing (planner storage)
             self.a = self.allocate(A, self.a)
         else:                   # Storage rights 

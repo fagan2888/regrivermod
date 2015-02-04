@@ -49,7 +49,9 @@ cdef inline double loss_12(F1, delta_a, delta_b, F_bar):
 cdef class Storage:
 
     def __init__(self, para, ch7=False):
-
+        
+        self.min_env_flow = 0
+        self.Flow = np.array([0,0]) 
         self.K = para.K                     # Storage capacity
         
         self.delta0 = para.delta0           # Storage loss (e.g. evaporation) function parameters
@@ -148,14 +150,18 @@ cdef class Storage:
 
     cdef double storage_transition(self, double W, int M):
 
-         if M == 0:
-             self.Loss = (1 - self.omega_delta)*(self.delta0 * self.alpha * (self.S)**(0.666666666666666))
-         else:
-             self.Loss = self.omega_delta*(self.delta0 * self.alpha * (self.S)**(0.666666666666666))
-
-         self.Spill = c_max(self.I - (self.K - (self.S - W - self.Loss)), 0)
+        cdef double I = 0 
         
-         self.S = c_max(c_min(self.S - W - self.Loss + self.I, self.K), 0)
+        if M == 0:
+            self.Loss = (1 - self.omega_delta)*(self.delta0 * self.alpha * (self.S)**(0.666666666666666))
+        else:
+            self.Loss = self.omega_delta*(self.delta0 * self.alpha * (self.S)**(0.666666666666666))
+        
+        I = self.I - self.min_env_flow
+
+        self.Spill = c_max(I - (self.K - (self.S - W - self.Loss)), 0)
+        
+        self.S = c_max(c_min(self.S - W - self.Loss + I, self.K), 0)
     
     
     cdef double release(self, double W):
@@ -175,7 +181,7 @@ cdef class Storage:
         if natural:
             self.F1 = self.I
         else:
-            self.F1 = W + self.Spill
+            self.F1 = W + self.Spill + self.min_env_flow
 
         self.loss_12 = loss_12(self.F1, self.delta_a[M], self.delta_b, self.F_bar[M])
 
@@ -224,6 +230,10 @@ cdef class Storage:
 
         self.I_tilde = self.I * self.I_bar_ch7[M]**-1
 
+        #if self.min_flow == 1:    
+        self.min_env_flow = c_min(self.Flow[M], self.I)
+        #modify storage transition and river_flow functions to include min_env_flow
+        
         self.storage_transition(W, M)
 
         # Actual flows
