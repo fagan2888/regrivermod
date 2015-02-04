@@ -51,7 +51,7 @@ cdef class Storage:
     def __init__(self, para, ch7=False):
         
         self.min_env_flow = 0
-        self.Flow = np.array([0,0]) 
+        self.Flow = np.array([0, 78.9]) 
         self.K = para.K                     # Storage capacity
         
         self.delta0 = para.delta0           # Storage loss (e.g. evaporation) function parameters
