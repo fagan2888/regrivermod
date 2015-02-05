@@ -875,7 +875,7 @@ class Para:
 
         """
 
-        self.CPU_CORES = 6 #mp.cpu_count()
+        self.CPU_CORES = 4 #mp.cpu_count()
 
         # Evaluation simulation size (for generating model results)
         self.T0 = 500000

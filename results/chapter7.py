@@ -121,26 +121,52 @@ def planner(results):
             f.close()
 
     # Flow duration curves
-    data = {'Natural' : timeseries['F1_tilde'][:, 0],
-            'Consumptive' : timeseries_envoff['F1'][:, 0],
-            'Optimal' :  timeseries['F1'][:, 0] } 
+    data = {'Natural' : timeseries['F1_tilde'][:, 0]/1000,
+            'Consumptive' : timeseries_envoff['F1'][:, 0]/1000,
+            'Optimal' :  timeseries['F1'][:, 0]/1000 } 
     duration_curve(data, OUTFILE=home + out + 'up_sum' + img_ext)
 
-    data = {'Natural' : timeseries['F1_tilde'][:, 1],
-            'Consumptive' : timeseries_envoff['F1'][:, 1],
-            'Optimal' :  timeseries['F1'][:, 1] } 
+    data = {'Natural' : timeseries['F1_tilde'][:, 1]/1000,
+            'Consumptive' : timeseries_envoff['F1'][:, 1]/1000,
+            'Optimal' :  timeseries['F1'][:, 1]/1000 } 
     duration_curve(data, OUTFILE=home + out + 'up_win' + img_ext)
     
-    data = {'Natural' : timeseries['F3_tilde'][:, 0],
-            'Consumptive' : timeseries_envoff['F3'][:, 0],
-            'Optimal' :  timeseries['F3'][:, 0] } 
+    data = {'Natural' : timeseries['F3_tilde'][:, 0]/1000,
+            'Consumptive' : timeseries_envoff['F3'][:, 0]/1000,
+            'Optimal' :  timeseries['F3'][:, 0]/1000 } 
     duration_curve(data, OUTFILE=home + out + 'down_sum' + img_ext)
     
-    data = {'Natural' : timeseries['F3_tilde'][:, 1],
-            'Consumptive' : timeseries_envoff['F3'][:, 1],
-            'Optimal' :  timeseries['F3'][:, 1] } 
+    data = {'Natural' : timeseries['F3_tilde'][:, 1] /1000,
+            'Consumptive' : timeseries_envoff['F3'][:, 1] /1000,
+            'Optimal' :  timeseries['F3'][:, 1]/1000 } 
     duration_curve(data, OUTFILE=home + out + 'down_win' + img_ext)
 
+    from econlearn import TilecodeRegressor as TR
+    
+    tr = TR(1, [11], 20)
+    
+    Q = timeseries['W'][:,1] / 1000
+    I = timeseries['I'][:,1] / 1000
+    S = timeseries['S'][:,1] / 1000
+
+    tr.fit(I, Q)
+    tr.tile.plot(['x'], showdata=True)
+    pylab.xlabel('Inflow, $I_t$ (GL)')
+    pylab.ylabel('Release, $W_t$ (GL)')
+    pylab.xlim(0, 1000)
+    #setFigLinesBW_list(fig)
+    #pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=4, mode="expand", borderaxespad=0.) 
+    pylab.savefig(home + out + 'env_dem_planner.pdf', bbox_inches='tight')
+    pylab.show()
+    
+    tr.fit(S, Q)
+    tr.tile.plot(['x'], showdata=True)
+    pylab.xlabel('Storage, $S_t$ (GL)')
+    pylab.ylabel('Release, $W_t$ (GL)')
+    #setFigLinesBW_list(fig)
+    #pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=4, mode="expand", borderaxespad=0.) 
+    pylab.savefig(home + out + 'env_dem_plannerS.pdf', bbox_inches='tight')
+    pylab.show()
 
 def duration_curve(data, bins=100, XMAX=0, OUTFILE=''):
 
@@ -160,6 +186,7 @@ def duration_curve(data, bins=100, XMAX=0, OUTFILE=''):
         XMAX = xmax
 
     setFigLinesBW(fig[0])
+    pylab.xlabel('River flow, $F_{jt}$ (GL)')
     #pylab.legend()
     pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=4, mode="expand", borderaxespad=0.) 
     pylab.xlim(0, XMAX)
@@ -573,6 +600,7 @@ def env_demand():
     
     pylab.xlabel('Inflow, $I_t$ (GL)')
     pylab.ylabel('Mean environmental flow, $q_{0t}$ (GL)')
+    pylab.xlim(0, 2000)
     setFigLinesBW_list(fig)
     pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=4, mode="expand", borderaxespad=0.) 
     pylab.savefig(home + out + 'env_demand_I.pdf', bbox_inches='tight')
@@ -618,6 +646,7 @@ def env_demand():
     
     pylab.xlabel('Inflow, $I_t$ (GL)')
     pylab.ylabel('Mean environmental trade, $P_t(a_{0t} - q_{0t})$ (\$m)')
+    pylab.xlim(0, 2000)
     setFigLinesBW_list(fig)
     pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=4, mode="expand", borderaxespad=0.) 
     pylab.savefig(home + out + 'env_trade_I.pdf', bbox_inches='tight')

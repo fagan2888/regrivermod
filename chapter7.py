@@ -103,13 +103,15 @@ del mod
 with open(NCIhome + NCIfolder + '0' + str(arg2) + '_' + 'env_flow' +  '_result' + E_lambda_name[share_no] + '.pkl', 'wb') as f:
     pickle.dump(results, f)
     f.close()
-    
+
+"""    
 
 #==========================================
 # Planner with central parameters
 #==========================================
 
-"""
+para = Para()
+para.central_case(N = 100)
 para.sg_radius1_ch7 = 0.02
 para.sg_points1_ch7 = 750
 mod = Model(para, ch7=True, turn_off_env=True)
@@ -129,12 +131,12 @@ stats = mod.sim.stats
 results = [stats_envoff, series_envoff, stats, series]
 
 chapter7.planner(results)
-"""
+
 
 #==========================================
 # Environmental trade-off curves
 #==========================================
-
+"""
 """
 b_value = np.linspace(10, 2000, 25)
 

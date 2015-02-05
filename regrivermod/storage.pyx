@@ -51,7 +51,7 @@ cdef class Storage:
     def __init__(self, para, ch7=False):
         
         self.min_env_flow = 0
-        self.Flow = np.array([0, 78.9]) 
+        self.Flow = np.array([79000, 0]) 
         self.K = para.K                     # Storage capacity
         
         self.delta0 = para.delta0           # Storage loss (e.g. evaporation) function parameters
@@ -158,6 +158,7 @@ cdef class Storage:
             self.Loss = self.omega_delta*(self.delta0 * self.alpha * (self.S)**(0.666666666666666))
         
         I = self.I - self.min_env_flow
+        self.I = I
 
         self.Spill = c_max(I - (self.K - (self.S - W - self.Loss)), 0)
         
@@ -230,9 +231,7 @@ cdef class Storage:
 
         self.I_tilde = self.I * self.I_bar_ch7[M]**-1
 
-        #if self.min_flow == 1:    
         self.min_env_flow = c_min(self.Flow[M], self.I)
-        #modify storage transition and river_flow functions to include min_env_flow
         
         self.storage_transition(W, M)
 

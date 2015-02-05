@@ -16,11 +16,11 @@
 #qsub -v PBS_ARRAY_INDEX=1 ch7jobsSWAHL
 
 qsub -v PBS_ARRAY_INDEX=2 ch7jobsCS
-qsub -v PBS_ARRAY_INDEX=2 ch7jobsSWA
-qsub -v PBS_ARRAY_INDEX=2 ch7jobsOA
-qsub -v PBS_ARRAY_INDEX=2 ch7jobsNS
+#qsub -v PBS_ARRAY_INDEX=2 ch7jobsSWA
+#qsub -v PBS_ARRAY_INDEX=2 ch7jobsOA
+#qsub -v PBS_ARRAY_INDEX=2 ch7jobsNS
 qsub -v PBS_ARRAY_INDEX=2 ch7jobsCSHL
-qsub -v PBS_ARRAY_INDEX=2 ch7jobsSWAHL
+#qsub -v PBS_ARRAY_INDEX=2 ch7jobsSWAHL
 
 #qsub -v PBS_ARRAY_INDEX=3 ch7jobsCS
 #qsub -v PBS_ARRAY_INDEX=3 ch7jobsSWA
