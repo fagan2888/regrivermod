@@ -347,24 +347,104 @@ class TilecodeDensity:
         self.tile.plot_prob(xargs=xargs)
         pylab.show()
 
-    def sample(self, T):
 
-        """
-        Draw a random sample from the pdf of length T
-
-        Parameters
-        -----------
-        T : int 
-            Sample size
-
-        Returns
-        --------
-    
-        X : array, shape=(T, D)
-            Random sample
-        """
-        idx = np.array(range(self.tile.N))
-        np.random.choice(idx, T, replace=True)
-        X = np.zeros([T, self.tile.D])
-
+#class TilecodeNearestNeighbour:
+#
+#    """
+#    Fast approximate nearest neighbour search using tile coding data structure  
+#    
+#
+#    Parameters
+#    -----------
+#
+#    D : int,
+#        Number of input dimensions
+#
+#    L : int,
+#        Number of tilings or 'layers'
+#
+#    mem_max : float, optional (default = 1)
+#        Tile array size, values less than 1 turn on hashing
+#
+#    cores : int, optional (default=1)
+#        Number of CPU cores to use (fitting stage is parallelized)
+#
+#    offset : {'optimal', 'random', 'uniform'}, optional
+#        Type of displacement vector used
+#
+#    Examples
+#    --------
+#
+#    See also
+#    --------
+#
+#    Notes
+#    -----
+#
+#    This is an approximate method: it is possible that some points > than radius may be included 
+#    and some < than radius may be excluded.
+#
+#    """
+# 
+#    def __init__(self, D, L, mem_max=1, cores=1, offset='optimal'):
+#
+#        if D == 1 and offset == 'optimal':
+#            offset = 'uniform'
+#        
+#        self.D = D
+#        self.L = L
+#        self.mem_max = mem_max
+#        self.cores = cores
+#        self.offset= offset
+#        
+#    def fit(self, X, radius, prop=1):
+#        
+#        """
+#        Fit a tile coding data structure to X
+#
+#        Parameters
+#        ----------
+#
+#        X : array of shape [N, D]
+#            Input data
+#    
+#        radius : float in (0, 1)
+#            radius for nearest neighbor queries (determines tile widths)
+#
+#        """
+#
+#        a = np.min(X, axis=0)
+#        b = np.max(X, axis=0)
+#        Tr = int(1 / radius)
+#        T = [Tr + 1] * self.D
+#
+#        #Work out T...
+#
+#        self.tile = Tilecode(self.D, T, self.L, mem_max=self.mem_max , cores=self.cores, offset = self.offset) 
+#        
+#        self.tile.fit(X, np.ones(X.shape[0]), unsupervised=True, copy=True)
+#
+#    def predict(self, X, refine=False):
+#
+#        """
+#        Obtain nearest neighbors (points within distance radius
+#
+#        Parameters
+#        ----------
+#
+#        X : array of shape [N, D]
+#            Query points
+#
+#        thresh : int, (default=1)
+#            Only include points if they are active in at least thresh layers (max is L)
+#            Higher thresh values will tend to exclude the points furthest from the query point
+#
+#        Returns
+#        -------
+#
+#        Y : list of arrays (length = N)
+#            Nearest neighbors for each query point
+#        """
+#
+#        self.tile.nearest(X, X.shape[0])
 

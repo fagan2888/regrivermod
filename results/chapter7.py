@@ -29,10 +29,10 @@ def planner(results):
     
     cols = ['Mean', 'SD', '2.5th', '25th', '75th', '97.5th']
     rows = ['Consumptive', 'Optimal']
-    series = ['SW', 'Profit', 'B', 'S', 'W', 'E']
-    scale = {'SW' : 1000000, 'Profit' : 1000000, 'S' : 1000, 'W' : 1000, 'E' : 1000, 'B' : 1000000}
+    series = ['SW', 'Profit', 'B', 'S', 'W', 'E', 'P']
+    scale = {'SW' : 1000000, 'Profit' : 1000000, 'S' : 1000, 'W' : 1000, 'E' : 1000, 'B' : 1000000, 'P' : 1}
 
-    m = 1
+    m = 2
 
     for x in series:
         data0 = []
@@ -61,7 +61,7 @@ def planner(results):
     series = ['Q_env', 'Q']
     scale = {'Q_env' : 1000, 'Q' : 1000}
 
-    m = 1
+    m = 2
 
     for x in series:
         data0 = []
@@ -86,7 +86,7 @@ def planner(results):
     series = ['F1', 'F1_tilde', 'F3', 'F3_tilde']
     scale = 1000
 
-    m = 1
+    m = 2
 
     for x in series:
         data0 = []
@@ -145,21 +145,30 @@ def planner(results):
     
     tr = TR(1, [11], 20)
     
-    Q = timeseries['W'][:,1] / 1000
-    I = timeseries['I'][:,1] / 1000
-    S = timeseries['S'][:,1] / 1000
+    I = timeseries['I'][1:100000,1] / 1000
+    idx = I < 1400
+    I = I[idx]
+    Q = timeseries['W'][1:100000,1] / 1000
+    Q = Q[idx]
+    S = timeseries['S'][1:100000,1] / 1000
+    S = S[idx]
+    S2 = timeseries['S'][1:100000,0] / 1000
+    S2 = S2[idx]
+    
+    Popt = timeseries['P'][:,0]
+    Pcons = timeseries_envoff['P'][:,0]
 
-    tr.fit(I, Q)
+    tr.fit(I[1:30000], Q[1:30000])
     tr.tile.plot(['x'], showdata=True)
     pylab.xlabel('Inflow, $I_t$ (GL)')
     pylab.ylabel('Release, $W_t$ (GL)')
-    pylab.xlim(0, 1000)
+    pylab.xlim(0, 1400)
     #setFigLinesBW_list(fig)
     #pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=4, mode="expand", borderaxespad=0.) 
     pylab.savefig(home + out + 'env_dem_planner.pdf', bbox_inches='tight')
     pylab.show()
     
-    tr.fit(S, Q)
+    tr.fit(S[1:30000], Q[1:30000])
     tr.tile.plot(['x'], showdata=True)
     pylab.xlabel('Storage, $S_t$ (GL)')
     pylab.ylabel('Release, $W_t$ (GL)')
@@ -167,6 +176,31 @@ def planner(results):
     #pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=4, mode="expand", borderaxespad=0.) 
     pylab.savefig(home + out + 'env_dem_plannerS.pdf', bbox_inches='tight')
     pylab.show()
+
+    pylab.hexbin(S2, I, C=Q)
+    pylab.xlabel('Summer storage, $S_t$ (GL)')
+    pylab.ylabel('Winter inflow, $I_t$ (GL)')
+    cb = pylab.colorbar()
+    cb.set_label('Winter release, $W_t$ (GL)') 
+    #pylab.ylim(0, 1000)
+    pylab.savefig(home + out + 'env_dem_plannerZ.pdf', bbox_inches='tight')
+    pylab.show()
+
+    xopt = pylab.hist(Popt, bins=120)
+    xcons = pylab.hist(Pcons, bins=120)
+    pylab.show()
+    
+    fig = pylab.figure() 
+    pylab.plot(xopt[1][1::], xopt[0]/500000, label = 'Optimal')
+    pylab.plot(xcons[1][1::], xcons[0]/500000, label = 'Consumptive')
+    setFigLinesBW_list(fig)
+    pylab.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2, mode="expand", borderaxespad=0.) 
+    pylab.xlabel('Summer shadow price, $ per ML')
+    pylab.ylabel('Frequency')
+    pylab.xlim(0, 500)
+    pylab.savefig(home + out + 'plan_price.pdf', bbox_inches='tight')
+    pylab.show()
+
 
 def duration_curve(data, bins=100, XMAX=0, OUTFILE=''):
 

@@ -25,6 +25,9 @@ cdef extern from "fast_floattoint.h" nogil:
 cdef class Tilecode:
 
     cdef public double countsuminv
+    
+    cdef public double[:] neigh_idx
+    cdef public double[:] neigh_count
 
     cdef public int N, D, L, n, XSN
     cdef public int[:] T, lin_T

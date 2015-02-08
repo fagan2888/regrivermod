@@ -601,6 +601,45 @@ cdef class Tilecode:
                     grid[j,k] = X[xc[j], k]
    
         return [grid, m]
+    """
+    def nearest(self, double[:,:] X, int N):
+
+        # ==============================
+        # Find nearest neighbors
+        #===============================
+        
+        cdef int i, j
+        cdef int[:] neigh_idx = np.zeros(self.N, self.max_neigh, dtype='int32')
+        cdef int[:] neigh_count = np.zeros(self.N, self.max_neigh, dtype='int32')
+        cdef int[:] neigh_key = np.zeros(self.N, dtype='int32') 
+        cdef int[:] n = np.zeros(N, dtype='int32') 
+        cdef int i, j, k, pointidx, dataidx, idx, key, data
+        cdef int totalcount = 0
+        
+        for i in prange(N, nogil=True, num_threads=self.CORES, schedule=static):
+            totalcount = 0
+            data = 1
+            for j in range(self.L):
+                idx = getindex(j, i, X, self.D, self.offset, self.flat, self.SIZE, self.dohash, self.mem_max, self.key)
+                if self.count[idx] == 0:
+                    data = 0
+                    break
+                dataidx = self.datahash[idx]
+                totalcount += self.count[idx]
+                for k in range(self.count[idx]):
+                    pointidx = self.datastruct[dataidx + k] 
+                    key = neigh_key[pointidx]
+                    if key == 0:
+                        neigh_idx[n[i]] = pointidx
+                        neigh_key[pointidx] = n[i]
+                        neigh_count[n[i]] += 1
+                        n[i] += 1
+                    else:
+                        neigh_count[key] += 1
+
+            self.neigh_idx = neigh_idx
+            self.neigh_count = neigh_count
+    """
     """ 
     def predict_quad(self, X):
         

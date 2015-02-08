@@ -1,9 +1,9 @@
 #!/bin/bash
 #PBS -P fr3 
 #PBS -q normal
-#PBS -l walltime=00:30:00
-#PBS -l mem=20000MB
-#PBS -l ncpus=6
+#PBS -l walltime=00:40:00
+#PBS -l mem=15000MB
+#PBS -l ncpus=4
 #PBS -l wd
 module load python/2.7.3
 module load python/2.7.3-matplotlib

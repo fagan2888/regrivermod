@@ -1,11 +1,11 @@
 #!/bin/bash
 #PBS -P fr3 
 #PBS -q normal
-#PBS -l walltime=00:40:00
-#PBS -l mem=15000MB
+#PBS -l walltime=00:5:00
+#PBS -l mem=10000MB
 #PBS -l ncpus=4
 #PBS -l wd
 module load python/2.7.3
 module load python/2.7.3-matplotlib
-python chapter7.py $PBS_ARRAY_INDEX CS
+python chapter7_init.py $PBS_ARRAY_INDEX
 
