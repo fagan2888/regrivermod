@@ -40,8 +40,8 @@ print 'Initialisation for run no: ' + str(run_no)
 print '============================================================'
 
 mod = Model(para, ch7=True, turn_off_env=True)
-truncnorm((0.01 - y) / 0.05, (0.99 - y) / 0.05, loc=y, scale=0.05).rvs(
 E_lambda = mod.chapter7_initialise()
+E_lambda = truncnorm((0.01 - E_lambda) / 0.05, (0.99 - E_lambda) / 0.05, loc=E_lambda, scale=0.05).rvs()
 
 #Truncated normal
 

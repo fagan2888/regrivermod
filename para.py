@@ -514,12 +514,17 @@ class Para:
                 y = Y[0,1]
                 yRS = Y[0,0]
         
+        ######################### !!!!
+        sig = 0.05
+        # ch7 sig = 0.05, ch6 sig = 0.025
+        ######################### !!!!
+
         if nonoise:
             self.Lambda_high = y
             self.Lambda_high_RS = yRS
         else:
-            self.Lambda_high = truncnorm((0.001 - y) / 0.025, (0.999 - y) / 0.025, loc=y, scale=0.025).rvs()
-            self.Lambda_high_RS = truncnorm((0.001 - yRS) / 0.025, (0.999 - yRS) / 0.025, loc=yRS, scale=0.025).rvs()
+            self.Lambda_high = truncnorm((0.001 - y) / sig, (0.999 - y) / sig, loc=y, scale=sig).rvs()
+            self.Lambda_high_RS = truncnorm((0.001 - yRS) / sig, (0.999 - yRS) / sig, loc=yRS, scale=sig).rvs()
 
         self.para_list['Lambda_high'] = self.Lambda_high
         self.para_list['Lambda_high_RS'] = self.Lambda_high_RS
