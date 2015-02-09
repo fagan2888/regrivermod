@@ -57,6 +57,12 @@ para.ch7['capacity_share'] = E_lambda
 para.t_cost = para.t_cost/2.0
 para.aproximate_shares_ch7()
 
+print '============================================================'
+print 'Lambda high: ' + str(para.Lambda_high)
+print 'Lambda high HL: ' + str(para.Lambda_high_HL)
+print '============================================================'
+
+
 with open(NCIhome + NCIfolder +  str(run_no) + '_para.pkl', 'wb') as f:
     pickle.dump(para, f)
     f.close()

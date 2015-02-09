@@ -170,6 +170,11 @@ print '============================================================'
 
 para.set_property_rights(scenario=scen)
 
+print '============================================================'
+print 'Lambda high: ' + str(para.Lambda_high)
+print 'Lambda high HL: ' + str(para.Lambda_high_HL)
+print '============================================================'
+
 if scen == 'CS-HL':
     para.Lambda_high = para.Lambda_high_HL
     para.para_list['Lambda_high'] = para.Lambda_high

@@ -213,6 +213,7 @@ def tables(result=0):
             with open(home + table_out + "central_case.txt", "a") as f:
                 f.write("\\bottomrule \n \end{tabular}") 
                 f.close()
+        
         #with open(home + table_out + x +"_table.txt", "w") as f:
         #    f.write(tab.to_latex(float_format =  '{:,.1f}'.format, columns=['Mean', 'SD', '2.5th', '25th', '75th', '97.5th'])) 
         #    f.close()
@@ -227,9 +228,11 @@ def sens_results():
    
     import chart3
 
-    with open(home + inf + 'result.pkl', 'rb') as f:
+    with open(home + inf + 'newresult.pkl', 'rb') as f:
         result = pickle.load(f)
         f.close()
+    
+    return result
     
     data = {'W' : 0, 'S' : 0, 'SW' : 0, 'Z' : 0}
     data0 = []
