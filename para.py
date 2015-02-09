@@ -542,7 +542,7 @@ class Para:
             y = self.CS_c + self.CS_b * self.N_high
         
         yhl = self.CSHL_c + self.CSHL_b * self.N_high
-        self.Lambda_high_HL = truncnorm((0.001 - yhl) / 0.05, (0.999 - yhl) / 0.05, loc=y, scale=0.05).rvs()
+        self.Lambda_high_HL = truncnorm((0.001 - yhl) / 0.05, (0.999 - yhl) / 0.05, loc=yhl, scale=0.05).rvs()
 
         if nonoise:
             self.Lambda_high = y
