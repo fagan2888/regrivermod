@@ -144,7 +144,7 @@ chapter7.planner(results)
 
 try:
     arg1 = sys.argv[1]
-    arg2 = sys.argv[1]
+    arg2 = sys.argv[2]
 except IndexError:
     print "Provide arguments <runnum> <numofjobs> <scenario>"
 
