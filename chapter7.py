@@ -165,6 +165,7 @@ with open(NCIhome + NCIfolder +  str(run_no) + '_para.pkl', 'rb') as f:
 
 print '============================================================'
 print 'E_lambda: ' + str(para.ch7['inflow_share'])
+print 'Run no: ' + str(run_no)
 print '============================================================'
 
 para.set_property_rights(scenario=scen)
@@ -176,7 +177,7 @@ mod = Model(para, ch7=True, turn_off_env=False)
 results = mod.chapter7(P_adj, psearch=True)
 del mod
 
-with open(NCIhome + NCIfolder + str(run_no) + +'_' + str(arg2) + '_result.pkl', 'wb') as f:
+with open(NCIhome + NCIfolder + str(run_no) +'_' + str(arg2) + '_result.pkl', 'wb') as f:
     pickle.dump(results, f)
     f.close()
 
