@@ -513,6 +513,10 @@ class Para:
             else:
                 y = Y[0,1]
                 yRS = Y[0,0]
+                
+        ### for the CS-HL scenario chapter7
+        yhl = Y[0,3]
+        self.Lambda_high_HL = truncnorm((0.001 - yhl) / sig, (0.999 - yhl) / sig, loc=y, scale=sig).rvs()
         
         ######################### !!!!
         sig = 0.05

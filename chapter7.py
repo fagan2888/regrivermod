@@ -171,7 +171,8 @@ print '============================================================'
 para.set_property_rights(scenario=scen)
 
 if scen == 'CS-HL':
-    para.aproximate_shares_ch7()
+    para.Lambda_high = self.Lambda_high_HL
+    para.para_list['Lambda_high'] = para.Lambda_high
 
 mod = Model(para, ch7=True, turn_off_env=False)
 results = mod.chapter7(P_adj, psearch=True)
