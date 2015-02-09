@@ -7,5 +7,5 @@ for i in {1..1}; do
     qsub -v PBS_ARRAY_INDEX=$i ch7jobsSWA
     qsub -v PBS_ARRAY_INDEX=$i ch7jobsOA
     qsub -v PBS_ARRAY_INDEX=$i ch7jobsCSHL
-
+done
 
