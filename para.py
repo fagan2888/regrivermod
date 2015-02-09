@@ -516,11 +516,9 @@ class Para:
                 
         ### for the CS-HL scenario chapter7
         yhl = Y[0,3]
-        self.Lambda_high_HL = truncnorm((0.001 - yhl) / sig, (0.999 - yhl) / sig, loc=y, scale=sig).rvs()
         
         ######################### !!!!
-        sig = 0.05
-        # ch7 sig = 0.05, ch6 sig = 0.025
+        sig = 0.025
         ######################### !!!!
 
         if nonoise:
@@ -543,6 +541,9 @@ class Para:
         else:
             y = self.CS_c + self.CS_b * self.N_high
         
+        yhl = self.CSHL_c + self.CSHL_b * self.N_high
+        self.Lambda_high_HL = truncnorm((0.001 - yhl) / 0.05, (0.999 - yhl) / 0.05, loc=y, scale=0.05).rvs()
+
         if nonoise:
             self.Lambda_high = y
         else:
