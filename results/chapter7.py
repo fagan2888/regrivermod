@@ -794,3 +794,22 @@ def tradeoff():
     pylab.show()
 
     return results
+
+def sens(sample=20):
+
+    home = '/home/nealbob'
+    folder = '/Dropbox/Model/results/chapter7/chapter7/'
+    out = '/Dropbox/Thesis/IMG/chapter7/'
+    img_ext = '.pdf'
+    table_out = '/Dropbox/Thesis/STATS/chapter7/'
+    
+    rows = ['CS', 'SWA', 'OA', 'CS-HL']
+    results = {run_no: {row : 0 for row in rows} for run_no in range(1,sample)} 
+
+    for run_no in range(11, sample): 
+        for row in rows:
+            with open(home + folder + str(run_no) + '_' + row + '_result.pkl', 'rb') as f:
+                results[run_no][row] = pickle.load(f)
+                f.close()
+
+    return results
