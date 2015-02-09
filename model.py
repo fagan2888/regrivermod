@@ -367,9 +367,9 @@ class Model:
                     Y2 = Y[idx][idx2] 
                     Y1 = Y[500] 
                     if Y2 > 6000000: # linear extrapolation
-                        P_adj = P_adj - 75 #*(abs(Y2)/5000000)#  Y1 * ((P_adj - P_adj2) / (Y1 - Y2)) 
+                        P_adj = P_adj - 50 #*(abs(Y2)/5000000)#  Y1 * ((P_adj - P_adj2) / (Y1 - Y2)) 
                     elif Y2 < -6000000:
-                        P_adj = P_adj + 75 #*(abs(Y2)/5000000)
+                        P_adj = P_adj + 50 #*(abs(Y2)/5000000)
                     else:
                         P_adj = P_adj2
 
@@ -415,7 +415,9 @@ class Model:
             self.env.explore = 0
             
             iters = 0 
-            while iters < 50:
+            sign = 1
+            delta = 1
+            while iters < 75:
                 self.sim.simulate_ch7(self.users, self.storage, self.utility, self.market, self.env, 100000, self.para.CPU_CORES, partial=False, stats=True)
                 budget = np.mean(self.sim.series['Budget'])
                 
@@ -428,9 +430,15 @@ class Model:
                     break
                 else:
                     if budget > 0:
-                        P_adj -= 10
+                        P_adj -= 20*delta
+                        if sign == -1:
+                            delta = 0.8*delta
+                            sign = 1
                     else:
-                        P_adj += 10
+                        P_adj += 20
+                            if sign == 1:
+                                delta = 0.8*delta
+                                sign = -1
                 
                     self.env.P_adj = P_adj
                     self.market.P_adj = P_adj

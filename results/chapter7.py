@@ -806,10 +806,33 @@ def sens(sample=20):
     rows = ['CS', 'SWA', 'OA', 'CS-HL']
     results = {run_no: {row : 0 for row in rows} for run_no in range(1,sample)} 
 
-    for run_no in range(11, sample): 
+    for run_no in range(1, sample): 
         for row in rows:
             with open(home + folder + str(run_no) + '_' + row + '_result.pkl', 'rb') as f:
                 results[run_no][row] = pickle.load(f)
                 f.close()
+    
+    ###### Level tables #####
+    
+    series = ['SW', 'Profit', 'B', 'Budget', 'S']
+    scale = {'SW' : 1000000, 'Profit' : 1000000, 'S' : 1000, 'W' : 1000, 'E' : 1000, 'B' : 1000000, 'Z' : 1000, 'Q_low' : 1000, 'Q_high' : 1000, 'Q_env' : 1000, 'A_low' : 1000, 'A_high' : 1000, 'A_env' : 1000, 'S_low' : 1000, 'S_high' : 1000, 'S_env' : 1000, 'U_low' : 1000000, 'U_high' : 1000000, 'Budget' : 1000000}
+
+    m = len(results[1]['CS'][0]['S']['Annual']['Mean']) - 1
+
+    for x in series:
+        data0 = []
+        
+        for row in rows:
+            record = {}
+            for run_no in range(1, sample):
+                record[run_no] = results[run_no][row][0][x]['Annual']['Mean'][m] / scale[x]
+            data0.append(record)
+
+        data = pandas.DataFrame(data0)
+        data.index = rows
+
+        with open(home + table_out + 'sens_' + x + '.txt', 'w') as f:
+            f.write(data.to_latex(float_format='{:,.2f}'.format, columns=range(1, sample)))
+            f.close()
 
     return results

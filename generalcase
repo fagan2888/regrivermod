@@ -10,5 +10,10 @@
 #done
 
 qsub -v PBS_ARRAY_INDEX=1 ch7jobsCS
-qsub -v PBS_ARRAY_INDEX=2 ch7jobsSWA
-qsub -v PBS_ARRAY_INDEX=10 ch7jobsSWA
+qsub -v PBS_ARRAY_INDEX=1 ch7jobsSWA
+qsub -v PBS_ARRAY_INDEX=1 ch7jobsOA
+qsub -v PBS_ARRAY_INDEX=1 ch7jobsCSHL
+qsub -v PBS_ARRAY_INDEX=2 ch7jobsCS
+qsub -v PBS_ARRAY_INDEX=10 ch7jobsCS
+qsub -v PBS_ARRAY_INDEX=10 ch7jobsCSHL
+qsub -v PBS_ARRAY_INDEX=5 ch7jobsOA
