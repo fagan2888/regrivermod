@@ -163,6 +163,10 @@ with open(NCIhome + NCIfolder +  str(run_no) + '_para.pkl', 'rb') as f:
     para = pickle.load(f)
     f.close()
 
+print '============================================================'
+print 'E_lambda: ' + str(para.ch7['inflow_share'])
+print '============================================================'
+
 para.set_property_rights(scenario=scen)
 
 if scen == 'CS-HL':
