@@ -171,7 +171,7 @@ print '============================================================'
 para.set_property_rights(scenario=scen)
 
 if scen == 'CS-HL':
-    para.Lambda_high = self.Lambda_high_HL
+    para.Lambda_high = para.Lambda_high_HL
     para.para_list['Lambda_high'] = para.Lambda_high
 
 mod = Model(para, ch7=True, turn_off_env=False)
