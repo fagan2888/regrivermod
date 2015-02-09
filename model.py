@@ -436,9 +436,9 @@ class Model:
                             sign = 1
                     else:
                         P_adj += 20
-                            if sign == 1:
-                                delta = 0.8*delta
-                                sign = -1
+                        if sign == 1:
+                            delta = 0.8*delta
+                            sign = -1
                 
                     self.env.P_adj = P_adj
                     self.market.P_adj = P_adj
