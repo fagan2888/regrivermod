@@ -45,6 +45,8 @@ print '============================================================'
 print 'E_lambda: ' + str(E_lambda)
 print '============================================================'
 
+para.E_lambda_hat = E_lambda
+
 #Truncated normal
 E_lambda = truncnorm((0.01 - E_lambda) / 0.05, (0.99 - E_lambda) / 0.05, loc=E_lambda, scale=0.05).rvs()
 

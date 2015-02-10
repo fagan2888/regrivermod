@@ -812,27 +812,152 @@ def sens(sample=20):
                 results[run_no][row] = pickle.load(f)
                 f.close()
     
-    ###### Level tables #####
+    ###### Summary tables #####
     
     series = ['SW', 'Profit', 'B', 'Budget', 'S']
+    title = {'SW' : 'Social welfare relative to CS', 'Profit' : 'Profit relative to CS', 'B' : 'Environmental benefits relative to CS', 'S' : 'Storage relative to CS', 'Budget' : 'Environmental trade relative to CS'}
     scale = {'SW' : 1000000, 'Profit' : 1000000, 'S' : 1000, 'W' : 1000, 'E' : 1000, 'B' : 1000000, 'Z' : 1000, 'Q_low' : 1000, 'Q_high' : 1000, 'Q_env' : 1000, 'A_low' : 1000, 'A_high' : 1000, 'A_env' : 1000, 'S_low' : 1000, 'S_high' : 1000, 'S_env' : 1000, 'U_low' : 1000000, 'U_high' : 1000000, 'Budget' : 1000000}
 
     m = len(results[1]['CS'][0]['S']['Annual']['Mean']) - 1
+    
+    X = {}
+    XI = {}
 
     for x in series:
         data0 = []
+        data1 = []
+        data2 = []
         
         for row in rows:
+            temp = np.zeros(sample-1)
             record = {}
+            record1 = {}
+            i = 0
             for run_no in range(1, sample):
+                temp[i] = results[run_no][row][0][x]['Annual']['Mean'][m] / scale[x]
+                i += 1
                 record[run_no] = results[run_no][row][0][x]['Annual']['Mean'][m] / scale[x]
+            record1['Mean'] = np.mean(temp)
+            record1['Min'] = np.min(temp)
+            record1['Q1'] = np.percentile(temp, 25)
+            record1['Q3'] = np.percentile(temp, 75)
+            record1['Max'] = np.max(temp)
+            
+            X[row] = temp
+
             data0.append(record)
+            data1.append(record1)
 
         data = pandas.DataFrame(data0)
         data.index = rows
+        data1 = pandas.DataFrame(data1)
+        data1.index = rows #['Mean', 'Min', 'Q1', 'Q3', 'Max']
 
-        with open(home + table_out + 'sens_' + x + '.txt', 'w') as f:
+        for row in rows:
+            record2 = {}
+            temp1 = np.zeros(sample-1)
+            for i in range(sample-1):
+                temp1[i] = X[row][i] / X['CS'][i]
+            
+            XI[row] = temp1
+            
+            record2['Mean'] = np.mean(temp)
+            record2['Min'] = np.min(temp)
+            record2['Q1'] = np.percentile(temp, 25)
+            record2['Q3'] = np.percentile(temp, 75)
+            record2['Max'] = np.max(temp)
+            data2.append(record2)
+        
+        data2 = pandas.DataFrame(data2)
+        data2.index = rows #['Mean', 'Min', 'Q1', 'Q3', 'Max']
+
+        with open(home + table_out + 'sens_full' + x + '.txt', 'w') as f:
             f.write(data.to_latex(float_format='{:,.2f}'.format, columns=range(1, sample)))
             f.close()
+        
+        with open(home + table_out + 'sens_sum' + x + '.txt', 'w') as f:
+            f.write(data1.to_latex(float_format='{:,.2f}'.format))
+            f.close()
+        
+        with open(home + table_out + 'sens_table' + x + '.txt', 'w') as f:
+            f.write(data2.to_latex(float_format='{:,.2f}'.format))
+            f.close()
+        
+        minx = np.percentile([min(XI[i]) for i in XI], 1)
+        maxx = np.percentile([max(XI[i]) for i in XI],99)
+        if x == 'SW':
+            minx = 0.8
+        chart_ch7(XI, 0.985 * minx, 1.015 * maxx, title[x], out, str(x) + '_sens')
 
-    return results
+    ################################## Regression
+
+    Y = np.zeros([sample-1, 4])
+    
+    j = 0
+    for row in rows:
+        i = 0
+        for run_no in range(1, sample):
+            Y[i, j] = results[run_no][row][0]['SW']['Annual']['Mean'][m] / scale['SW']
+            i += 1
+        j += 1
+    
+    paras = []
+    for run_no in range(1, sample): 
+        with open(home + folder + str(run_no) + '_para.pkl', 'rb') as f:
+            paras.append(pickle.load(f))
+            f.close()
+    
+    pname1 = ['delta0', 'I_K', 'SD_I', 't_cost', 'N_high', 'rho_I', 'alpha', 'rho_eps', 'sig_eta', 'LL']
+    numpara1 = len(pname1)    
+    pname2 = ['omega_mu', 'omega_sig', 'omegadelta', 'delta_a', 'delta_Ea', 'delta_Eb', 'delta_R', 'b_1', 'b_value', 'e_sig']
+    numpara2 = len(pname2)    
+    
+    numpara = numpara1 + numpara2 + 3
+
+    X = np.zeros([sample-1, numpara])
+    
+    para_names = ['$\delta0$', '$E[I]/K$',  '$c_v$', '$\tau$', '$n_{high}$', '$\rho_I$', '$\alpha$', '$\rho_e$', '$\sigma_{\eta}$', '${\aA_{low} \over E[I]/K}$', '$\mu_\omega$', '$\sigma_\omega$', '$\omega_\delta$', '$\delta_a$', '$\delta_{Ea}$', '$\delta_{Eb}', '$\delta_R$', '$b_1$', '$b_{\$} \over \bar I$', '$\sigma_{e0}$', '$\Lambda_{high} - \hat \Lambda_{high}$', '$\Lambda_{high}^{CS-HL} - \hat \Lambda_{high}^{CS-HL}$', '$\lambda_0 - \hat \lambda_0$' ]
+    
+    for j in range(numpara1):
+        for i in range(sample-1):
+            if pname1[j] == 'LL':
+                X[i, j] = paras[i].para_list[pname1[j]] / paras[i].para_list['I_K']
+            else:
+                X[i, j] = paras[i].para_list[pname1[j]]
+    
+    for j in range(numpara1, numpara2+numpara1):
+        for i in range(sample-1):
+            if pname2[j - numpara1] == 'b_value':
+                X[i, j] = paras[i].ch7[pname2[j - numpara1]] / (paras[i].para_list['I_K']*1000000)
+            else:
+                X[i, j] = paras[i].ch7[pname2[j - numpara1]]
+        
+    CS_c = -0.153007555
+    CS_b = 0.00930613
+    CSHL_c = -0.0891846
+    CSHL_b = 0.0047009
+    
+    for i in range(sample-1): 
+        if i > 20:
+            y = paras[i].y
+        else:
+            y = CS_c + CS_b * paras[i].para_list['N_high']
+        X[i, numpara2 + numpara1] = paras[i].Lambda_high - y 
+    
+    for i in range(sample-1): 
+        if i > 20:
+            yhl = paras[i].yhl
+        else:
+            yhl = CSHL_c + CSHL_b * paras[i].para_list['N_high']
+        X[i, numpara2 + numpara1 + 1] = paras[i].Lambda_high_HL - yhl
+    
+    yelist = [0.4443, 0.1585, 0.1989, 0.2708, 0.3926, 0.0697, 0.1290, 0.1661, 0.2687, 0.0868, 0.1239, 0.3598, 0.3543, 0.2883, 0.2367, 0.2139, 0.2485, 0.2641, 0.5730, 0.1745] 
+
+    for i in range(sample-1): 
+        if i > 20:
+            ye = paras[i].E_lambda_hat
+        else:
+            ye = yelist[i]  
+        X[i, numpara2 + numpara1 + 2] = paras[i].ch7['inflow_share'] - ye
+    
+    return [results, X, Y, para_names]
