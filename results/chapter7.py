@@ -806,7 +806,7 @@ def sens(sample=20):
     rows = ['CS', 'SWA', 'OA', 'CS-HL']
     results = {run_no: {row : 0 for row in rows} for run_no in range(1,sample)} 
 
-    for run_no in range(1, sample): 
+    for run_no in range(24, sample): 
         for row in rows:
             with open(home + folder + str(run_no) + '_' + row + '_result.pkl', 'rb') as f:
                 results[run_no][row] = pickle.load(f)
@@ -889,7 +889,7 @@ def sens(sample=20):
             minx = 0.8
         chart_ch7(XI, 0.985 * minx, 1.015 * maxx, title[x], out, str(x) + '_sens')
 
-    ################################## Regression
+    ##################################################################################### Regression
 
     Y = np.zeros([sample-1, 4])
     
@@ -897,7 +897,7 @@ def sens(sample=20):
     for row in rows:
         i = 0
         for run_no in range(1, sample):
-            Y[i, j] = results[run_no][row][0]['SW']['Annual']['Mean'][m] / scale['SW']
+            Y[i, j] = results[run_no][row][0]['SW']['Annual']['Mean'][m] /  results[run_no]['CS'][0]['SW']['Annual']['Mean'][m]
             i += 1
         j += 1
     
@@ -911,7 +911,7 @@ def sens(sample=20):
     numpara1 = len(pname1)    
     pname2 = ['omega_mu', 'omega_sig', 'omegadelta', 'delta_a', 'delta_Ea', 'delta_Eb', 'delta_R', 'b_1', 'b_value', 'e_sig']
     numpara2 = len(pname2)    
-    
+    para_labels = pname1 + pname2 + ['lambda', 'lambdaHL', 'lambdae']
     numpara = numpara1 + numpara2 + 3
 
     X = np.zeros([sample-1, numpara])
@@ -960,4 +960,160 @@ def sens(sample=20):
             ye = yelist[i]  
         X[i, numpara2 + numpara1 + 2] = paras[i].ch7['inflow_share'] - ye
     
-    return [results, X, Y, para_names]
+    tree = Tree(n_estimators=500, n_jobs=4)
+    tree.fit(X, Y)
+    rank = tree.feature_importances_ * 100
+    
+    data0 = []
+    inn = 0
+    for p in para_names:
+        record = {}
+        record['Importance'] = rank[inn]
+        data0.append(record)
+        inn = inn + 1
+
+    tab = pandas.DataFrame(data0)
+    tab.index = para_names
+    tab = tab.sort(columns=['Importance'], ascending=False)
+    tab_text = tab.to_latex(float_format='{:,.2f}'.format, escape=False)
+    print tab_text 
+    with open(home + table_out + 'importance.txt', 'w') as f:
+        f.write(tab_text)
+        f.close()
+     
+    for i in range(numpara):
+        Xtemp = np.zeros([200, numpara])
+        for j in range(numpara):
+            Xtemp[:, j] = np.ones(200) * np.mean(X[:, j])
+
+        Xtemp[:, i] = np.linspace(np.min(X[:, i]), np.max(X[:, i]), 200)
+        Ytemp = tree.predict(Xtemp)
+        
+        data = [[Xtemp[:, i], Ytemp]]
+        data0 = []
+        for k in range(200):
+            record = {}
+            record['SWA'] = Ytemp[k, 1]
+            record['OA'] = Ytemp[k, 2]
+            record['CS-HL'] = Ytemp[k, 3]
+            data0.append(record)
+
+        data = pandas.DataFrame(data0)
+        data.index = Xtemp[:, i]
+        chart_data = {'OUTFILE': home + out + 'SW_' + para_labels[i] + img_ext,
+         'XLABEL': '',
+         'YLABEL': '',
+         'YMIN': 0.97,
+         'YMAX': 1.01}
+        print para_labels[i]
+        
+        build_chart(chart_data, data, chart_type='date', ylim=True)
+     
+    ##################################################################################### Classifier
+    
+    srnum = {'CS' : 0, 'SWA' : 1, 'OA' : 2, 'CS-HL' : 3}
+    Y = np.zeros(sample - 1)
+
+    for run_no in range(sample - 1):
+        SW = 0
+        SWmax = -1
+        for row in rows:
+            SW = results[run_no][row][0]['SW']['Annual']['Mean'][m]      
+            if SW > SWmax:
+                SWmax = SW
+                Y[run_no] = srnum[row]
+    
+    for row in rows:
+        idx = np.where(Y = srnum[row])
+        print row + ': ' + np.count_nonzero(Y[idx])
+
+     
+    treec = Tree_classifier(n_estimators=500, n_jobs=4) #min_samples_split=3, min_samples_leaf=2)
+    treec.fit(X, Y)
+    rank = treec.feature_importances_ * 100
+    print rank
+    """ 
+    data0 = []
+    inn = 0
+    for p in para_names:
+        record = {}
+        record['Importance'] = rank[inn]
+        record['CS'] = np.mean(Xpara[np.where(Y == 0), inn])
+        record['RS'] = np.mean(Xpara[np.where(Y == 1), inn])
+        record['CS-HL'] = np.mean(Xpara[np.where(Y == 2), inn])
+        record['RS-HL'] = np.mean(Xpara[np.where(Y == 3), inn])
+        data0.append(record)
+        inn = inn + 1
+
+    tab = pandas.DataFrame(data0)
+    tab.index = para_names
+    tab = tab.sort(columns=['Importance'], ascending=False)
+    tab_text = tab.to_latex(float_format='{:,.2f}'.format, escape=False)
+    
+    with open(home + table_out + 'classifier_table.txt', 'w') as f:
+        f.write(tab.to_latex(float_format='{:,.2f}'.format, escape=False, columns=['Importance', 'CS', 'RS', 'CS-HL', 'RS-HL']))
+        f.close()
+
+    pylab.ioff()
+    fig_width_pt = 350
+    inches_per_pt = 1.0 / 72.27
+    golden_mean = 1.2360679774997898 / 2.0
+    fig_width = fig_width_pt * inches_per_pt
+    fig_height = fig_width * golden_mean
+    fig_size = [fig_width, fig_height]
+    params = {'backend': 'ps',
+     'axes.labelsize': 10,
+     'text.fontsize': 10,
+     'legend.fontsize': 10,
+     'xtick.labelsize': 8,
+     'ytick.labelsize': 8,
+     'text.usetex': True,
+     'figure.figsize': fig_size}
+    pylab.rcParams.update(params)
+    plot_colors = 'rybg'
+    cmap = pylab.cm.RdYlBu
+    
+    (xx, yy,) = np.meshgrid(np.arange(min(Xpara[:, 1]), max(Xpara[:, 1]), 0.02), np.arange(min(Xpara[:, 6]), max(Xpara[:, 6]), 1))
+
+    nnn = xx.ravel().shape[0]
+    
+    Xlist = [np.mean(Xpara[:,i])*np.ones(nnn) for i in range(pnum)]
+    Xlist[2] = np.zeros(nnn)
+    Xlist[1] = xx.ravel()
+    Xlist[6] = yy.ravel()
+    X = np.array(Xlist).T
+
+    Z = treec.predict(X).reshape(xx.shape)
+    fig = pylab.contourf(xx, yy, Z, [0, 0.9999, 1.9999, 2.9999, 3.9999], colors=('red', 'yellow', 'blue', 'green'), alpha=0.5, antialiased=False, extend='both')
+    for (i, c,) in zip(xrange(4), plot_colors):
+        idx0 = np.where(Y == i)
+        pylab.scatter(Xpara[idx0, 1], Xpara[idx0, 6], c=c, cmap=cmap, label=srlist[i], s = 12, lw=0.5 )
+        pylab.legend(bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc=3, ncol=4, mode='expand', borderaxespad=0.0)
+
+    pylab.xlabel('Mean inflow over capacity')
+    pylab.ylabel('Number of high reliability users')
+    OUT = home + out + 'class_fig.pdf'
+    pylab.savefig(OUT, bbox_inches='tight')
+    pylab.show()
+    
+    Xlist = [np.mean(Xpara[:,i])*np.ones(nnn) for i in range(pnum)]
+    Xlist[2] = np.ones(nnn) * 1
+    Xlist[1] = xx.ravel()
+    Xlist[6] = yy.ravel()
+    X = np.array(Xlist).T
+
+    Z = treec.predict(X).reshape(xx.shape)
+    fig = pylab.contourf(xx, yy, Z, [0, 0.9999, 1.9999, 2.9999, 3.9999], colors=('red', 'yellow', 'blue', 'green'), alpha=0.5, antialiased=False, extend='both')
+    for (i, c,) in zip(xrange(4), plot_colors):
+        idx0 = np.where(Y == i)
+        pylab.scatter(Xpara[idx0, 1], Xpara[idx0, 6], c=c, cmap=cmap, label=srlist[i], s=12, lw=0.5)
+        pylab.legend(bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc=3, ncol=4, mode='expand', borderaxespad=0.0)
+
+    pylab.xlabel('Mean inflow over capacity')
+    pylab.ylabel('Number of high reliability users')
+    OUT = home + out + 'class_fig2.pdf'
+    pylab.savefig(OUT, bbox_inches='tight')
+    pylab.show()
+    """
+
+    ##################################################################################### Trade-off
