@@ -805,13 +805,21 @@ def sens(sample=20):
     
     rows = ['CS', 'SWA', 'OA', 'CS-HL']
     results = {run_no: {row : 0 for row in rows} for run_no in range(1,sample)} 
-
-    for run_no in range(1, sample): 
-        for row in rows:
-            with open(home + folder + str(run_no) + '_' + row + '_result.pkl', 'rb') as f:
-                results[run_no][row] = pickle.load(f)
-                f.close()
+    samprange = []
     
+    for run_no in range(1, sample): 
+        try:
+            for row in rows:
+                with open(home + folder + str(run_no) + '_' + row + '_result.pkl', 'rb') as f:
+                    results[run_no][row] = pickle.load(f)
+                    f.close()
+            samprange.append(run_no)
+        except:
+            print 'Run no: ' + str(run_no) + ' failed.'
+
+    n = len(samprange)
+    print str(n) + ' good runs of ' + str(sample - 1) + ' total'
+    """ 
     ###### Summary tables #####
     
     series = ['SW', 'Profit', 'B', 'Budget', 'S']
@@ -1032,6 +1040,9 @@ def sens(sample=20):
     treec.fit(X, Y)
     rank = treec.feature_importances_ * 100
     print rank
+    """
+
+
     """ 
     data0 = []
     inn = 0
