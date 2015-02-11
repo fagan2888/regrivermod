@@ -819,7 +819,7 @@ def sens(sample=20):
 
     n = len(samprange)
     print str(n) + ' good runs of ' + str(sample - 1) + ' total'
-    """ 
+     
     ###### Summary tables #####
     
     series = ['SW', 'Profit', 'B', 'Budget', 'S']
@@ -837,11 +837,11 @@ def sens(sample=20):
         data2 = []
         
         for row in rows:
-            temp = np.zeros(sample-1)
+            temp = np.zeros(n)
             record = {}
             record1 = {}
             i = 0
-            for run_no in range(1, sample):
+            for run_no in samprange:
                 temp[i] = results[run_no][row][0][x]['Annual']['Mean'][m] / scale[x]
                 i += 1
                 record[run_no] = results[run_no][row][0][x]['Annual']['Mean'][m] / scale[x]
@@ -863,8 +863,8 @@ def sens(sample=20):
 
         for row in rows:
             record2 = {}
-            temp1 = np.zeros(sample-1)
-            for i in range(sample-1):
+            temp1 = np.zeros(n)
+            for i in range(n):
                 temp1[i] = X[row][i] / X['CS'][i]
             
             XI[row] = temp1
@@ -880,7 +880,7 @@ def sens(sample=20):
         data2.index = rows #['Mean', 'Min', 'Q1', 'Q3', 'Max']
 
         with open(home + table_out + 'sens_full' + x + '.txt', 'w') as f:
-            f.write(data.to_latex(float_format='{:,.2f}'.format, columns=range(1, sample)))
+            f.write(data.to_latex(float_format='{:,.2f}'.format, columns=samprange))
             f.close()
         
         with open(home + table_out + 'sens_sum' + x + '.txt', 'w') as f:
@@ -899,12 +899,12 @@ def sens(sample=20):
 
     ##################################################################################### Regression
 
-    Y = np.zeros([sample-1, 4])
+    Y = np.zeros([n, 4])
     
     j = 0
     for row in rows:
         i = 0
-        for run_no in range(1, sample):
+        for run_no in samprange:
             Y[i, j] = results[run_no][row][0]['SW']['Annual']['Mean'][m] /  results[run_no]['CS'][0]['SW']['Annual']['Mean'][m]
             i += 1
         j += 1
@@ -922,51 +922,51 @@ def sens(sample=20):
     para_labels = pname1 + pname2 + ['lambda', 'lambdaHL', 'lambdae']
     numpara = numpara1 + numpara2 + 3
 
-    X = np.zeros([sample-1, numpara])
+    X = np.zeros([n, numpara])
     
     para_names = ['$\delta0$', '$E[I]/K$',  '$c_v$', '$\tau$', '$n_{high}$', '$\rho_I$', '$\alpha$', '$\rho_e$', '$\sigma_{\eta}$', '${\aA_{low} \over E[I]/K}$', '$\mu_\omega$', '$\sigma_\omega$', '$\omega_\delta$', '$\delta_a$', '$\delta_{Ea}$', '$\delta_{Eb}', '$\delta_R$', '$b_1$', '$b_{\$} \over \bar I$', '$\sigma_{e0}$', '$\Lambda_{high} - \hat \Lambda_{high}$', '$\Lambda_{high}^{CS-HL} - \hat \Lambda_{high}^{CS-HL}$', '$\lambda_0 - \hat \lambda_0$' ]
     
     for j in range(numpara1):
-        for i in range(sample-1):
+        for i in range(n):
             if pname1[j] == 'LL':
-                X[i, j] = paras[i].para_list[pname1[j]] / paras[i].para_list['I_K']
+                X[i, j] = paras[samprange[i]-1].para_list[pname1[j]] / paras[samprange[i]-1].para_list['I_K']
             else:
-                X[i, j] = paras[i].para_list[pname1[j]]
+                X[i, j] = paras[samprange[i]-1].para_list[pname1[j]]
     
     for j in range(numpara1, numpara2+numpara1):
-        for i in range(sample-1):
+        for i in range(n):
             if pname2[j - numpara1] == 'b_value':
-                X[i, j] = paras[i].ch7[pname2[j - numpara1]] / (paras[i].para_list['I_K']*1000000)
+                X[i, j] = paras[samprange[i]-1].ch7[pname2[j - numpara1]] / (paras[samprange[i]-1].para_list['I_K']*1000000)
             else:
-                X[i, j] = paras[i].ch7[pname2[j - numpara1]]
+                X[i, j] = paras[samprange[i]-1].ch7[pname2[j - numpara1]]
         
     CS_c = -0.153007555
     CS_b = 0.00930613
     CSHL_c = -0.0891846
     CSHL_b = 0.0047009
     
-    for i in range(sample-1): 
+    for i in range(n): 
         if i > 20:
-            y = paras[i].y
+            y = paras[samprange[i]-1].y
         else:
-            y = CS_c + CS_b * paras[i].para_list['N_high']
-        X[i, numpara2 + numpara1] = paras[i].Lambda_high - y 
+            y = CS_c + CS_b * paras[samprange[i]-1].para_list['N_high']
+        X[i, numpara2 + numpara1] = paras[samprange[i]-1].Lambda_high - y 
     
-    for i in range(sample-1): 
+    for i in range(n): 
         if i > 20:
-            yhl = paras[i].yhl
+            yhl = paras[samprange[i]-1].yhl
         else:
-            yhl = CSHL_c + CSHL_b * paras[i].para_list['N_high']
-        X[i, numpara2 + numpara1 + 1] = paras[i].Lambda_high_HL - yhl
+            yhl = CSHL_c + CSHL_b * paras[samprange[i]-1].para_list['N_high']
+        X[i, numpara2 + numpara1 + 1] = paras[samprange[i]-1].Lambda_high_HL - yhl
     
     yelist = [0.4443, 0.1585, 0.1989, 0.2708, 0.3926, 0.0697, 0.1290, 0.1661, 0.2687, 0.0868, 0.1239, 0.3598, 0.3543, 0.2883, 0.2367, 0.2139, 0.2485, 0.2641, 0.5730, 0.1745] 
 
-    for i in range(sample-1): 
-        if i > 20:
-            ye = paras[i].E_lambda_hat
+    for i in range(n): 
+        if i >= 20:
+            ye = paras[samprange[i]-1].E_lambda_hat
         else:
-            ye = yelist[i]  
-        X[i, numpara2 + numpara1 + 2] = paras[i].ch7['inflow_share'] - ye
+            ye = yelist[samprange[i]-1]  
+        X[i, numpara2 + numpara1 + 2] = paras[samprange[i]-1].ch7['inflow_share'] - ye
     
     tree = Tree(n_estimators=500, n_jobs=4)
     tree.fit(X, Y)
@@ -1020,16 +1020,16 @@ def sens(sample=20):
     ##################################################################################### Classifier
     
     srnum = {'CS' : 0, 'SWA' : 1, 'OA' : 2, 'CS-HL' : 3}
-    Y = np.zeros(sample - 1)
+    Y = np.zeros(n)
 
-    for run_no in range(sample - 1):
+    for i in range(n):
         SW = 0
         SWmax = -1
         for row in rows:
-            SW = results[run_no][row][0]['SW']['Annual']['Mean'][m]      
+            SW = results[samprange[i]-1][row][0]['SW']['Annual']['Mean'][m]      
             if SW > SWmax:
                 SWmax = SW
-                Y[run_no] = srnum[row]
+                Y[i] = srnum[row]
     
     for row in rows:
         idx = np.where(Y = srnum[row])
@@ -1040,7 +1040,6 @@ def sens(sample=20):
     treec.fit(X, Y)
     rank = treec.feature_importances_ * 100
     print rank
-    """
 
 
     """ 
