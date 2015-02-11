@@ -3,9 +3,9 @@
 for i in {37..37}; do
     #qsub -v PBS_ARRAY_INDEX=$i ch7jobs_init
     qsub -v PBS_ARRAY_INDEX=$i ch7jobsCS
-    qsub -v PBS_ARRAY_INDEX=$i ch7jobsSWA
-    qsub -v PBS_ARRAY_INDEX=$i ch7jobsOA
-    qsub -v PBS_ARRAY_INDEX=$i ch7jobsCSHL
+    #qsub -v PBS_ARRAY_INDEX=$i ch7jobsSWA
+    #qsub -v PBS_ARRAY_INDEX=$i ch7jobsOA
+    #qsub -v PBS_ARRAY_INDEX=$i ch7jobsCSHL
 done
 
 #qsub -v PBS_ARRAY_INDEX=22 ch7jobsCS
