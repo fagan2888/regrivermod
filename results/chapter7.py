@@ -815,6 +815,7 @@ def sens(sample=20):
                     f.close()
             samprange.append(run_no)
         except:
+            print row
             print 'Run no: ' + str(run_no) + ' failed.'
 
     n = len(samprange)
