@@ -1,15 +1,24 @@
 #!/bin/bash
 
-for i in {86..99}; do
+#for i in {86..99}; do
     #qsub -v PBS_ARRAY_INDEX=$i ch7jobs_init
-    qsub -v PBS_ARRAY_INDEX=$i ch7jobsCS
-    qsub -v PBS_ARRAY_INDEX=$i ch7jobsSWA
-    qsub -v PBS_ARRAY_INDEX=$i ch7jobsOA
-    qsub -v PBS_ARRAY_INDEX=$i ch7jobsCSHL
-done
+#    qsub -v PBS_ARRAY_INDEX=$i ch7jobsCS
+#    qsub -v PBS_ARRAY_INDEX=$i ch7jobsSWA
+#    qsub -v PBS_ARRAY_INDEX=$i ch7jobsOA
+#    qsub -v PBS_ARRAY_INDEX=$i ch7jobsCSHL
+#done
 
-#qsub -v PBS_ARRAY_INDEX=22 ch7jobsCS
-#qsub -v PBS_ARRAY_INDEX=25 ch7jobsCS
-#qsub -v PBS_ARRAY_INDEX=23 ch7jobsCSHL
+qsub -v PBS_ARRAY_INDEX=52 ch7jobsOA
+qsub -v PBS_ARRAY_INDEX=63 ch7jobsOA
+qsub -v PBS_ARRAY_INDEX=71 ch7jobsOA
 #qsub -v PBS_ARRAY_INDEX=30 ch7jobsCSHL
 
+qsub -v PBS_ARRAY_INDEX=78 ch7jobsCS
+qsub -v PBS_ARRAY_INDEX=78 ch7jobsSWA
+qsub -v PBS_ARRAY_INDEX=78 ch7jobsOA
+qsub -v PBS_ARRAY_INDEX=78 ch7jobsCSHL
+
+qsub -v PBS_ARRAY_INDEX=80 ch7jobsCS
+qsub -v PBS_ARRAY_INDEX=80 ch7jobsSWA
+qsub -v PBS_ARRAY_INDEX=80 ch7jobsOA
+qsub -v PBS_ARRAY_INDEX=80 ch7jobsCSHL

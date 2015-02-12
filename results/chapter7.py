@@ -815,8 +815,8 @@ def sens(sample=20):
                     results[run_no][row] = pickle.load(f)
                     f.close()
                 m = len(results[run_no]['CS'][0]['S']['Annual']['Mean']) - 1
-                if math.isnan(results[run_no][row][0]['SW']['Annual']['Mean'][m]):
-                    print 'FOUND A NAN'
+                SW = results[run_no][row][0]['SW']['Annual']['Mean'][m]
+                if math.isnan(SW) or math.isinf(SW):
                     raise Exception("Found a nan")
             samprange.append(run_no)
         except:
@@ -1039,7 +1039,7 @@ def sens(sample=20):
     
     for row in rows:
         idx = np.where(Y == srnum[row])
-        print row + ': ' + str(np.count_nonzero(Y[idx]))
+        print row + ': ' + str(len(Y[idx]))
 
      
     treec = Tree_classifier(n_estimators=500, n_jobs=4) #min_samples_split=3, min_samples_leaf=2)
