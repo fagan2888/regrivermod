@@ -6,6 +6,7 @@ import pylab
 import pickle
 from sklearn.ensemble import ExtraTreesClassifier as Tree_classifier
 from sklearn.ensemble import ExtraTreesRegressor as Tree
+import math
 
 def planner(results):
 
@@ -813,6 +814,10 @@ def sens(sample=20):
                 with open(home + folder + str(run_no) + '_' + row + '_result.pkl', 'rb') as f:
                     results[run_no][row] = pickle.load(f)
                     f.close()
+                m = len(results[run_no]['CS'][0]['S']['Annual']['Mean']) - 1
+                if math.isnan(results[run_no][row][0]['SW']['Annual']['Mean'][m]):
+                    print 'FOUND A NAN'
+                    raise Exception("Found a nan")
             samprange.append(run_no)
         except:
             print row
