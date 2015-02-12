@@ -875,11 +875,11 @@ def sens(sample=20):
             
             XI[row] = temp1
             
-            record2['Mean'] = np.mean(temp)
-            record2['Min'] = np.min(temp)
-            record2['Q1'] = np.percentile(temp, 25)
-            record2['Q3'] = np.percentile(temp, 75)
-            record2['Max'] = np.max(temp)
+            record2['Mean'] = np.mean(temp1)
+            record2['Min'] = np.min(temp1)
+            record2['Q1'] = np.percentile(temp1, 25)
+            record2['Q3'] = np.percentile(temp1, 75)
+            record2['Max'] = np.max(temp1)
             data2.append(record2)
         
         data2 = pandas.DataFrame(data2)
