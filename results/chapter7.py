@@ -1026,14 +1026,14 @@ def sens(sample=20):
         SW = 0
         SWmax = -1
         for row in rows:
-            SW = results[samprange[i]-1][row][0]['SW']['Annual']['Mean'][m]      
+            SW = results[samprange[i]][row][0]['SW']['Annual']['Mean'][m]      
             if SW > SWmax:
                 SWmax = SW
                 Y[i] = srnum[row]
     
     for row in rows:
-        idx = np.where(Y = srnum[row])
-        print row + ': ' + np.count_nonzero(Y[idx])
+        idx = np.where(Y == srnum[row])
+        print row + ': ' + str(np.count_nonzero(Y[idx]))
 
      
     treec = Tree_classifier(n_estimators=500, n_jobs=4) #min_samples_split=3, min_samples_leaf=2)
