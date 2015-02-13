@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for i in {101..200}; do
+for i in {201..250}; do
     #qsub -v PBS_ARRAY_INDEX=$i ch7jobs_init
     qsub -v PBS_ARRAY_INDEX=$i ch7jobsCS
     qsub -v PBS_ARRAY_INDEX=$i ch7jobsSWA

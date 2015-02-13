@@ -39,7 +39,7 @@ def chart_params():
 
     pylab.rcParams.update(params)
 
-def build_chart(chart, data_set, chart_type='plot', ticks = False, show=True, ylim=False, xlim=False, legend=False):
+def build_chart(chart, data_set, chart_type='plot', ticks = False, show=True, ylim=False, xlim=False, legend=False, save=True):
 
     chart_params()
 
@@ -102,8 +102,9 @@ def build_chart(chart, data_set, chart_type='plot', ticks = False, show=True, yl
         pylab.barh(data_set[0], data_set[1], align='center')
         pylab.xlabel(chart['XLABEL'])
         pylab.yticks(data_set[0], chart['LABELS'])
-    if show:
+    if save:
         pylab.savefig(chart['OUTFILE'], bbox_inches='tight')
+    if show:
         pylab.show()
 
 def chart_ch6(SW, a, b, label, folder, FILE):
@@ -177,7 +178,10 @@ def chart(SW, a, b, label, folder, FILE):
     pylab.show()
 
 def chart_ch7(SW, a, b, label, folder, FILE):
-    pylab.ioff()
+
+    from matplotlib import pyplot as pyl
+
+    pyl.ioff()
     fig_width_pt = 350 					     # Get this from LaTeX using \showthe\columnwidth
     inches_per_pt = 1.0/72.27                # Convert pt to inch
     golden_mean = ((5**0.5)-1.0)/2.0         # Aesthetic ratio
@@ -194,22 +198,22 @@ def chart_ch7(SW, a, b, label, folder, FILE):
            'text.usetex': True,
            'figure.figsize': fig_size }
 
-    pylab.rcParams.update(params)
+    pyl.rcParams.update(params)
 
     home = '/home/nealbob'
     img_ext = '.pdf'
 
-    pylab.figure()
-    pylab.boxplot([SW['SWA'], SW['OA'], SW['CS-HL']], whis=5)
-    pylab.axhline(y=1.0, color='0.5', linewidth=0.5, alpha=0.75, linestyle=':')
-    pylab.ylim(a, b)
-    pylab.ylabel(label)
-    pylab.tick_params(axis='x', which = 'both', labelbottom='off')
-    pylab.figtext(0.225, 0.06, 'SWA', fontsize = 10)
-    pylab.figtext(0.495, 0.06, 'OA', fontsize = 10)
-    pylab.figtext(0.76, 0.06, 'CS-HL', fontsize = 10)
-    pylab.savefig(home + folder + FILE + img_ext)
-    pylab.show()
+    pyl.figure()
+    pyl.boxplot([SW['SWA'], SW['OA'], SW['CS-HL']], whis=5)
+    pyl.axhline(y=1.0, color='0.5', linewidth=0.5, alpha=0.75, linestyle=':')
+    pyl.ylim(a, b)
+    pyl.ylabel(label)
+    pyl.tick_params(axis='x', which = 'both', labelbottom='off')
+    pyl.figtext(0.225, 0.06, 'SWA', fontsize = 10)
+    pyl.figtext(0.495, 0.06, 'OA', fontsize = 10)
+    pyl.figtext(0.76, 0.06, 'CS-HL', fontsize = 10)
+    #pyl.savefig(home + folder + FILE + img_ext, bbox_inches='tight')
+    pyl.show()
 
 def setAxLinesBW(ax):
     """

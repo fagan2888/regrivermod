@@ -899,8 +899,7 @@ def sens(sample=20):
         
         minx = np.percentile([min(XI[i]) for i in XI], 1)
         maxx = np.percentile([max(XI[i]) for i in XI],99)
-        if x == 'SW':
-            minx = 0.8
+        
         chart_ch7(XI, 0.985 * minx, 1.015 * maxx, title[x], out, str(x) + '_sens')
 
     ##################################################################################### Regression
@@ -1017,11 +1016,11 @@ def sens(sample=20):
         chart_data = {'OUTFILE': home + out + 'SW_' + para_labels[i] + img_ext,
          'XLABEL': '',
          'YLABEL': '',
-         'YMIN': 0.97,
-         'YMAX': 1.01}
+         'YMIN': 0.90,
+         'YMAX': 1.05}
         print para_labels[i]
         
-        build_chart(chart_data, data, chart_type='date', ylim=True)
+        build_chart(chart_data, data, chart_type='date', ylim=True, save=False)
      
     ##################################################################################### Classifier
     
@@ -1105,6 +1104,6 @@ def sens(sample=20):
     pylab.xlabel('Mean inflow over capacity')
     pylab.ylabel('Number of high reliability users')
     OUT = home + out + 'class_fig.pdf'
-    pylab.savefig(OUT, bbox_inches='tight')
+    #pylab.savefig(OUT, bbox_inches='tight')
     pylab.show()
     

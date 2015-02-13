@@ -343,8 +343,9 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
         itrs += 1
 
         if plan == 0 and utility.fail == 1:
-            print '-------     Test output     ------'
-            print 'Time: ' + str(t)
+            #print '-------     Test output     ------'
+            #print 'Time: ' + str(t)
+            """
             print 'M = 0, Summer'
             print 'Storage: ' + str(S_sim[t, 0])
             print 'Inflow: ' + str(I_sim[t, 0])
@@ -373,7 +374,7 @@ def run_ch7_sim(int job, int T, Users users, Storage storage, Utility utility, M
             print 'Social Welfare: ' + str(SW_sim[t, 0])
             print 'Env Welfare: ' + str(env.u)
             print 'Env budget: ' + str(env.budget)
-        
+            """
         
         # ================================================
         #       M = 1, Winter
