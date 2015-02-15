@@ -212,7 +212,7 @@ def chart_ch7(SW, a, b, label, folder, FILE):
     pyl.figtext(0.225, 0.06, 'SWA', fontsize = 10)
     pyl.figtext(0.495, 0.06, 'OA', fontsize = 10)
     pyl.figtext(0.76, 0.06, 'CS-HL', fontsize = 10)
-    #pyl.savefig(home + folder + FILE + img_ext, bbox_inches='tight')
+    pyl.savefig(home + folder + FILE + img_ext, bbox_inches='tight')
     pyl.show()
 
 def setAxLinesBW(ax):
