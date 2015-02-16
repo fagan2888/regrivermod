@@ -557,8 +557,10 @@ cdef class Utility:
                     it += 1
 
             if it == 100 or diff > tol:
-                print 'Accounts failed to reconcile!'
+                
+                #print 'Accounts failed to reconcile!'
                 self.fail = 1
+                """
                 print diff
                 print np.sum(s)
                 print 'target: ' + str(target)
@@ -576,6 +578,7 @@ cdef class Utility:
                 print 'f_loss_ded: ' + str(f_loss_ded)
                 print 'fixed_loss: ' + str(self.fixed_loss)
                 print 'loss: ' + str(np.array(self.l))
+                """
             else:
                 self.fail = 0
 
