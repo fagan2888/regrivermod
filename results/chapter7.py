@@ -913,7 +913,7 @@ def sens(sample=20):
             Y[i, j] = results[run_no][row][0]['SW']['Annual']['Mean'][m] /  results[run_no]['CS'][0]['SW']['Annual']['Mean'][m]
             i += 1
         j += 1
-    
+
     paras = []
     for run_no in range(1, sample): 
         with open(home + folder + str(run_no) + '_para.pkl', 'rb') as f:
@@ -965,13 +965,26 @@ def sens(sample=20):
         X[i, numpara2 + numpara1 + 1] = paras[samprange[i]-1].Lambda_high_HL - yhl
     
     yelist = [0.4443, 0.1585, 0.1989, 0.2708, 0.3926, 0.0697, 0.1290, 0.1661, 0.2687, 0.0868, 0.1239, 0.3598, 0.3543, 0.2883, 0.2367, 0.2139, 0.2485, 0.2641, 0.5730, 0.1745] 
-
+    
+    lambdae = np.zeros(n)
     for i in range(n): 
         if i >= 20:
             ye = paras[samprange[i]-1].E_lambda_hat
         else:
             ye = yelist[samprange[i]-1]  
         X[i, numpara2 + numpara1 + 2] = paras[samprange[i]-1].ch7['inflow_share'] - ye
+        lambdae[i] = paras[samprange[i]-1].ch7['inflow_share']
+    
+    pylab.hexbin(lambdae, X[:,1], C=Y[:, 2], gridsize=30)
+    pylab.xlabel('Environmental share, $\lambda_0$')
+    pylab.ylabel('Mean Inflow to Capacity, $E[I_t]/K$')
+    cb = pylab.colorbar()
+    cb.set_label('OA welfare relative to CS') 
+    #pylab.ylim(0, 1000)
+    pylab.savefig(home + out + 'OSversusCS.pdf', bbox_inches='tight')
+    pylab.show()
+
+
     
     tree = Tree(n_estimators=500, n_jobs=4)
     tree.fit(X, Y)
@@ -1020,7 +1033,7 @@ def sens(sample=20):
          'YMAX': 1.05}
         print para_labels[i]
         
-        build_chart(chart_data, data, chart_type='date', ylim=True, save=False)
+        build_chart(chart_data, data, chart_type='date', ylim=True, save=True)
      
     ##################################################################################### Classifier
     
@@ -1084,26 +1097,26 @@ def sens(sample=20):
     pylab.rcParams.update(params)
     plot_colors = 'rybg'
     cmap = pylab.cm.RdYlBu
-    
-    (xx, yy,) = np.meshgrid(np.arange(min(X[:, 1]), max(X[:, 1]), 0.02), np.arange(min(X[:, 4]), max(X[:, 4]), 1))
+    yi = numpara-1
+    (xx, yy,) = np.meshgrid(np.arange(min(X[:, 1]), max(X[:, 1]), 0.02), np.arange(min(X[:, yi]), max(X[:, yi]), 0.01))
 
     nnn = xx.ravel().shape[0]
     
     Xlist = [np.mean(X[:,i])*np.ones(nnn) for i in range(numpara)]
     Xlist[1] = xx.ravel()
-    Xlist[4] = yy.ravel()
+    Xlist[yi] = yy.ravel()
     XX = np.array(Xlist).T
 
     Z = treec.predict(XX).reshape(xx.shape)
     fig = pylab.contourf(xx, yy, Z, [0, 0.9999, 1.9999, 2.9999, 3.9999], colors=('red', 'yellow', 'blue', 'green'), alpha=0.5, antialiased=False, extend='both')
     for (i, c,) in zip(xrange(4), plot_colors):
         idx0 = np.where(Y == i)
-        pylab.scatter(X[idx0, 1], X[idx0, 4], c=c, cmap=cmap, label=rows[i], s = 12, lw=0.5 )
+        pylab.scatter(X[idx0, 1], X[idx0, yi], c=c, cmap=cmap, label=rows[i], s = 12, lw=0.5 )
         pylab.legend(bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc=3, ncol=4, mode='expand', borderaxespad=0.0)
 
     pylab.xlabel('Mean inflow over capacity')
     pylab.ylabel('Number of high reliability users')
     OUT = home + out + 'class_fig.pdf'
-    #pylab.savefig(OUT, bbox_inches='tight')
+    pylab.savefig(OUT, bbox_inches='tight')
     pylab.show()
     
