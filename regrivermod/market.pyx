@@ -338,6 +338,7 @@ cdef class Market:
                 iters += 1
              
             if c_abs(EX2) > tol2 and P0 > 0 and Q > tol:
+                """
                 print '   Warning: Clearing price not found   '
                 
                 print 'Excess demand: ' + str(EX2)
@@ -361,7 +362,7 @@ cdef class Market:
                 print 'tcost: ' + str(t_cost)
 
                 #raise NameError('SpotMarketFail')
-        
+                """
         self.EX =  excess_demand(P0, Q, t_cost, self.N, self.p, self.d_cons, self.d_beta, self.a, self.p_e, self.d_c_e, self.d_b_e, self.min_q, self.a_e, self.P_adj)
         return P0
     

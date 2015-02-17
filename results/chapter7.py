@@ -929,7 +929,7 @@ def sens(sample=20):
 
     X = np.zeros([n, numpara])
     
-    para_names = ['$\delta0$', '$E[I]/K$',  '$c_v$', '$\tau$', '$n_{high}$', '$\rho_I$', '$\alpha$', '$\rho_e$', '$\sigma_{\eta}$', '${\aA_{low} \over E[I]/K}$', '$\mu_\omega$', '$\sigma_\omega$', '$\omega_\delta$', '$\delta_a$', '$\delta_{Ea}$', '$\delta_{Eb}', '$\delta_R$', '$b_1$', '$b_{\$} \over \bar I$', '$\sigma_{e0}$', '$\Lambda_{high} - \hat \Lambda_{high}$', '$\Lambda_{high}^{CS-HL} - \hat \Lambda_{high}^{CS-HL}$', '$\lambda_0 - \hat \lambda_0$' ]
+    para_names = ['$\delta0$', '$E[I]/K$',  '$c_v$', '$\tau$', '$n_{high}$', '$\rho_I$', '$\alpha$', '$\rho_e$', '$\sigma_{\eta}$', '${\aA_{low} \over E[I]/K}$', '$\mu_\omega$', '$\sigma_\omega$', '$\omega_\delta$', '$\delta_a$', '$\delta_{Ea}$', '$\delta_{Eb}$', '$\delta_R$', '$b_1$', '$b_{\$} \over \bar I$', '$\sigma_{e0}$', '$\Lambda_{high} - \hat \Lambda_{high}$', '$\Lambda_{high}^{CS-HL} - \hat \Lambda_{high}^{CS-HL}$', '$\lambda_0 - \hat \lambda_0$' ]
     
     for j in range(numpara1):
         for i in range(n):
@@ -975,15 +975,24 @@ def sens(sample=20):
         X[i, numpara2 + numpara1 + 2] = paras[samprange[i]-1].ch7['inflow_share'] - ye
         lambdae[i] = paras[samprange[i]-1].ch7['inflow_share']
     
-    pylab.hexbin(lambdae, X[:,1], C=Y[:, 2], gridsize=30)
+    index = lambdae < 0.5 
+    pylab.hexbin(lambdae[index], X[index,1], C=Y[index, 2], gridsize=15)
     pylab.xlabel('Environmental share, $\lambda_0$')
     pylab.ylabel('Mean Inflow to Capacity, $E[I_t]/K$')
     cb = pylab.colorbar()
     cb.set_label('OA welfare relative to CS') 
     #pylab.ylim(0, 1000)
-    pylab.savefig(home + out + 'OSversusCS.pdf', bbox_inches='tight')
+    pylab.savefig(home + out + 'OAversusCS.pdf', bbox_inches='tight')
     pylab.show()
 
+    pylab.hexbin(X[:, numpara -1], X[:, 1], C=Y[:, 3], gridsize=15)
+    pylab.xlabel('Environmental share, $\lambda_0 - \hat \lambda_0$')
+    pylab.ylabel('Mean Inflow to Capacity, $E[I_t]/K$')
+    cb = pylab.colorbar()
+    cb.set_label('CS-HL welfare relative to CS') 
+    #pylab.ylim(0, 1000)
+    pylab.savefig(home + out + 'CSHLversusCS.pdf', bbox_inches='tight')
+    pylab.show()
 
     
     tree = Tree(n_estimators=500, n_jobs=4)
@@ -1029,14 +1038,14 @@ def sens(sample=20):
         chart_data = {'OUTFILE': home + out + 'SW_' + para_labels[i] + img_ext,
          'XLABEL': '',
          'YLABEL': '',
-         'YMIN': 0.90,
-         'YMAX': 1.05}
+         'YMIN': 0.85,
+         'YMAX': 1.03}
         print para_labels[i]
         
         build_chart(chart_data, data, chart_type='date', ylim=True, save=True)
      
     ##################################################################################### Classifier
-    
+
     srnum = {'CS' : 0, 'SWA' : 1, 'OA' : 2, 'CS-HL' : 3}
     Y = np.zeros(n)
 
@@ -1097,7 +1106,12 @@ def sens(sample=20):
     pylab.rcParams.update(params)
     plot_colors = 'rybg'
     cmap = pylab.cm.RdYlBu
+    
     yi = numpara-1
+    
+    minyi = -0.1 
+    maxyi = 0.1
+
     (xx, yy,) = np.meshgrid(np.arange(min(X[:, 1]), max(X[:, 1]), 0.02), np.arange(min(X[:, yi]), max(X[:, yi]), 0.01))
 
     nnn = xx.ravel().shape[0]
@@ -1115,7 +1129,8 @@ def sens(sample=20):
         pylab.legend(bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc=3, ncol=4, mode='expand', borderaxespad=0.0)
 
     pylab.xlabel('Mean inflow over capacity')
-    pylab.ylabel('Number of high reliability users')
+    pylab.ylabel('Environmental inflow share')
+    pylab.ylim(minyi, maxyi)
     OUT = home + out + 'class_fig.pdf'
     pylab.savefig(OUT, bbox_inches='tight')
     pylab.show()

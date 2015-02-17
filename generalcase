@@ -1,10 +1,10 @@
 #!/bin/bash
 
-for i in {352..450}; do
-    #qsub -v PBS_ARRAY_INDEX=$i ch7jobs_init
-    qsub -v PBS_ARRAY_INDEX=$i ch7jobsCS
-    qsub -v PBS_ARRAY_INDEX=$i ch7jobsSWA
-    qsub -v PBS_ARRAY_INDEX=$i ch7jobsOA
-    qsub -v PBS_ARRAY_INDEX=$i ch7jobsCSHL
+for i in {451..550}; do
+    qsub -v PBS_ARRAY_INDEX=$i ch7jobs_init
+    #qsub -v PBS_ARRAY_INDEX=$i ch7jobsCS
+    #qsub -v PBS_ARRAY_INDEX=$i ch7jobsSWA
+    #qsub -v PBS_ARRAY_INDEX=$i ch7jobsOA
+    #qsub -v PBS_ARRAY_INDEX=$i ch7jobsCSHL
 done
 

@@ -204,7 +204,7 @@ def chart_ch7(SW, a, b, label, folder, FILE):
     img_ext = '.pdf'
 
     pyl.figure()
-    pyl.boxplot([SW['SWA'], SW['OA'], SW['CS-HL']], whis=5)
+    pyl.boxplot([SW['SWA'], SW['OA'], SW['CS-HL']], whis=8)
     pyl.axhline(y=1.0, color='0.5', linewidth=0.5, alpha=0.75, linestyle=':')
     pyl.ylim(a, b)
     pyl.ylabel(label)
