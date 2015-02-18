@@ -890,11 +890,11 @@ def sens(sample=20):
             f.close()
         
         with open(home + table_out + 'sens_sum' + x + '.txt', 'w') as f:
-            f.write(data1.to_latex(float_format='{:,.2f}'.format))
+            f.write(data1.to_latex(float_format='{:,.2f}'.format, columns=['Mean', 'Min', 'Q1', 'Q3', 'Max']))
             f.close()
         
         with open(home + table_out + 'sens_table' + x + '.txt', 'w') as f:
-            f.write(data2.to_latex(float_format='{:,.2f}'.format))
+            f.write(data2.to_latex(float_format='{:,.2f}'.format, columns=['Mean', 'Min', 'Q1', 'Q3', 'Max']))
             f.close()
         
         minx = np.percentile([min(XI[i]) for i in XI], 1)
